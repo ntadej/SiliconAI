@@ -92,7 +92,7 @@ def print_config_file(config_file: Path) -> None:
     )
 
 
-def init_config(state: TyperState) -> Configuration:  # noqa: C901
+def init_config(state: TyperState) -> Configuration:
     """Initialise configuration from CLI state."""
     if not state.config_file.exists():
         config_missing(state.config_file)

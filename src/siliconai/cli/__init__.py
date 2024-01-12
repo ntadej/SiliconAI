@@ -99,4 +99,4 @@ def test_gpu() -> None:
 
     import torch
 
-    logger.info(f"torch.cuda.is_available() = {torch.cuda.is_available()}")
+    logger.info("torch.cuda.is_available() = %s", torch.cuda.is_available())
