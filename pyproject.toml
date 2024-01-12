@@ -17,7 +17,15 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Physics",
 ]
-dependencies = []
+dependencies = [
+    "numpy == 1.26.*",
+    "pyyaml >= 6.0",
+    "torch == 2.1.*",
+    "typer[all] == 0.9.*",
+]
+
+[project.scripts]
+siliconai = "siliconai.cli:application"
 
 [build-system]
 requires = ["pdm-backend"]
