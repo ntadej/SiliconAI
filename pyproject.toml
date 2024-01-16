@@ -18,18 +18,22 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = [
+    "matplotlib == 3.8.*",
     "numpy == 1.26.*",
+    "pandas == 2.1.*",
     "pyyaml >= 6.0",
     "torch == 2.1.*",
     "typer[all] == 0.9.*",
+    "uproot == 5.2.*",
 ]
 
 [tool.pdm.dev-dependencies]
 dev = [
     "coverage[toml]",
+    "ipykernel",
     "mypy == 1.8.*",
-    "pre-commit",
     "pre-commit-hooks == 4.5.*",
+    "pre-commit",
     "pytest >= 7.0",
     "pytest-cov",
     "ruff == 0.1.13",
@@ -115,12 +119,17 @@ ignore = [
 line-length = 88
 
 [tool.mypy]
+plugins = "numpy.typing.mypy_plugin"
 strict = true
 pretty = true
 show_column_numbers = true
 show_error_codes = true
 show_error_context = true
 warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["awkward.*", "uproot.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"

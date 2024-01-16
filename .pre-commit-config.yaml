@@ -5,11 +5,14 @@ repos:
       - id: mypy
         args: []
         additional_dependencies:
+          - awkward
+          - numpy
           - pytest
           - rich
           - torch
           - typer
           - types-pyyaml
+          - uproot
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.12
     hooks:

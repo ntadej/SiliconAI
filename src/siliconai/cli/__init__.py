@@ -13,6 +13,7 @@ from .config import (
     config_missing,
     generate_empty_config,
     init_config,
+    init_task_config,
     print_config_file,
 )
 from .logging import setup_logger
@@ -39,10 +40,10 @@ def main(
     config: Annotated[
         Path,
         typer.Option(
-            "-c",
-            "--config",
-            envvar="SILICONAI_CONFIG",
-            help="Configuration file.",
+            "-g",
+            "--global-config",
+            envvar="SILICONAI_GLOBAL_CONFIG",
+            help="Global configuration file.",
         ),
     ] = Path(
         "config.yml",
@@ -100,3 +101,33 @@ def test_gpu() -> None:
     import torch
 
     logger.info("torch.cuda.is_available() = %s", torch.cuda.is_available())
+
+
+@application.command()
+def prepare_inputs(
+    config_file: Annotated[
+        Path,
+        typer.Option(
+            "-c",
+            "--config",
+            envvar="SILICONAI_CONFIG",
+            help="Task configuration file.",
+        ),
+    ] = Path(
+        "task.yml",
+    ),
+) -> None:
+    """Prepare inputs for training."""
+    config = init_config(state)
+    task_config = init_task_config(config, config_file)
+    logger = setup_logger(config, "prepare_inputs")
+
+    from siliconai.data.input import InputLoader
+
+    loader = InputLoader(
+        logger,
+        task_config.input_type,
+        task_config.input_file,
+        task_config.output_file,
+    )
+    loader.load()
