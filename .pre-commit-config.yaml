@@ -6,6 +6,8 @@ repos:
         args: []
         additional_dependencies:
           - awkward
+          - matplotlib
+          - mplhep
           - numpy
           - pytest
           - rich

@@ -5,6 +5,8 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 import numpy as np
+from siliconai.plotting.common import plot_column, setup_style
+from siliconai.plotting.utils import PDFDocument
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -75,6 +77,10 @@ class InputLoader:
                 "truth_track_index",
             ],
         )
+        cleanup_columns = [
+            "truth_StdSel",
+            "truth_track_index",
+        ]
 
         # filter out truth particles that pass the standard selection
         # and have a valid track link
@@ -94,25 +100,40 @@ class InputLoader:
         filtered_tracks = selected_tracks[filtered_truth.truth_track_index]
 
         # zip and flatten the data into a single awkward array
-        output_data = awkward.zip(
-            dict(
-                zip(
-                    awkward.fields(filtered_truth[:, 0]),
-                    awkward.unzip(filtered_truth[:, 0]),
-                    strict=True,
-                ),
-            )
-            | dict(
-                zip(
-                    awkward.fields(filtered_tracks[:, 0]),
-                    awkward.unzip(filtered_tracks[:, 0]),
-                    strict=True,
-                ),
+        data_columns = dict(
+            zip(
+                awkward.fields(filtered_truth[:, 0]),
+                awkward.unzip(filtered_truth[:, 0]),
+                strict=True,
+            ),
+        ) | dict(
+            zip(
+                awkward.fields(filtered_tracks[:, 0]),
+                awkward.unzip(filtered_tracks[:, 0]),
+                strict=True,
             ),
         )
+        output_data = awkward.zip(data_columns)
+        for column in cleanup_columns:
+            del output_data[column]
 
         # cache the result
         self.data = output_data.to_numpy()
         if self.data is not None:
             np.save(self.output_file, self.data)
             self.logger.info("Saved %s", self.output_file)
+
+    def diagnostics(self: InputLoader) -> None:
+        """Make diagnostics plots."""
+        if not self.data or not hasattr(self.data, "dtype"):
+            return
+
+        setup_style()
+
+        with PDFDocument(f"{self.output_file}.diagnostics.pdf") as pdf:  # type: ignore
+            for column in self.data.dtype.names:
+                self.logger.info("Plotting %s", column)
+                fig, ax = plot_column(self.data, column)
+                if not fig:
+                    continue
+                pdf.save(fig)

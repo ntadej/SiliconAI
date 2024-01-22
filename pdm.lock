@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:9e7fdd2587003f11b3ad27d7911093acdb0ebce274b3d2d1409dbf1913490be8"
+content_hash = "sha256:3ec0f461336b625778404478f891803083c8f081fbcc88b7d312556e15597b27"
 
 [[package]]
 name = "appnope"
@@ -680,6 +680,35 @@ groups = ["default"]
 files = [
     {file = "mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"},
     {file = "mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba"},
+]
+
+[[package]]
+name = "mplhep"
+version = "0.3.31"
+requires_python = ">=3.8"
+summary = "Matplotlib styles for HEP"
+groups = ["default"]
+dependencies = [
+    "matplotlib>=3.4",
+    "mplhep-data",
+    "numpy>=1.16.0",
+    "packaging",
+    "uhi>=0.2.0",
+]
+files = [
+    {file = "mplhep-0.3.31-py3-none-any.whl", hash = "sha256:60511b210051d389fbce47ecb10737f09d4c5ba1deb588366c440e536240b74c"},
+    {file = "mplhep-0.3.31.tar.gz", hash = "sha256:699c1acdb0e58d19dc076a7ba83f790a6b34b90054f2d72252b5dc2a9b325533"},
+]
+
+[[package]]
+name = "mplhep-data"
+version = "0.0.3"
+requires_python = ">=3.7"
+summary = "Font (Data) sub-package for mplhep"
+groups = ["default"]
+files = [
+    {file = "mplhep_data-0.0.3-py3-none-any.whl", hash = "sha256:a1eba7727fab31902e6fcd113c8f4b12ff3fb0666781e7514f8b79093cdc1c65"},
+    {file = "mplhep_data-0.0.3.tar.gz", hash = "sha256:b54d257f3f53c93a442cda7a6681ce267277e09173c0b41fd78820f78321772f"},
 ]
 
 [[package]]
@@ -1429,6 +1458,31 @@ files = [
 ]
 
 [[package]]
+name = "scipy"
+version = "1.12.0"
+requires_python = ">=3.9"
+summary = "Fundamental algorithms for scientific computing in Python"
+groups = ["default"]
+dependencies = [
+    "numpy<1.29.0,>=1.22.4",
+]
+files = [
+    {file = "scipy-1.12.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:408c68423f9de16cb9e602528be4ce0d6312b05001f3de61fe9ec8b1263cad08"},
+    {file = "scipy-1.12.0-cp311-cp311-macosx_12_0_arm64.whl", hash = "sha256:5adfad5dbf0163397beb4aca679187d24aec085343755fcdbdeb32b3679f254c"},
+    {file = "scipy-1.12.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c3003652496f6e7c387b1cf63f4bb720951cfa18907e998ea551e6de51a04467"},
+    {file = "scipy-1.12.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8b8066bce124ee5531d12a74b617d9ac0ea59245246410e19bca549656d9a40a"},
+    {file = "scipy-1.12.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:8bee4993817e204d761dba10dbab0774ba5a8612e57e81319ea04d84945375ba"},
+    {file = "scipy-1.12.0-cp311-cp311-win_amd64.whl", hash = "sha256:a24024d45ce9a675c1fb8494e8e5244efea1c7a09c60beb1eeb80373d0fecc70"},
+    {file = "scipy-1.12.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:e7e76cc48638228212c747ada851ef355c2bb5e7f939e10952bc504c11f4e372"},
+    {file = "scipy-1.12.0-cp312-cp312-macosx_12_0_arm64.whl", hash = "sha256:f7ce148dffcd64ade37b2df9315541f9adad6efcaa86866ee7dd5db0c8f041c3"},
+    {file = "scipy-1.12.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9c39f92041f490422924dfdb782527a4abddf4707616e07b021de33467f917bc"},
+    {file = "scipy-1.12.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a7ebda398f86e56178c2fa94cad15bf457a218a54a35c2a7b4490b9f9cb2676c"},
+    {file = "scipy-1.12.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:95e5c750d55cf518c398a8240571b0e0782c2d5a703250872f36eaf737751338"},
+    {file = "scipy-1.12.0-cp312-cp312-win_amd64.whl", hash = "sha256:e646d8571804a304e1da01040d21577685ce8e2db08ac58e543eaca063453e1c"},
+    {file = "scipy-1.12.0.tar.gz", hash = "sha256:4bf5abab8a36d20193c698b0f1fc282c1d083c94723902c447e5d2f1780936a3"},
+]
+
+[[package]]
 name = "setuptools"
 version = "69.0.3"
 requires_python = ">=3.8"
@@ -1634,6 +1688,20 @@ groups = ["default"]
 files = [
     {file = "tzdata-2023.4-py2.py3-none-any.whl", hash = "sha256:aa3ace4329eeacda5b7beb7ea08ece826c28d761cda36e747cfbf97996d39bf3"},
     {file = "tzdata-2023.4.tar.gz", hash = "sha256:dd54c94f294765522c77399649b4fefd95522479a664a0cec87f41bebc6148c9"},
+]
+
+[[package]]
+name = "uhi"
+version = "0.4.0"
+requires_python = ">=3.7"
+summary = "Unified Histogram Interface: tools to help library authors work with histograms"
+groups = ["default"]
+dependencies = [
+    "numpy>=1.13.3",
+]
+files = [
+    {file = "uhi-0.4.0-py3-none-any.whl", hash = "sha256:c7e82826314c66b8e7fee7869b75eb038f500b034f5371ef928def41c8db70bc"},
+    {file = "uhi-0.4.0.tar.gz", hash = "sha256:0dcb6b19775087d38a31ee388cb2c70f2ecfe04c4ffe2ca63223410cae5beefa"},
 ]
 
 [[package]]

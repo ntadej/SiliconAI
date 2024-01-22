@@ -116,6 +116,14 @@ def prepare_inputs(
     ] = Path(
         "task.yml",
     ),
+    diagnostics: Annotated[
+        bool,
+        typer.Option(
+            "-d",
+            "--diagnostics",
+            help="Prepare diagnostics plots.",
+        ),
+    ] = False,
 ) -> None:
     """Prepare inputs for training."""
     config = init_config(state)
@@ -131,3 +139,6 @@ def prepare_inputs(
         task_config.output_file,
     )
     loader.load()
+
+    if diagnostics:
+        loader.diagnostics()
