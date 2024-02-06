@@ -5,11 +5,14 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 import numpy as np
+
 from siliconai.plotting.common import plot_column, setup_style
 from siliconai.plotting.utils import PDFDocument
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from numpy.typing import ArrayLike
 
     from siliconai.cli.logging import Logger
 
@@ -35,7 +38,7 @@ class InputLoader:
         self.input_type = input_type
         self.input_file = input_file
         self.output_file = output_file
-        self.data: np.typing.ArrayLike | None = None
+        self.data: ArrayLike | None = None
 
     def load(self: InputLoader) -> None:
         """Load the input."""

@@ -23,6 +23,12 @@ if not sys.warnoptions:  # pragma: no cover
 
     warnings.simplefilter("default")
 
+import warnings
+
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    import lightning as L  # noqa: F401
+
 application = typer.Typer()
 state = TyperState()
 
@@ -142,3 +148,35 @@ def prepare_inputs(
 
     if diagnostics:
         loader.diagnostics()
+
+
+@application.command()
+def train(
+    config_file: Annotated[
+        Path,
+        typer.Option(
+            "-c",
+            "--config",
+            envvar="SILICONAI_CONFIG",
+            help="Task configuration file.",
+        ),
+    ] = Path(
+        "task.yml",
+    ),
+    diagnostics: Annotated[
+        bool,
+        typer.Option(
+            "-d",
+            "--diagnostics",
+            help="Prepare diagnostics plots.",
+        ),
+    ] = False,
+) -> None:
+    """Train the model."""
+    config = init_config(state)
+    task_config = init_task_config(config, config_file)
+    logger = setup_logger(config, "train")
+
+    from siliconai.ml.training.training import train
+
+    train(logger, task_config, diagnostics)

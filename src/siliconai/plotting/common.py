@@ -7,6 +7,7 @@ import mplhep as hep
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from numpy.typing import ArrayLike
 
 
 def setup_style() -> None:
@@ -59,7 +60,7 @@ def log_binning(
 
 
 def plot_column(
-    data: np.typing.ArrayLike,
+    data: ArrayLike,
     column: str,
     nbins: int = 25,
     logx: bool = False,

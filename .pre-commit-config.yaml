@@ -6,6 +6,7 @@ repos:
         args: []
         additional_dependencies:
           - awkward
+          - lightning
           - matplotlib
           - mplhep
           - numpy
