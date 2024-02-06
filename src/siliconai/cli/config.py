@@ -14,7 +14,7 @@ from .logging import error_panel, info_panel
 class TyperState:
     """Execution configuration state."""
 
-    def __init__(self: TyperState) -> None:
+    def __init__(self) -> None:
         """Initialize configuration state."""
         self.config_file: Path = Path("config.yml")
         self.debug: bool = False
@@ -23,13 +23,13 @@ class TyperState:
 class Configuration:
     """Global configuration helper."""
 
-    def __init__(self: Configuration) -> None:
+    def __init__(self) -> None:
         """Initialize configuration helper."""
         self.debug: bool = False
         self.data_path: Path = Path("data")
         self.log_path: Path = Path("run")
 
-    def to_object(self: Configuration) -> dict[str, Any]:
+    def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
         return {
             "Data": {
@@ -45,13 +45,13 @@ class Configuration:
 class TaskConfiguration:
     """Task configuration helper."""
 
-    def __init__(self: TaskConfiguration) -> None:
+    def __init__(self) -> None:
         """Initialize task configuration helper."""
         self.input_type: InputType = InputType.TRKNtuple
         self.input_file: Path = Path()
         self.output_file: Path = Path()
 
-    def to_object(self: TaskConfiguration) -> dict[str, Any]:
+    def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
         return {
             "Input type": self.input_type.value,

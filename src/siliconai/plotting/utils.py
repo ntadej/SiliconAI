@@ -12,6 +12,6 @@ if TYPE_CHECKING:
 class PDFDocument(PdfPages):
     """PDF document helper class that can be used as a context manager."""
 
-    def save(self: PDFDocument, fig: Figure, **kwargs: dict[str, Any]) -> None:
+    def save(self, fig: Figure, **kwargs: dict[str, Any]) -> None:
         """Save a figure to the PDF document."""
         super().savefig(fig, **kwargs)  # type: ignore

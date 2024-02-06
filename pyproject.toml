@@ -23,11 +23,11 @@ dependencies = [
     "mlflow == 2.10.*",
     "mplhep == 0.3.*",
     "numpy == 1.26.*",
-    "pandas == 2.1.*",
+    "pandas == 2.2.*",
     "pyyaml >= 6.0",
     "scipy == 1.12.*",
-    "torch == 2.1.*",
-    "torchvision == 0.16.*",
+    "torch == 2.2.*",
+    "torchvision == 0.17.*",
     "typer[all] == 0.9.*",
     "uproot == 5.2.*",
 ]
@@ -41,7 +41,7 @@ dev = [
     "pre-commit",
     "pytest >= 7.0",
     "pytest-cov",
-    "ruff == 0.1.13",
+    "ruff == 0.2.1",
     "types-pyyaml",
 ]
 
@@ -74,6 +74,9 @@ omit = ["src/siliconai/tests/*", "tests/*"]
 [tool.ruff]
 src = ["src"]
 target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
 select = [
     "F",    # pyflakes
     "E",    # pycodestyle
@@ -122,8 +125,9 @@ ignore = [
     "FBT001", # boolean-positional-arg-in-function-definition (not wanted)
     "FBT002", # boolean-default-value-in-function-definition (not wanted)
     "N812",   # lowercase-imported-as-non-lowercase (not wanted)
+    "ANN101", # missing-type-self (deprecated)
+    "ANN102", # missing-type-class (deprecated)
 ]
-line-length = 88
 
 [tool.mypy]
 plugins = "numpy.typing.mypy_plugin"

@@ -27,7 +27,7 @@ class InputLoader:
     """Input loader class."""
 
     def __init__(
-        self: InputLoader,
+        self,
         logger: Logger,
         input_type: InputType,
         input_file: Path,
@@ -40,12 +40,12 @@ class InputLoader:
         self.output_file = output_file
         self.data: ArrayLike | None = None
 
-    def load(self: InputLoader) -> None:
+    def load(self) -> None:
         """Load the input."""
         if self.input_type == InputType.TRKNtuple:
             self.load_trkntuple()
 
-    def load_trkntuple(self: InputLoader) -> None:
+    def load_trkntuple(self) -> None:
         """Load the input as TRKNtuple."""
         self.logger.info("Loading TRKNtuple input from %s", self.input_file)
 
@@ -126,7 +126,7 @@ class InputLoader:
             np.save(self.output_file, self.data)
             self.logger.info("Saved %s", self.output_file)
 
-    def diagnostics(self: InputLoader) -> None:
+    def diagnostics(self) -> None:
         """Make diagnostics plots."""
         if not self.data or not hasattr(self.data, "dtype"):
             return
