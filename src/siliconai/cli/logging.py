@@ -1,7 +1,7 @@
 """Common logging setup."""
 from __future__ import annotations
 
-from logging import DEBUG, INFO, WARNING, Formatter, Logger, getLogger
+from logging import DEBUG, INFO, Formatter, Logger, getLogger
 from logging.handlers import RotatingFileHandler
 from typing import TYPE_CHECKING, Any
 
@@ -105,8 +105,14 @@ def setup_logger(config: Configuration, name: str | None = None) -> Logger:
         logger.setLevel(DEBUG)
     else:
         logger.setLevel(INFO)
-        # Disable logging from other modules
-        getLogger("httpx").setLevel(WARNING)
+
+    # override logging from other modules
+    custom_loggers = [getLogger("lightning.pytorch"), getLogger("lightning.fabric")]
+    for log in custom_loggers:
+        log.handlers.clear()
+        if name:
+            log.addHandler(file_handler)
+        log.addHandler(stream_handler)
 
     return logger
 

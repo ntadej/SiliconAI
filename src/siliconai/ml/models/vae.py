@@ -10,7 +10,7 @@ class Encoder(nn.Module):
     """Encoder model module."""
 
     def __init__(
-        self: Encoder,
+        self,
         input_dim: int,
         hidden_dim: int,
         latent_dim: int,
@@ -24,20 +24,21 @@ class Encoder(nn.Module):
             nn.Linear(hidden_dim, hidden_dim),
             nn.LeakyReLU(0.2),
         )
-        self.model_result = nn.Linear(hidden_dim, latent_dim)
+        self.model_mu = nn.Linear(hidden_dim, latent_dim)
+        self.model_log_var = nn.Linear(hidden_dim, latent_dim)
 
         self.training = True
 
     def forward(
-        self: Encoder,
+        self,
         x: Tensor,
         y: Tensor | None = None,
     ) -> tuple[Tensor, Tensor]:
         """Forward pass."""
         i = torch.cat((x, y), dim=1) if y is not None else x
         h = self.model_main(i)
-        mu = self.model_result(h)
-        log_var = self.model_result(h)
+        mu = self.model_mu(h)
+        log_var = self.model_log_var(h)
         return mu, log_var
 
 
@@ -45,7 +46,7 @@ class Decoder(nn.Module):
     """Decoder model module."""
 
     def __init__(
-        self: Decoder,
+        self,
         latent_dim: int,
         hidden_dim: int,
         output_dim: int,
@@ -61,7 +62,7 @@ class Decoder(nn.Module):
             nn.Linear(hidden_dim, output_dim),
         )
 
-    def forward(self: Decoder, x: Tensor, y: Tensor | None = None) -> Tensor:
+    def forward(self, x: Tensor, y: Tensor | None = None) -> Tensor:
         """Forward pass."""
         i = torch.cat((x, y), dim=1) if y is not None else x
 
@@ -71,12 +72,17 @@ class Decoder(nn.Module):
 class VAEModule(L.LightningModule):
     """VAE model model."""
 
-    def __init__(self: VAEModule, encoder: Encoder, decoder: Decoder) -> None:
+    def __init__(self, encoder: Encoder, decoder: Decoder) -> None:
         """Initialize the module."""
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.embedding = nn.Embedding(10, 16)
+
+        self.example_input_array = (
+            torch.Tensor(100, 1, 28, 28),
+            torch.randint(0, 10, (100,)),
+        )
 
     @staticmethod
     def reparameterization(mu: Tensor, log_var: Tensor) -> Tensor:
@@ -91,31 +97,56 @@ class VAEModule(L.LightningModule):
         reproduction_loss = nn.functional.binary_cross_entropy(
             x_hat,
             x,
-            reduction="sum",
+            reduction="mean",
         )
-        kld = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+        kld = -0.5 * torch.mean(1 + log_var - mu.pow(2) - log_var.exp())
         return reproduction_loss + kld
 
-    def training_step(self: VAEModule, batch: Tensor, _: int) -> Tensor:
-        """Training step."""
-        # training_step defines the train loop.
-        # it is independent of forward
+    def process_loss(self, batch: Tensor) -> Tensor:
+        """Process the loss of a batch."""
         x, y = batch
         y = self.embedding(y)
         x = x.view(x.size(0), 784)
         mu, log_var = self.encoder(x, y)
         z = self.reparameterization(mu, log_var)
-        x_hat = self.decoder(z, y)
-        loss = self.loss_function(x, x_hat, mu, log_var)
-        # Logging to TensorBoard (if installed) by default
+        x_hat: Tensor = self.decoder(z, y)
+        return self.loss_function(x, x_hat, mu, log_var)
+
+    def forward(self, x: Tensor, y: Tensor) -> Tensor:
+        """Forward pass."""
+        x = x.view(x.size(0), 784)
+        y = self.embedding(y)
+        mu, log_var = self.encoder(x, y)
+        z = self.reparameterization(mu, log_var)
+        x_hat: Tensor = self.decoder(z, y)
+        return x_hat
+
+    def training_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
+        """Run training step."""
+        loss = self.process_loss(batch)
+
         self.log("train_loss", loss)
         return loss
 
-    def configure_optimizers(self: VAEModule) -> optim.Optimizer:
+    def validation_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
+        """Run validation step."""
+        loss = self.process_loss(batch)
+
+        self.log("val_loss", loss)
+        return loss
+
+    def test_step(self, batch: Tensor, _batch_idx: int) -> Tensor:  # noqa: PT019
+        """Run test step."""
+        loss = self.process_loss(batch)
+
+        self.log("test_loss", loss)
+        return loss
+
+    def configure_optimizers(self) -> optim.Optimizer:
         """Configure optimizers."""
         return optim.Adam(self.parameters(), lr=1e-3)
 
-    def generate_class(self: VAEModule, class_idx: int | Tensor) -> Tensor:
+    def generate_class(self, class_idx: int | Tensor) -> Tensor:
         """Generate class."""
         if isinstance(class_idx, int):
             class_idx = torch.tensor(class_idx)
