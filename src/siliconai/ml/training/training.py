@@ -1,14 +1,11 @@
 """Model training helpers."""
 import lightning as L
-import matplotlib
-import matplotlib.pyplot as plt
-import torch
 
 from siliconai.cli.config import Configuration
 from siliconai.cli.logging import Logger
-from siliconai.common.enums import ModelType
 from siliconai.ml.training.loaders import load_data_module, load_model
 from siliconai.ml.training.utils import common_setup, setup_callbacks, setup_logging
+from siliconai.plotting.validation import quick_validate
 
 
 def train(logger: Logger, config: Configuration, diagnostics: bool) -> None:
@@ -44,16 +41,4 @@ def train(logger: Logger, config: Configuration, diagnostics: bool) -> None:
 
     # diagnostics
     if diagnostics:
-        with torch.no_grad():
-            if config.model.type is ModelType.BasicVAE:
-                x = model.generate(50)
-            else:
-                x = model.generate_class(
-                    torch.tensor([list(range(10))] * 5).clone().view(-1),
-                )
-
-        for i in range(50):
-            plt.subplot(5, 10, i + 1)
-            plt.axis("off")
-            plt.imshow(x[i].squeeze(0).cpu().numpy(), cmap=matplotlib.cm.gray)  # type: ignore
-            plt.savefig("test.pdf")
+        quick_validate(logger, config, model)

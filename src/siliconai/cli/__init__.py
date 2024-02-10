@@ -167,3 +167,25 @@ def train(
     from siliconai.ml.training.training import train
 
     train(logger, config, diagnostics)
+
+
+@application.command()
+def validate(
+    config_file: Annotated[
+        Path,
+        typer.Option(
+            "-c",
+            "--config",
+            envvar="SILICONAI_CONFIG",
+            help="Task configuration file.",
+        ),
+    ],
+) -> None:
+    """Validate the model."""
+    global_config = GlobalConfiguration.load(state)
+    config = Configuration(config_file, global_config)
+    logger = setup_logger(global_config, "validate")
+
+    from siliconai.plotting.validation import validate
+
+    validate(logger, config)

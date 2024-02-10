@@ -159,13 +159,16 @@ class Configuration:
         info_panel(self.model.to_table(), title="Model Configuration")
         info_panel(self.training.to_table(), title="Training Configuration")
 
+    def __repr__(self) -> str:
+        """Return the string representation of the configuration."""
+        return self.name
+
     @property
     def output_name(self) -> str:
         """Return the sanitized output name."""
         return self.name.replace(" ", "_")
 
-    @property
-    def run_number(self) -> int:
+    def run_number(self, training: bool = True) -> int:
         """Return the run number."""
         if self._run_number:
             return self._run_number
@@ -178,11 +181,14 @@ class Configuration:
             with run_path.open("w") as f:
                 f.write("1")
             self._run_number = 1
-        else:
+        elif training:
             with run_path.open("r") as f:
                 self._run_number = int(f.read()) + 1
             with run_path.open("w") as f:
                 f.write(str(self._run_number))
+        else:
+            with run_path.open("r") as f:
+                self._run_number = int(f.read())
 
         return self._run_number
 

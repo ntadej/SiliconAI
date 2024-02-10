@@ -1,4 +1,6 @@
 """Module loaders."""
+from pathlib import Path
+
 import lightning as L
 
 from siliconai.cli.config import Configuration
@@ -30,3 +32,37 @@ def load_model(logger: Logger, config: Configuration) -> L.LightningModule:
 
     error = f"Model type {config.model.type} not supported."  # type: ignore
     raise ValueError(error)
+
+
+def load_model_from_checkpoint(
+    logger: Logger,
+    config: Configuration,
+    checkpoint: Path,
+) -> L.LightningModule:
+    """Load the model from checkpoint."""
+    logger.info("Loading model type: %s", config.model.type.value)
+
+    model: L.LightningModule
+    if config.model.type is ModelType.BasicVAE:
+        model = BasicVAE.load_from_checkpoint(checkpoint)
+        return model  # noqa: RET504
+    if config.model.type is ModelType.EmbeddingVAE:
+        model = EmbeddingVAE.load_from_checkpoint(checkpoint)
+        return model  # noqa: RET504
+
+    error = f"Model type {config.model.type} not supported."  # type: ignore
+    raise ValueError(error)
+
+
+def load_model_from_latest_checkpoint(
+    logger: Logger,
+    config: Configuration,
+    path: Path,
+) -> L.LightningModule:
+    """Load the model from the latest checkpoint."""
+    logger.info("Loading model from the latest checkpoint in %s.", path)
+
+    files = path.glob("*")
+    file = max(files, key=lambda x: x.stat().st_ctime)
+
+    return load_model_from_checkpoint(logger, config, file)

@@ -106,6 +106,8 @@ class BasicVAE(Module):
             else torch.Tensor(config.data.batch_size, 1, config.data.input_dim)
         )
 
+        self.save_hyperparameters()
+
     @staticmethod
     def loss_function(x: Tensor, x_hat: Tensor, mu: Tensor, log_var: Tensor) -> Tensor:
         """VAE loss function."""
@@ -156,13 +158,18 @@ class BasicVAE(Module):
         self.log("test_loss", loss)
         return loss
 
-    def generate(self, batch_size: int) -> Tensor:
-        """Generate class."""
-        z = torch.randn((batch_size, self.config.model.latent_dim)).to(self.device)
-        res: Tensor = self.decoder(z)
-        if isinstance(self.input_dim, list):
-            res = res.view(batch_size, *self.input_dim)
-        return res
+    def generate(
+        self,
+        batch_size: int,
+        _conditions: Tensor | None = None,
+    ) -> Tensor:
+        """Generate model output."""
+        with torch.no_grad():
+            z = torch.randn((batch_size, self.config.model.latent_dim)).to(self.device)
+            res: Tensor = self.decoder(z)
+            if isinstance(self.input_dim, list):
+                res = res.view(batch_size, *self.input_dim)
+            return res
 
 
 class EmbeddingVAE(BasicVAE):
@@ -202,17 +209,25 @@ class EmbeddingVAE(BasicVAE):
         x_hat: Tensor = self.decoder(z, y)
         return x_hat
 
-    def generate_class(self, class_idx: Tensor) -> Tensor:
-        """Generate class."""
+    def generate(
+        self,
+        batch_size: int,
+        conditions: Tensor | None = None,
+    ) -> Tensor:
+        """Generate model output based on class."""
         if self.config.model.embedding is None:
             error = "EmbeddingVAE requires an embedding layer"
             raise RuntimeError(error)
 
-        class_idx = class_idx.to(self.device)
-        batch_size = class_idx.shape[0]
-        z = torch.randn((batch_size, self.config.model.latent_dim)).to(self.device)
-        y = self.embedding(class_idx)
-        res: Tensor = self.decoder(z, y)
-        if isinstance(self.input_dim, list):
-            res = res.view(batch_size, *self.input_dim)
-        return res
+        if conditions is None:
+            error = "EmbeddingVAE requires conditions"
+            raise RuntimeError(error)
+
+        with torch.no_grad():
+            conditions = conditions.to(self.device)
+            z = torch.randn((batch_size, self.config.model.latent_dim)).to(self.device)
+            y = self.embedding(conditions)
+            res: Tensor = self.decoder(z, y)
+            if isinstance(self.input_dim, list):
+                res = res.view(batch_size, *self.input_dim)
+            return res

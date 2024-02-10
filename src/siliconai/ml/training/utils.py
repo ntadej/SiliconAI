@@ -28,7 +28,7 @@ def setup_callbacks(config: Configuration) -> list[Callback]:
             patience=config.training.early_stopping,
         ),
         ModelCheckpoint(
-            dirpath=f"run/{config.output_name}/run_{config.run_number}/checkpoints",
+            dirpath=f"{config.output_path}/run_{config.run_number()}/checkpoints",
             save_weights_only=True,
             mode="min",
             monitor="val_loss",
@@ -41,7 +41,7 @@ def setup_logging(config: Configuration) -> Logger:
     """Prepare common training logging."""
     return MLFlowLogger(
         experiment_name=config.name,
-        run_name=f"Run #{config.run_number}",
+        run_name=f"Run #{config.run_number()}",
         save_dir=str(config.global_config.output_path / "mlruns"),
         log_model=True,
     )
