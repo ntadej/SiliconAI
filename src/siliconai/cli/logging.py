@@ -22,8 +22,8 @@ from rich.style import Style
 from rich.table import Table
 from typer import Exit
 
-if TYPE_CHECKING:  # pragma: no cover
-    from .config import Configuration
+if TYPE_CHECKING:
+    from siliconai.cli.config import GlobalConfiguration
 
 
 def config_table() -> Table:
@@ -78,17 +78,17 @@ def download_bar(**kwargs: Any) -> Progress:  # noqa: ANN401
     )
 
 
-def setup_logger(config: Configuration, name: str | None = None) -> Logger:
+def setup_logger(global_config: GlobalConfiguration, name: str | None = None) -> Logger:
     """Prepare logger and write the log file."""
-    if not config.output_path.exists():
-        config.output_path.mkdir(parents=True)
+    if not global_config.output_path.exists():
+        global_config.output_path.mkdir(parents=True)
 
     if name:
         file_formatter = Formatter(
             "%(asctime)s %(levelname)-8s %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
-        file_path = config.output_path / f"siliconai_{name}.log"
+        file_path = global_config.output_path / f"siliconai_{name}.log"
         file_handler = RotatingFileHandler(
             file_path,
             mode="a",
@@ -98,7 +98,7 @@ def setup_logger(config: Configuration, name: str | None = None) -> Logger:
         file_handler.setFormatter(file_formatter)
 
     stream_handler = RichHandler(
-        show_path=config.debug,
+        show_path=global_config.debug,
         log_time_format="%Y-%m-%d %H:%M:%S",
     )
 
@@ -106,7 +106,7 @@ def setup_logger(config: Configuration, name: str | None = None) -> Logger:
     if name:
         logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
-    if config.debug:  # pragma: no cover
+    if global_config.debug:  # pragma: no cover
         logger.setLevel(DEBUG)
     else:
         logger.setLevel(INFO)

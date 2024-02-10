@@ -12,13 +12,13 @@ from torch import utils
 from torchvision.datasets import MNIST  # type: ignore
 from torchvision.transforms import ToTensor  # type: ignore
 
-from siliconai.cli.config import TaskConfiguration
+from siliconai.cli.config import Configuration
 from siliconai.cli.logging import Logger
 from siliconai.common.enums import ModelType
 from siliconai.ml.models.vae import BasicVAE, EmbeddingVAE
 
 
-def train(logger: Logger, task_config: TaskConfiguration, diagnostics: bool) -> None:
+def train(logger: Logger, config: Configuration, diagnostics: bool) -> None:
     """Train the VAE model - temporary test function."""
     # matmul precision and seed
     torch.set_float32_matmul_precision("high")
@@ -27,9 +27,9 @@ def train(logger: Logger, task_config: TaskConfiguration, diagnostics: bool) -> 
     logger.info("Training VAE model")
 
     autoencoder = (
-        BasicVAE(task_config.model, task_config.data)
-        if task_config.model.type is ModelType.BasicVAE
-        else EmbeddingVAE(task_config.model, task_config.data)
+        BasicVAE(config)
+        if config.model.type is ModelType.BasicVAE
+        else EmbeddingVAE(config)
     )
     logger.info(autoencoder)
 
@@ -48,19 +48,19 @@ def train(logger: Logger, task_config: TaskConfiguration, diagnostics: bool) -> 
 
     train_loader = utils.data.DataLoader(
         train_set,
-        batch_size=task_config.data.batch_size,
+        batch_size=config.data.batch_size,
         shuffle=True,
         num_workers=4,
     )
     val_loader = utils.data.DataLoader(
         val_set,
-        batch_size=task_config.data.batch_size,
+        batch_size=config.data.batch_size,
         shuffle=False,
         num_workers=4,
     )
     test_loader = utils.data.DataLoader(
         test_set,
-        batch_size=task_config.data.batch_size,
+        batch_size=config.data.batch_size,
         shuffle=False,
         num_workers=4,
     )
@@ -69,7 +69,11 @@ def train(logger: Logger, task_config: TaskConfiguration, diagnostics: bool) -> 
     callbacks = [
         RichProgressBar(),
         LearningRateMonitor(logging_interval="step"),
-        EarlyStopping(monitor="val_loss", mode="min", patience=3),
+        EarlyStopping(
+            monitor="val_loss",
+            mode="min",
+            patience=config.training.early_stopping,
+        ),
         ModelCheckpoint(
             dirpath="run/checkpoints",
             save_weights_only=True,
@@ -87,7 +91,7 @@ def train(logger: Logger, task_config: TaskConfiguration, diagnostics: bool) -> 
 
     # setup training
     trainer = L.Trainer(
-        max_epochs=50,
+        max_epochs=config.training.epochs,
         logger=ml_logger,
         callbacks=callbacks,
         default_root_dir="run/training",
@@ -103,7 +107,7 @@ def train(logger: Logger, task_config: TaskConfiguration, diagnostics: bool) -> 
 
     if diagnostics:
         with torch.no_grad():
-            if task_config.model.type is ModelType.BasicVAE:
+            if config.model.type is ModelType.BasicVAE:
                 x = autoencoder.generate(50)
             else:
                 x = autoencoder.generate_class(

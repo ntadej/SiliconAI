@@ -18,3 +18,11 @@ dropout = 0.0
 [model.embedding]
 class_count = 10
 latent_dim = 16
+
+[training]
+epochs = 50
+early_stopping = 3
+
+optimizer = "Adam"
+learning_rate = 0.001
+weight_decay = 0.0

@@ -22,7 +22,7 @@ class TyperState:
         self.debug: bool = False
 
 
-class Configuration:
+class GlobalConfiguration:
     """Global configuration."""
 
     def __init__(
@@ -80,7 +80,11 @@ class Configuration:
         return table
 
     @classmethod
-    def load(cls, state: TyperState, full_information: bool = True) -> Configuration:
+    def load(
+        cls,
+        state: TyperState,
+        full_information: bool = True,
+    ) -> GlobalConfiguration:
         """Load configuration from CLI state."""
         if not state.config_file.exists():
             config_missing(state.config_file)
@@ -111,10 +115,10 @@ class Configuration:
         cls(location)
 
 
-class TaskConfiguration:
+class Configuration:
     """Task configuration."""
 
-    def __init__(self, location: Path, global_config: Configuration) -> None:
+    def __init__(self, location: Path, global_config: GlobalConfiguration) -> None:
         """Initialize task configuration."""
         self.location: Path = location
 
@@ -141,10 +145,15 @@ class TaskConfiguration:
             config["model"],
             global_config,
         )
+        self.training: TrainingConfiguration = TrainingConfiguration(
+            config["training"],
+            global_config,
+        )
 
         info_panel(self.to_table(), title="Task Configuration")
         info_panel(self.data.to_table(), title="Data Configuration")
         info_panel(self.model.to_table(), title="Model Configuration")
+        info_panel(self.training.to_table(), title="Training Configuration")
 
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
@@ -165,7 +174,11 @@ class TaskConfiguration:
 class DataConfiguration:
     """Data configuration."""
 
-    def __init__(self, config: dict[str, Any], global_config: Configuration) -> None:
+    def __init__(
+        self,
+        config: dict[str, Any],
+        global_config: GlobalConfiguration,
+    ) -> None:
         """Initialize data configuration."""
         match config:
             case {
@@ -231,7 +244,11 @@ class DataConfiguration:
 class ModelConfiguration:
     """Model configuration."""
 
-    def __init__(self, config: dict[str, Any], _global_config: Configuration) -> None:
+    def __init__(
+        self,
+        config: dict[str, Any],
+        _global_config: GlobalConfiguration,
+    ) -> None:
         """Initialize model configuration."""
         match config:
             case {
@@ -298,6 +315,57 @@ class ModelConfiguration:
             table.add_row()
             table.add_row("Embedding class count:", str(self.embedding[0]))
             table.add_row("Embedding latent dimension:", str(self.embedding[1]))
+
+        return table
+
+
+class TrainingConfiguration:
+    """Training configuration."""
+
+    def __init__(
+        self,
+        config: dict[str, Any],
+        _global_config: GlobalConfiguration,
+    ) -> None:
+        """Initialize training configuration."""
+        match config:
+            case {
+                "epochs": int(),
+                "early_stopping": int(),
+                "optimizer": str(),
+                "learning_rate": float(),
+                "weight_decay": float(),
+            }:
+                pass
+            case _:
+                error = f"invalid task configuration: {config}"
+                raise ValueError(error)
+
+        self.epochs: int = int(config["epochs"])
+        self.early_stopping: int = int(config["early_stopping"])
+        self.learning_rate: float = float(config["learning_rate"])
+        self.weight_decay: float = float(config["weight_decay"])
+        self.optimizer: str = config["optimizer"]
+
+    def to_object(self) -> dict[str, Any]:
+        """Convert configuration to object."""
+        return {
+            "epochs": self.epochs,
+            "early_stopping": self.early_stopping,
+            "optimizer": self.optimizer,
+            "learning_rate": self.learning_rate,
+            "weight_decay": self.weight_decay,
+        }
+
+    def to_table(self) -> Table:
+        """Convert configuration to table."""
+        table = config_table()
+
+        table.add_row("Epochs:", str(self.epochs))
+        table.add_row("Early stopping patience:", str(self.early_stopping))
+        table.add_row("Optimizer:", self.optimizer)
+        table.add_row("Learning rate:", str(self.learning_rate))
+        table.add_row("Weight decay:", str(self.weight_decay))
 
         return table
 

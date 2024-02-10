@@ -8,7 +8,7 @@ import typer
 
 from siliconai import __version__
 
-from .config import Configuration, TaskConfiguration, TyperState, config_missing
+from .config import Configuration, GlobalConfiguration, TyperState, config_missing
 from .logging import setup_logger
 
 if not sys.warnoptions:  # pragma: no cover
@@ -83,16 +83,16 @@ def config(
 ) -> None:
     """Print or generate configuration."""
     if generate:
-        Configuration.generate_empty(state.config_file)
+        GlobalConfiguration.generate_empty(state.config_file)
     else:
-        Configuration.load(state, full_information=False)
+        GlobalConfiguration.load(state, full_information=False)
 
 
 @application.command()
 def test_gpu() -> None:
     """Test GPU support."""
-    config = Configuration.load(state)
-    logger = setup_logger(config, "test_gpu")
+    global_config = GlobalConfiguration.load(state)
+    logger = setup_logger(global_config, "test_gpu")
 
     logger.info("Hello World!")
 
@@ -122,17 +122,17 @@ def convert_inputs(
     ] = False,
 ) -> None:
     """Prepare inputs for training."""
-    config = Configuration.load(state)
-    task_config = TaskConfiguration(config_file, config)
-    logger = setup_logger(config, "convert_inputs")
+    global_config = GlobalConfiguration.load(state)
+    config = Configuration(config_file, global_config)
+    logger = setup_logger(global_config, "convert_inputs")
 
-    if not task_config.data.conversion:
+    if not config.data.conversion:
         logger.info("No conversion needed.")
         return
 
     from siliconai.data.input import InputConverter
 
-    loader = InputConverter(logger, task_config.data)
+    loader = InputConverter(logger, config.data)
     loader.load()
 
     if diagnostics:
@@ -160,10 +160,10 @@ def train(
     ] = False,
 ) -> None:
     """Train the model."""
-    config = Configuration.load(state)
-    task_config = TaskConfiguration(config_file, config)
-    logger = setup_logger(config, "train")
+    global_config = GlobalConfiguration.load(state)
+    config = Configuration(config_file, global_config)
+    logger = setup_logger(global_config, "train")
 
     from siliconai.ml.training.training import train
 
-    train(logger, task_config, diagnostics)
+    train(logger, config, diagnostics)
