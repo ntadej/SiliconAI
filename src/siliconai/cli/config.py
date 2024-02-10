@@ -69,9 +69,9 @@ class GlobalConfiguration:
         """Convert configuration to table."""
         table = config_table()
 
-        table.add_row("Location:", str(self.location))
-        table.add_row("Data path:", str(self.data_path))
-        table.add_row("Output path:", str(self.output_path))
+        table.add_row("Location:", print_path(self.location))
+        table.add_row("Data path:", print_path(self.data_path))
+        table.add_row("Output path:", print_path(self.output_path))
 
         if full_information:
             table.add_row()
@@ -140,6 +140,8 @@ class Configuration:
                 raise ValueError(error)
 
         self.name: str = config["name"]
+        self.global_config: GlobalConfiguration = global_config
+        self.output_path: Path = global_config.output_path / self.output_name
         self.data: DataConfiguration = DataConfiguration(config["data"], global_config)
         self.model: ModelConfiguration = ModelConfiguration(
             config["model"],
@@ -150,15 +152,46 @@ class Configuration:
             global_config,
         )
 
+        self._run_number: int = 0
+
         info_panel(self.to_table(), title="Task Configuration")
         info_panel(self.data.to_table(), title="Data Configuration")
         info_panel(self.model.to_table(), title="Model Configuration")
         info_panel(self.training.to_table(), title="Training Configuration")
 
+    @property
+    def output_name(self) -> str:
+        """Return the sanitized output name."""
+        return self.name.replace(" ", "_")
+
+    @property
+    def run_number(self) -> int:
+        """Return the run number."""
+        if self._run_number:
+            return self._run_number
+
+        if not self.output_path.exists():
+            self.output_path.mkdir(parents=True)
+
+        run_path = self.output_path / "run"
+        if not run_path.exists():
+            with run_path.open("w") as f:
+                f.write("1")
+            self._run_number = 1
+        else:
+            with run_path.open("r") as f:
+                self._run_number = int(f.read()) + 1
+            with run_path.open("w") as f:
+                f.write(str(self._run_number))
+
+        return self._run_number
+
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
         return {
             "name": self.name,
+            "output_name": self.output_name,
+            "output_path": self.output_path,
         }
 
     def to_table(self) -> Table:
@@ -166,7 +199,9 @@ class Configuration:
         table = config_table()
 
         table.add_row("Name:", self.name)
-        table.add_row("Location:", str(self.location))
+        table.add_row("Output name:", self.output_name)
+        table.add_row("Output path:", print_path(self.output_path))
+        table.add_row("Location:", print_path(self.location))
 
         return table
 
@@ -194,6 +229,7 @@ class DataConfiguration:
         self.type: DataType = DataType(config["type"])
         self.input_dim: list[int] | int = config["input_dim"]
         self.batch_size: int = config["batch_size"]
+
         self.conversion: bool = False
         self.conversion_input_file: Path | None = None
         self.conversion_output_file: Path | None = None
@@ -235,8 +271,14 @@ class DataConfiguration:
         table.add_row("Conversion needed:", str(self.conversion))
         if self.conversion:
             table.add_row()
-            table.add_row("Conversion input file:", str(self.conversion_input_file))
-            table.add_row("Conversion output file:", str(self.conversion_output_file))
+            table.add_row(
+                "Conversion input file:",
+                print_path(self.conversion_input_file),
+            )
+            table.add_row(
+                "Conversion output file:",
+                print_path(self.conversion_output_file),
+            )
 
         return table
 
@@ -395,3 +437,15 @@ def task_config_missing(config_file: Path) -> None:
         " [blue bold]SILICONAI_CONFIG[/blue bold].]"
     )
     raise error_panel(error_message)
+
+
+def print_path(path: Path | None) -> str:
+    """Print path."""
+    if not path:
+        return "None"
+
+    string = str(path)
+    if string.startswith("/"):
+        return string
+
+    return f"./{string}"
