@@ -19,13 +19,18 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 from rich.style import Style
+from rich.table import Table
 from typer import Exit
 
 if TYPE_CHECKING:  # pragma: no cover
     from .config import Configuration
 
 
-def info_panel(message: str, title: str = "Information") -> None:
+def config_table() -> Table:
+    return Table.grid("Key", "Value", padding=(0, 3))
+
+
+def info_panel(message: str | Table, title: str = "Information") -> None:
     """Print info message in a panel."""
     print(
         Panel(
@@ -75,15 +80,15 @@ def download_bar(**kwargs: Any) -> Progress:  # noqa: ANN401
 
 def setup_logger(config: Configuration, name: str | None = None) -> Logger:
     """Prepare logger and write the log file."""
-    if not config.log_path.exists():
-        config.log_path.mkdir(parents=True)
+    if not config.output_path.exists():
+        config.output_path.mkdir(parents=True)
 
     if name:
         file_formatter = Formatter(
             "%(asctime)s %(levelname)-8s %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
-        file_path = config.log_path / f"siliconai_{name}.log"
+        file_path = config.output_path / f"siliconai_{name}.log"
         file_handler = RotatingFileHandler(
             file_path,
             mode="a",
@@ -117,4 +122,4 @@ def setup_logger(config: Configuration, name: str | None = None) -> Logger:
     return logger
 
 
-__all__ = ["Logger"]
+__all__ = ["Logger", "Table"]

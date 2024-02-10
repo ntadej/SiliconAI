@@ -17,7 +17,7 @@ from siliconai.cli.logging import Logger
 from siliconai.ml.models.vae import Decoder, Encoder, VAEModule
 
 
-def train(logger: Logger, task_config: TaskConfiguration, diagnostics: bool) -> None:
+def train(logger: Logger, _task_config: TaskConfiguration, diagnostics: bool) -> None:
     """Train the VAE model - temporary test function."""
     # matmul precision and seed
     torch.set_float32_matmul_precision("high")
@@ -25,7 +25,7 @@ def train(logger: Logger, task_config: TaskConfiguration, diagnostics: bool) -> 
 
     dataset_path = "~/datasets"
 
-    logger.info(task_config.output_file)
+    logger.info("Training VAE model")
 
     encoder = Encoder(784 + 16, 400, 200)
     decoder = Decoder(200 + 16, 400, 784)

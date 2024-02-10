@@ -13,6 +13,7 @@ repos:
           - pytest
           - rich
           - torch
+          - tomli_w
           - typer
           - types-pyyaml
           - uproot

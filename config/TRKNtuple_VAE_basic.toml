@@ -1,0 +1,6 @@
+[data]
+type = "TRKNtuple"
+
+[data.conversion]
+input = "TRKNtuple_mu_Pt100to150_Eta020to025pm.root"
+output = "TRKNtuple_mu_Pt100to150_Eta020to025pm.npy"

@@ -8,14 +8,7 @@ import typer
 
 from siliconai import __version__
 
-from .config import (
-    TyperState,
-    config_missing,
-    generate_empty_config,
-    init_config,
-    init_task_config,
-    print_config_file,
-)
+from .config import Configuration, TaskConfiguration, TyperState, config_missing
 from .logging import setup_logger
 
 if not sys.warnoptions:  # pragma: no cover
@@ -52,7 +45,7 @@ def main(
             help="Global configuration file.",
         ),
     ] = Path(
-        "config.yml",
+        "config.toml",
     ),
     debug: Annotated[
         bool,
@@ -90,16 +83,15 @@ def config(
 ) -> None:
     """Print or generate configuration."""
     if generate:
-        generate_empty_config(state.config_file)
+        Configuration.generate_empty(state.config_file)
     else:
-        print_config_file(state.config_file)
-        init_config(state)
+        Configuration.load(state, full_information=False)
 
 
 @application.command()
 def test_gpu() -> None:
     """Test GPU support."""
-    config = init_config(state)
+    config = Configuration.load(state)
     logger = setup_logger(config, "test_gpu")
 
     logger.info("Hello World!")
@@ -110,7 +102,7 @@ def test_gpu() -> None:
 
 
 @application.command()
-def prepare_inputs(
+def convert_inputs(
     config_file: Annotated[
         Path,
         typer.Option(
@@ -119,9 +111,7 @@ def prepare_inputs(
             envvar="SILICONAI_CONFIG",
             help="Task configuration file.",
         ),
-    ] = Path(
-        "task.yml",
-    ),
+    ],
     diagnostics: Annotated[
         bool,
         typer.Option(
@@ -132,18 +122,17 @@ def prepare_inputs(
     ] = False,
 ) -> None:
     """Prepare inputs for training."""
-    config = init_config(state)
-    task_config = init_task_config(config, config_file)
-    logger = setup_logger(config, "prepare_inputs")
+    config = Configuration.load(state)
+    task_config = TaskConfiguration(config_file, config)
+    logger = setup_logger(config, "convert_inputs")
 
-    from siliconai.data.input import InputLoader
+    if not task_config.data.conversion:
+        logger.info("No conversion needed.")
+        return
 
-    loader = InputLoader(
-        logger,
-        task_config.input_type,
-        task_config.input_file,
-        task_config.output_file,
-    )
+    from siliconai.data.input import InputConverter
+
+    loader = InputConverter(logger, task_config.data)
     loader.load()
 
     if diagnostics:
@@ -160,9 +149,7 @@ def train(
             envvar="SILICONAI_CONFIG",
             help="Task configuration file.",
         ),
-    ] = Path(
-        "task.yml",
-    ),
+    ],
     diagnostics: Annotated[
         bool,
         typer.Option(
@@ -173,8 +160,8 @@ def train(
     ] = False,
 ) -> None:
     """Train the model."""
-    config = init_config(state)
-    task_config = init_task_config(config, config_file)
+    config = Configuration.load(state)
+    task_config = TaskConfiguration(config_file, config)
     logger = setup_logger(config, "train")
 
     from siliconai.ml.training.training import train

@@ -1,0 +1,8 @@
+[data]
+type = "MNIST"
+
+[model]
+type = "BasicVAE"
+latent_dim = 6
+encoder_layers = [256, 128, 64]
+decoder_layers = [64, 128, 256]

@@ -24,11 +24,11 @@ dependencies = [
     "mplhep == 0.3.*",
     "numpy == 1.26.*",
     "pandas == 2.2.*",
-    "pyyaml >= 6.0",
     "scipy == 1.12.*",
     "torch == 2.2.*",
     "torchvision == 0.17.*",
     "typer[all] == 0.9.*",
+    "tomli-w == 1.0.*",
     "uproot == 5.2.*",
 ]
 
@@ -139,7 +139,7 @@ show_error_context = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = ["awkward.*", "mplhep.*", "uproot.*"]
+module = ["awkward.*", "IPython.*", "mplhep.*", "uproot.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -1,14 +1,15 @@
 """Configuration utilities."""
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from typing import Any
 
-import yaml
+import tomli_w
 
-from siliconai.data.input import InputType
+from siliconai.common.enums import DataType
 
-from .logging import error_panel, info_panel
+from .logging import Table, config_table, error_panel, info_panel
 
 
 class TyperState:
@@ -16,48 +17,188 @@ class TyperState:
 
     def __init__(self) -> None:
         """Initialize configuration state."""
-        self.config_file: Path = Path("config.yml")
+        self.config_file: Path = Path("config.toml")
         self.debug: bool = False
 
 
 class Configuration:
-    """Global configuration helper."""
+    """Global configuration."""
 
-    def __init__(self) -> None:
-        """Initialize configuration helper."""
-        self.debug: bool = False
+    def __init__(
+        self,
+        location: Path,
+        debug: bool = False,
+        full_information: bool = False,
+    ) -> None:
+        """Initialize configuration."""
+        self.location: Path = location
+
+        with location.open(mode="rb") as f:
+            config = tomllib.load(f)
+
+        self.debug: bool = debug
         self.data_path: Path = Path("data")
-        self.log_path: Path = Path("run")
+        self.output_path: Path = Path("run")
+
+        if (
+            "output" in config
+            and "path" in config["output"]
+            and config["output"]["path"]
+        ):
+            self.output_path = Path(config["output"]["path"])
+
+        if "data" in config and "path" in config["data"] and config["data"]["path"]:
+            self.data_path = Path(config["data"]["path"])
+
+        info_panel(self.to_table(full_information), title="Global Configuration")
 
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
         return {
-            "Data": {
+            "data": {
                 "path": str(self.data_path),
             },
-            "Logging": {
-                "path": str(self.log_path),
+            "output": {
+                "path": str(self.output_path),
                 "debug": self.debug,
             },
         }
 
+    def to_table(self, full_information: bool = False) -> Table:
+        """Convert configuration to table."""
+        table = config_table()
+
+        table.add_row("Location:", str(self.location))
+        table.add_row("Data path:", str(self.data_path))
+        table.add_row("Output path:", str(self.output_path))
+
+        if full_information:
+            table.add_row()
+            table.add_row("Debug:", str(self.debug))
+
+        return table
+
+    @classmethod
+    def load(cls, state: TyperState, full_information: bool = True) -> Configuration:
+        """Load configuration from CLI state."""
+        if not state.config_file.exists():
+            config_missing(state.config_file)
+
+        return cls(state.config_file, state.debug, full_information)
+
+    @classmethod
+    def generate_empty(cls, location: Path) -> None:
+        """Generate empty config file."""
+        if location.exists():
+            error_message = (
+                f"Configuration file [blue]'{location}'[/blue] already exists."
+            )
+            raise error_panel(error_message)
+
+        config = {
+            "data": {
+                "path": "data",
+            },
+            "output": {
+                "path": "run",
+            },
+        }
+
+        with location.open("wb") as f:
+            tomli_w.dump(config, f)
+
+        cls(location)
+
 
 class TaskConfiguration:
-    """Task configuration helper."""
+    """Task configuration."""
 
-    def __init__(self) -> None:
-        """Initialize task configuration helper."""
-        self.input_type: InputType = InputType.TRKNtuple
-        self.input_file: Path = Path()
-        self.output_file: Path = Path()
+    def __init__(self, location: Path, global_config: Configuration) -> None:
+        """Initialize task configuration."""
+        self.location: Path = location
+
+        if not location.exists():
+            task_config_missing(location)
+
+        with location.open(mode="rb") as f:
+            config = tomllib.load(f)
+
+        match config:
+            case {
+                "data": dict(),
+            }:
+                pass
+            case _:
+                error = f"invalid task configuration: {config}"
+                raise ValueError(error)
+
+        self.data: DataConfiguration = DataConfiguration(config["data"], global_config)
+
+        info_panel(self.to_table(), title="Task Configuration")
+        info_panel(self.data.to_table(), title="Data Configuration")
+
+    def to_object(self) -> dict[str, Any]:
+        """Convert configuration to object."""
+        return {}
+
+    def to_table(self) -> Table:
+        """Convert configuration to table."""
+        table = config_table()
+
+        table.add_row("Location:", str(self.location))
+
+        return table
+
+
+class DataConfiguration:
+    """Data configuration."""
+
+    def __init__(self, config: dict[str, Any], global_config: Configuration) -> None:
+        """Initialize data configuration."""
+        match config:
+            case {
+                "type": str(),
+            }:
+                pass
+            case _:
+                error = f"invalid task configuration: {config}"
+                raise ValueError(error)
+
+        self.type: DataType = DataType(config["type"])
+        self.conversion: bool = False
+        self.conversion_input_file: Path | None = None
+        self.conversion_output_file: Path | None = None
+
+        if "conversion" in config:
+            self.conversion = True
+            self.conversion_input_file = (
+                global_config.data_path / config["conversion"]["input"]
+            )
+            self.conversion_output_file = (
+                global_config.data_path / config["conversion"]["output"]
+            )
 
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
         return {
-            "Input type": self.input_type.value,
-            "Input file": str(self.input_file),
-            "Output file": str(self.output_file),
+            "type": self.type.value,
+            "conversion": self.conversion,
+            "conversion_input_file": str(self.conversion_input_file),
+            "conversion_output_file": str(self.conversion_output_file),
         }
+
+    def to_table(self) -> Table:
+        """Convert configuration to table."""
+        table = config_table()
+
+        table.add_row("Type:", self.type.value)
+        table.add_row("Conversion needed:", str(self.conversion))
+        if self.conversion:
+            table.add_row()
+            table.add_row("Conversion input file:", str(self.conversion_input_file))
+            table.add_row("Conversion output file:", str(self.conversion_output_file))
+
+        return table
 
 
 def config_missing(config_file: Path) -> None:
@@ -68,107 +209,20 @@ def config_missing(config_file: Path) -> None:
         " [blue]'siliconai config [bold]--generate[/bold]'[/blue]"
         " to generate it.\n"
         "Optionally you can specify the path using the"
+        " [blue]'[bold]--global-config[/bold]'[/blue] option"
+        " or using the environment variable"
+        " [blue bold]SILICONAI_GLOBAL_CONFIG[/blue bold].]"
+    )
+    raise error_panel(error_message)
+
+
+def task_config_missing(config_file: Path) -> None:
+    """Print config missing message."""
+    error_message = (
+        f"Task configuration file [blue]'{config_file}'[/blue] does not exist.\n"
+        "Optionally you can specify the path using the"
         " [blue]'[bold]--config[/bold]'[/blue] option"
         " or using the environment variable"
         " [blue bold]SILICONAI_CONFIG[/blue bold].]"
     )
     raise error_panel(error_message)
-
-
-def generate_empty_config(config_file: Path) -> None:
-    """Generate empty config file."""
-    if config_file.exists():
-        error_message = (
-            f"Configuration file [blue]'{config_file}'[/blue] already exists."
-        )
-        raise error_panel(error_message)
-
-    config = {
-        "logging": {
-            "path": "run",
-        },
-        "data": {
-            "path": "data",
-        },
-    }
-
-    with config_file.open("w") as f:
-        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
-
-    print_config_file(config_file)
-
-
-def print_config_file(config_file: Path) -> None:
-    """Print config file content."""
-    if not config_file.exists():
-        config_missing(config_file)
-
-    with config_file.open() as f:
-        config = yaml.safe_load(f)
-
-    info_panel(
-        yaml.dump(config, default_flow_style=False, sort_keys=False).strip("\n"),
-        title=f"Configuration file: [bold]{config_file}[/bold]",
-    )
-
-
-def init_config(state: TyperState) -> Configuration:
-    """Initialise configuration from CLI state."""
-    if not state.config_file.exists():
-        config_missing(state.config_file)
-
-    with state.config_file.open() as f:
-        config = yaml.safe_load(f)
-
-    configuration = Configuration()
-    if (
-        "logging" in config
-        and "path" in config["logging"]
-        and config["logging"]["path"]
-    ):
-        configuration.log_path = Path(config["logging"]["path"])
-
-    if "data" in config and "path" in config["data"] and config["data"]["path"]:
-        configuration.data_path = Path(config["data"]["path"])
-
-    if state:
-        configuration.debug = state.debug
-
-    info_panel(
-        yaml.dump(
-            configuration.to_object(),
-            default_flow_style=False,
-            sort_keys=False,
-        ).strip("\n"),
-        title="Global Configuration",
-    )
-
-    return configuration
-
-
-def init_task_config(
-    global_config: Configuration,
-    task_config_file: Path,
-) -> TaskConfiguration:
-    """Initialise task configuration from file."""
-    if not task_config_file.exists():
-        config_missing(task_config_file)
-
-    with task_config_file.open() as f:
-        config = yaml.safe_load(f)
-
-    configuration = TaskConfiguration()
-    configuration.input_type = InputType(config["input_type"])
-    configuration.input_file = global_config.data_path / config["input_file"]
-    configuration.output_file = global_config.data_path / config["output_file"]
-
-    info_panel(
-        yaml.dump(
-            configuration.to_object(),
-            default_flow_style=False,
-            sort_keys=False,
-        ).strip("\n"),
-        title="Task Configuration",
-    )
-
-    return configuration

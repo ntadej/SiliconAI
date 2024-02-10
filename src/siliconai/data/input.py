@@ -1,58 +1,49 @@
 """Data input loading and preprocessing."""
 from __future__ import annotations
 
-from enum import Enum
 from typing import TYPE_CHECKING
 
 import numpy as np
 
+from siliconai.common.enums import DataType
 from siliconai.plotting.common import plot_column, setup_style
 from siliconai.plotting.utils import PDFDocument
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from numpy.typing import ArrayLike
 
+    from siliconai.cli.config import DataConfiguration
     from siliconai.cli.logging import Logger
 
 
-class InputType(Enum):
-    """Input type."""
+class InputConverter:
+    """Input converter class."""
 
-    TRKNtuple = "TRKNtuple"
-
-
-class InputLoader:
-    """Input loader class."""
-
-    def __init__(
-        self,
-        logger: Logger,
-        input_type: InputType,
-        input_file: Path,
-        output_file: Path,
-    ) -> None:
-        """Initialize the input loader."""
+    def __init__(self, logger: Logger, config: DataConfiguration) -> None:
+        """Initialize the input converter."""
         self.logger = logger
-        self.input_type = input_type
-        self.input_file = input_file
-        self.output_file = output_file
+        self.config = config
         self.data: ArrayLike | None = None
 
     def load(self) -> None:
         """Load the input."""
-        if self.input_type == InputType.TRKNtuple:
+        if self.config.type is DataType.TRKNtuple:
             self.load_trkntuple()
+        else:
+            error = f"Unsupported input type: {self.config.type}"
+            raise RuntimeError(error)
 
     def load_trkntuple(self) -> None:
         """Load the input as TRKNtuple."""
-        self.logger.info("Loading TRKNtuple input from %s", self.input_file)
+        self.logger.info(
+            "Loading TRKNtuple input from %s",
+            self.config.conversion_input_file,
+        )
 
         import awkward
         import uproot
 
-        tree = uproot.open(f"{self.input_file}:TRKTree")
+        tree = uproot.open(f"{self.config.conversion_input_file}:TRKTree")
 
         # load tracks and truth particles separately
         data_tracks = tree.arrays(
@@ -122,9 +113,9 @@ class InputLoader:
 
         # cache the result
         self.data = output_data.to_numpy()
-        if self.data is not None:
-            np.save(self.output_file, self.data)
-            self.logger.info("Saved %s", self.output_file)
+        if self.data is not None and self.config.conversion_output_file is not None:
+            np.save(self.config.conversion_output_file, self.data)
+            self.logger.info("Saved %s", self.config.conversion_output_file)
 
     def diagnostics(self) -> None:
         """Make diagnostics plots."""
