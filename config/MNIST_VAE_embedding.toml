@@ -1,4 +1,4 @@
-name = "MNIST VAE Basic"
+name = "MNIST VAE Embedding"
 
 [data]
 type = "MNIST"
@@ -6,7 +6,7 @@ input_dim = [28, 28]
 batch_size = 100
 
 [model]
-type = "BasicVAE"
+type = "EmbeddingVAE"
 latent_dim = 200
 encoder_layers = [400, 400]
 decoder_layers = [400, 400]
@@ -14,3 +14,7 @@ activation = "LeakyReLU"
 activation_parameters = [0.2]
 batch_norm = false
 dropout = 0.0
+
+[model.embedding]
+class_count = 10
+latent_dim = 16

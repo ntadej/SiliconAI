@@ -10,3 +10,10 @@ class DataType(Enum):
 
     # data types
     MNIST = "MNIST"
+
+
+class ModelType(Enum):
+    """Model type."""
+
+    BasicVAE = "BasicVAE"
+    EmbeddingVAE = "EmbeddingVAE"

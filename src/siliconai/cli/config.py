@@ -5,9 +5,10 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import tomli_w
 
-from siliconai.common.enums import DataType
+from siliconai.common.enums import DataType, ModelType
 
 from .logging import Table, config_table, error_panel, info_panel
 
@@ -125,26 +126,37 @@ class TaskConfiguration:
 
         match config:
             case {
+                "name": str(),
                 "data": dict(),
+                "model": dict(),
             }:
                 pass
             case _:
                 error = f"invalid task configuration: {config}"
                 raise ValueError(error)
 
+        self.name: str = config["name"]
         self.data: DataConfiguration = DataConfiguration(config["data"], global_config)
+        self.model: ModelConfiguration = ModelConfiguration(
+            config["model"],
+            global_config,
+        )
 
         info_panel(self.to_table(), title="Task Configuration")
         info_panel(self.data.to_table(), title="Data Configuration")
+        info_panel(self.model.to_table(), title="Model Configuration")
 
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
-        return {}
+        return {
+            "name": self.name,
+        }
 
     def to_table(self) -> Table:
         """Convert configuration to table."""
         table = config_table()
 
+        table.add_row("Name:", self.name)
         table.add_row("Location:", str(self.location))
 
         return table
@@ -158,6 +170,8 @@ class DataConfiguration:
         match config:
             case {
                 "type": str(),
+                "input_dim": list() | int(),
+                "batch_size": int(),
             }:
                 pass
             case _:
@@ -165,6 +179,8 @@ class DataConfiguration:
                 raise ValueError(error)
 
         self.type: DataType = DataType(config["type"])
+        self.input_dim: list[int] | int = config["input_dim"]
+        self.batch_size: int = config["batch_size"]
         self.conversion: bool = False
         self.conversion_input_file: Path | None = None
         self.conversion_output_file: Path | None = None
@@ -178,10 +194,19 @@ class DataConfiguration:
                 global_config.data_path / config["conversion"]["output"]
             )
 
+    @property
+    def flat_input_dim(self) -> int:
+        """Return the flat input dimension."""
+        if isinstance(self.input_dim, int):
+            return self.input_dim
+        return int(np.prod(self.input_dim))
+
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
         return {
             "type": self.type.value,
+            "input_dim": self.input_dim,
+            "batch_size": self.batch_size,
             "conversion": self.conversion,
             "conversion_input_file": str(self.conversion_input_file),
             "conversion_output_file": str(self.conversion_output_file),
@@ -192,11 +217,87 @@ class DataConfiguration:
         table = config_table()
 
         table.add_row("Type:", self.type.value)
+        table.add_row("Input dimension:", str(self.input_dim))
+        table.add_row("Batch size:", str(self.batch_size))
         table.add_row("Conversion needed:", str(self.conversion))
         if self.conversion:
             table.add_row()
             table.add_row("Conversion input file:", str(self.conversion_input_file))
             table.add_row("Conversion output file:", str(self.conversion_output_file))
+
+        return table
+
+
+class ModelConfiguration:
+    """Model configuration."""
+
+    def __init__(self, config: dict[str, Any], _global_config: Configuration) -> None:
+        """Initialize model configuration."""
+        match config:
+            case {
+                "type": str(),
+                "latent_dim": int(),
+                "encoder_layers": list(),
+                "decoder_layers": list(),
+                "activation": str(),
+                "batch_norm": bool(),
+                "dropout": float(),
+            }:
+                pass
+            case _:
+                error = f"invalid task configuration: {config}"
+                raise ValueError(error)
+
+        self.type: ModelType = ModelType(config["type"])
+        self.latent_dim: int = int(config["latent_dim"])
+        self.encoder_layers: list[int] = config["encoder_layers"]
+        self.decoder_layers: list[int] = config["decoder_layers"]
+        self.activation: str = config["activation"]
+        self.activation_parameters: list[float] = config.get(
+            "activation_parameters",
+            [],
+        )
+        self.batch_norm: bool = config["batch_norm"]
+        self.dropout: float = config["dropout"]
+
+        self.embedding: tuple[int, int] | None = None
+        if "embedding" in config:
+            self.embedding = (
+                config["embedding"]["class_count"],
+                config["embedding"]["latent_dim"],
+            )
+
+    def to_object(self) -> dict[str, Any]:
+        """Convert configuration to object."""
+        return {
+            "type": self.type.value,
+            "latent_dim": self.latent_dim,
+            "encoder_layers": self.encoder_layers,
+            "decoder_layers": self.decoder_layers,
+            "activation": self.activation,
+            "batch_norm": self.batch_norm,
+            "dropout": self.dropout,
+            "embedding": self.embedding,
+        }
+
+    def to_table(self) -> Table:
+        """Convert configuration to table."""
+        table = config_table()
+
+        table.add_row("Type:", self.type.value)
+        table.add_row("Latent dimension:", str(self.latent_dim))
+        table.add_row("Encoder layers:", str(self.encoder_layers))
+        table.add_row("Decoder layers:", str(self.decoder_layers))
+        table.add_row("Activation function:", self.activation)
+        if self.activation_parameters:
+            table.add_row("Activation parameters:", str(self.activation_parameters))
+        table.add_row("Batch normalization:", str(self.batch_norm))
+        table.add_row("Dropout rate:", str(self.dropout))
+
+        if self.embedding:
+            table.add_row()
+            table.add_row("Embedding class count:", str(self.embedding[0]))
+            table.add_row("Embedding latent dimension:", str(self.embedding[1]))
 
         return table
 
