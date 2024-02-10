@@ -28,3 +28,10 @@ class Module(L.LightningModule):
             weight_decay=self.config.training.weight_decay,
         )
         return instance
+
+    def on_train_start(self) -> None:
+        """Call when the training begins."""
+        if not self.logger:
+            return
+
+        self.logger.experiment.log_text(self.logger.run_id, str(self), "model.txt")  # type: ignore
