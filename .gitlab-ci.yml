@@ -1,0 +1,25 @@
+# GitLab Continuous Integration configuration for the repository.
+
+stages:
+  - lint
+  - test
+
+# Run pre-commit hooks
+pre-commit:
+  stage: lint
+  image: python:3.11
+  script:
+    - export PATH=/root/.local/bin:$PATH
+    - pip install pipx
+    - pipx install pre-commit
+    - pre-commit run --all-files
+
+# Run code quality checks
+code_quality:
+  tags:
+    - docker-privileged-xl
+  artifacts:
+    paths: [gl-code-quality-report.json]
+
+include:
+  - template: Code-Quality.gitlab-ci.yml
