@@ -1,12 +1,11 @@
 # GitLab Continuous Integration configuration for the repository.
 
 stages:
-  - lint
   - test
 
 # Run pre-commit hooks
 pre-commit:
-  stage: lint
+  stage: test
   image: python:3.11
   script:
     - export PATH=/root/.local/bin:$PATH
@@ -30,6 +29,12 @@ pytest:
   stage: test
   coverage: '/COVERAGE: (\d+\.\d+\%)/'
   image: python:3.11
+  cache:
+    - key:
+        files:
+          - pdm.lock
+      paths:
+        - .venv
   before_script:
     - export PATH=/root/.local/bin:$PATH
     - curl -sSL https://pdm-project.org/install-pdm.py | python -
