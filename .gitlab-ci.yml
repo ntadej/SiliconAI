@@ -15,11 +15,37 @@ pre-commit:
     - pre-commit run --all-files
 
 # Run code quality checks
-code_quality:
-  tags:
-    - docker-privileged-xl
-  artifacts:
-    paths: [gl-code-quality-report.json]
+# code_quality:
+#   stage: test
+#   tags:
+#     - docker-privileged-xl
+#   artifacts:
+#     paths: [gl-code-quality-report.json]
 
-include:
-  - template: Code-Quality.gitlab-ci.yml
+# include:
+#   - template: Code-Quality.gitlab-ci.yml
+
+# Run tests with coverage
+pytest:
+  stage: test
+  coverage: '/COVERAGE: (\d+\.\d+\%)/'
+  image: python:3.11
+  before_script:
+    - export PATH=/root/.local/bin:$PATH
+    - curl -sSL https://pdm-project.org/install-pdm.py | python -
+  script:
+    - pdm sync
+    - pdm run test --junitxml=report.xml
+    - export COVERAGE=$(pdm run coverage report --format=total)
+    - "echo COVERAGE: ${COVERAGE}%"
+  artifacts:
+    paths:
+      - coverage.xml
+      - coverage/*
+    expire_in: 1 day
+    reports:
+      junit: report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    when: always

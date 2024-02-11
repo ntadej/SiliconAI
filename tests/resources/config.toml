@@ -1,0 +1,5 @@
+[data]
+path = "tests/resources/data"
+
+[output]
+path = "tests/resources/run"

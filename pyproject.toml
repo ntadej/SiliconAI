@@ -41,6 +41,7 @@ dev = [
     "pre-commit",
     "pytest >= 7.0",
     "pytest-cov",
+    "pytest-forked",
     "ruff == 0.2.1",
     "types-pyyaml",
 ]
@@ -60,6 +61,8 @@ branch = true
 source = ["src/siliconai"]
 
 [tool.coverage.report]
+precision = 2
+include_namespace_packages = true
 exclude_lines = [
     "pragma: no cover",
     "if self.debug:",
@@ -69,7 +72,6 @@ exclude_lines = [
     "__repr__",
 ]
 ignore_errors = true
-omit = ["src/siliconai/tests/*", "tests/*"]
 
 [tool.ruff]
 src = ["src"]
