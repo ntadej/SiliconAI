@@ -1,10 +1,12 @@
 """Validation plotting helpers."""
+import math
 from pathlib import Path
 
 import lightning as L
 import matplotlib
 import matplotlib.pyplot as plt
 import torch
+from torchvision.utils import make_grid  # type: ignore
 
 from siliconai.cli.config import Configuration
 from siliconai.cli.logging import Logger
@@ -30,6 +32,9 @@ def quick_validate(
 
 def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Path:
     """Validate MNIST-based model output."""
+    batch_size = 100
+    grid_size = int(math.sqrt(batch_size))
+
     output_file = (
         config.output_path
         / f"run_{config.run_number(training=False)}"
@@ -38,17 +43,16 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
 
     if config.model.type in [ModelType.ConditioningVAE]:
         x = model.generate(
-            50,
-            torch.tensor([list(range(10))] * 5).clone().view(-1),
+            batch_size,
+            torch.tensor([list(range(10))] * grid_size).clone().view(-1),
         )
     else:
-        x = model.generate(50)
+        x = model.generate(batch_size)
 
-    for i in range(50):
-        plt.subplot(5, 10, i + 1)
-        plt.axis("off")
-        plt.imshow(x[i].squeeze(0).cpu().numpy(), cmap=matplotlib.cm.gray)  # type: ignore
-        plt.savefig(output_file)
+    grid = make_grid(x.view(batch_size, 1, *config.data.input_dim), nrow=grid_size)
+    plt.axis("off")
+    plt.imshow(grid.permute(1, 2, 0).cpu().numpy(), cmap=matplotlib.cm.gray)  # type: ignore
+    plt.savefig(output_file)
 
     return output_file
 
