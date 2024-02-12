@@ -21,8 +21,6 @@ class Encoder(nn.Module):
         super().__init__()
 
         input_dim = config.data.flat_input_dim
-        if config.model.embedding:
-            input_dim += config.model.embedding[1]
 
         self.model_main = SequentialMLP(
             [input_dim, *config.model.encoder_layers],
@@ -68,8 +66,8 @@ class Decoder(nn.Module):
         super().__init__()
 
         latent_dim = config.model.latent_dim
-        if config.model.embedding:
-            latent_dim += config.model.embedding[1]
+        if config.model.conditioning:
+            latent_dim += config.model.conditioning[1]
 
         self.model = SequentialMLP(
             [latent_dim, *config.model.decoder_layers, config.data.flat_input_dim],
@@ -158,43 +156,43 @@ class BasicVAE(Module):
         self.log("test_loss", loss)
         return loss
 
+    @torch.no_grad()
     def generate(
         self,
         batch_size: int,
         _conditions: Tensor | None = None,
     ) -> Tensor:
         """Generate model output."""
-        with torch.no_grad():
-            z = torch.randn((batch_size, self.config.model.latent_dim)).to(self.device)
-            res: Tensor = self.decoder(z)
-            if isinstance(self.input_dim, list):
-                res = res.view(batch_size, *self.input_dim)
-            return res
+        z = torch.randn((batch_size, self.config.model.latent_dim)).to(self.device)
+        res: Tensor = self.decoder(z)
+        if isinstance(self.input_dim, list):
+            res = res.view(batch_size, *self.input_dim)
+        return res
 
 
-class EmbeddingVAE(BasicVAE):
-    """VAE model model."""
+class ConditioningVAE(BasicVAE):
+    """VAE model with conditioning."""
 
     def __init__(self, config: Configuration) -> None:
         """Initialize the module."""
         super().__init__(config)
-        if config.model.embedding is None:
-            error = "EmbeddingVAE requires an embedding layer"
+        if config.model.conditioning is None:
+            error = "ConditioningVAE requires a conditioning layer"
             raise ValueError(error)
 
-        self.embedding = nn.Embedding(*config.model.embedding)
+        self.conditioning = nn.Embedding(*config.model.conditioning)
 
         self.example_input_array = (
             self.example_input_array,
-            torch.randint(0, config.model.embedding[0], (config.data.batch_size,)),
+            torch.randint(0, config.model.conditioning[0], (config.data.batch_size,)),
         )
 
     def process_loss(self, batch: Tensor) -> Tensor:
         """Process the loss of a batch."""
         x, y = batch
-        y = self.embedding(y)
+        y = self.conditioning(y)
         x = x.view(x.size(0), self.flat_input_dim)
-        mu, log_var = self.encoder(x, y)
+        mu, log_var = self.encoder(x)
         z = self.encoder.reparameterization(mu, log_var)
         x_hat: Tensor = self.decoder(z, y)
         return self.loss_function(x, x_hat, mu, log_var)
@@ -203,31 +201,31 @@ class EmbeddingVAE(BasicVAE):
         """Forward pass."""
         x, y = args[0], args[1]
         x = x.view(x.size(0), self.flat_input_dim)
-        y = self.embedding(y)
-        mu, log_var = self.encoder(x, y)
+        y = self.conditioning(y)
+        mu, log_var = self.encoder(x)
         z = self.encoder.reparameterization(mu, log_var)
         x_hat: Tensor = self.decoder(z, y)
         return x_hat
 
+    @torch.no_grad()
     def generate(
         self,
         batch_size: int,
         conditions: Tensor | None = None,
     ) -> Tensor:
         """Generate model output based on class."""
-        if self.config.model.embedding is None:
-            error = "EmbeddingVAE requires an embedding layer"
+        if self.config.model.conditioning is None:
+            error = "ConditioningVAE requires a conditioning layer"
             raise RuntimeError(error)
 
         if conditions is None:
-            error = "EmbeddingVAE requires conditions"
+            error = "ConditioningVAE requires conditions"
             raise RuntimeError(error)
 
-        with torch.no_grad():
-            conditions = conditions.to(self.device)
-            z = torch.randn((batch_size, self.config.model.latent_dim)).to(self.device)
-            y = self.embedding(conditions)
-            res: Tensor = self.decoder(z, y)
-            if isinstance(self.input_dim, list):
-                res = res.view(batch_size, *self.input_dim)
-            return res
+        conditions = conditions.to(self.device)
+        z = torch.randn((batch_size, self.config.model.latent_dim)).to(self.device)
+        y = self.conditioning(conditions)
+        res: Tensor = self.decoder(z, y)
+        if isinstance(self.input_dim, list):
+            res = res.view(batch_size, *self.input_dim)
+        return res

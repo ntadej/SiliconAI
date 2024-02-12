@@ -7,7 +7,7 @@ from siliconai.cli.config import Configuration
 from siliconai.cli.logging import Logger
 from siliconai.common.enums import DataType, ModelType
 from siliconai.data.modules import MNISTDataModule
-from siliconai.ml.models.vae import BasicVAE, EmbeddingVAE
+from siliconai.ml.models.vae import BasicVAE, ConditioningVAE
 
 
 def load_data_module(logger: Logger, config: Configuration) -> L.LightningDataModule:
@@ -27,8 +27,8 @@ def load_model(logger: Logger, config: Configuration) -> L.LightningModule:
 
     if config.model.type is ModelType.BasicVAE:
         return BasicVAE(config)
-    if config.model.type is ModelType.EmbeddingVAE:
-        return EmbeddingVAE(config)
+    if config.model.type is ModelType.ConditioningVAE:
+        return ConditioningVAE(config)
 
     error = f"Model type {config.model.type} not supported."  # type: ignore
     raise ValueError(error)
@@ -46,8 +46,8 @@ def load_model_from_checkpoint(
     if config.model.type is ModelType.BasicVAE:
         model = BasicVAE.load_from_checkpoint(checkpoint)
         return model  # noqa: RET504
-    if config.model.type is ModelType.EmbeddingVAE:
-        model = EmbeddingVAE.load_from_checkpoint(checkpoint)
+    if config.model.type is ModelType.ConditioningVAE:
+        model = ConditioningVAE.load_from_checkpoint(checkpoint)
         return model  # noqa: RET504
 
     error = f"Model type {config.model.type} not supported."  # type: ignore

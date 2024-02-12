@@ -36,7 +36,7 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
         / "validation.pdf"
     )
 
-    if config.model.type is ModelType.EmbeddingVAE:
+    if config.model.type in [ModelType.ConditioningVAE]:
         x = model.generate(
             50,
             torch.tensor([list(range(10))] * 5).clone().view(-1),

@@ -205,9 +205,9 @@ class Configuration:
         table = config_table()
 
         table.add_row("Name:", self.name)
+        table.add_row("Location:", print_path(self.location))
         table.add_row("Output name:", self.output_name)
         table.add_row("Output path:", print_path(self.output_path))
-        table.add_row("Location:", print_path(self.location))
 
         return table
 
@@ -325,11 +325,11 @@ class ModelConfiguration:
         self.batch_norm: bool = config["batch_norm"]
         self.dropout: float = config["dropout"]
 
-        self.embedding: tuple[int, int] | None = None
-        if "embedding" in config:
-            self.embedding = (
-                config["embedding"]["class_count"],
-                config["embedding"]["latent_dim"],
+        self.conditioning: tuple[int, int] | None = None
+        if "conditioning" in config:
+            self.conditioning = (
+                config["conditioning"]["class_count"],
+                config["conditioning"]["latent_dim"],
             )
 
     def to_object(self) -> dict[str, Any]:
@@ -342,7 +342,7 @@ class ModelConfiguration:
             "activation": self.activation,
             "batch_norm": self.batch_norm,
             "dropout": self.dropout,
-            "embedding": self.embedding,
+            "conditioning": self.conditioning,
         }
 
     def to_table(self) -> Table:
@@ -359,10 +359,10 @@ class ModelConfiguration:
         table.add_row("Batch normalization:", str(self.batch_norm))
         table.add_row("Dropout rate:", str(self.dropout))
 
-        if self.embedding:
+        if self.conditioning:
             table.add_row()
-            table.add_row("Embedding class count:", str(self.embedding[0]))
-            table.add_row("Embedding latent dimension:", str(self.embedding[1]))
+            table.add_row("Conditioning class count:", str(self.conditioning[0]))
+            table.add_row("Conditioning latent dimension:", str(self.conditioning[1]))
 
         return table
 

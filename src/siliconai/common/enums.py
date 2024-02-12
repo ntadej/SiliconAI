@@ -16,4 +16,4 @@ class ModelType(Enum):
     """Model type."""
 
     BasicVAE = "BasicVAE"
-    EmbeddingVAE = "EmbeddingVAE"
+    ConditioningVAE = "ConditioningVAE"
