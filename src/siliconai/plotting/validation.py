@@ -49,6 +49,8 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     else:
         x = model.generate(batch_size)
 
+    x = torch.sigmoid(x)
+
     grid = make_grid(x.view(batch_size, 1, *config.data.input_dim), nrow=grid_size)
     plt.axis("off")
     plt.imshow(grid.permute(1, 2, 0).cpu().numpy(), cmap=matplotlib.cm.gray)  # type: ignore

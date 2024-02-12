@@ -81,8 +81,8 @@ class Decoder(nn.Module):
     def forward(self, x: Tensor, y: Tensor | None = None) -> Tensor:
         """Forward pass."""
         i = torch.cat((x, y), dim=1) if y is not None else x
-
-        return torch.sigmoid(self.model(i))
+        z: Tensor = self.model(i)
+        return z
 
 
 class BasicVAE(Module):
@@ -98,6 +98,8 @@ class BasicVAE(Module):
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
 
+        self.loss_function_ref = getattr(nn.functional, config.model.loss)
+
         self.example_input_array = (
             torch.Tensor(config.data.batch_size, 1, *config.data.input_dim)
             if isinstance(config.data.input_dim, list)
@@ -106,15 +108,20 @@ class BasicVAE(Module):
 
         self.save_hyperparameters()
 
-    @staticmethod
-    def loss_function(x: Tensor, x_hat: Tensor, mu: Tensor, log_var: Tensor) -> Tensor:
+    def loss_function(
+        self,
+        x: Tensor,
+        x_hat: Tensor,
+        mu: Tensor,
+        log_var: Tensor,
+    ) -> Tensor:
         """VAE loss function."""
-        reproduction_loss = nn.functional.binary_cross_entropy(
+        reproduction_loss: Tensor = self.loss_function_ref(
             x_hat,
             x,
             reduction="mean",
         )
-        kld = -0.5 * torch.mean(1 + log_var - mu.pow(2) - log_var.exp())
+        kld: Tensor = -0.5 * torch.mean(1 + log_var - mu.pow(2) - log_var.exp())
         return reproduction_loss + kld
 
     def process_loss(self, batch: Tensor) -> Tensor:
