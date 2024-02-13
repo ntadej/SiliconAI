@@ -41,7 +41,7 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
         / "validation.pdf"
     )
 
-    if config.model.type in [ModelType.ConditioningVAE, ModelType.ConvVAE]:
+    if config.model.type in [ModelType.BasicVAE, ModelType.ConvVAE]:
         x = model.generate(
             batch_size,
             torch.tensor([list(range(10))] * grid_size).clone().view(-1),
@@ -52,7 +52,11 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     if config.model.loss != "logcosh_loss":
         x = torch.sigmoid(x)
 
-    if len(config.data.input_dim) == 3:
+    image_size = 3
+    if (
+        isinstance(config.data.input_dim, list)
+        and len(config.data.input_dim) == image_size
+    ):
         grid = make_grid(x.view(batch_size, *config.data.input_dim), nrow=grid_size)
     else:
         grid = make_grid(x.view(batch_size, 1, *config.data.input_dim), nrow=grid_size)

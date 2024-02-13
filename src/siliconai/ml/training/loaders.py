@@ -7,8 +7,7 @@ from siliconai.cli.config import Configuration
 from siliconai.cli.logging import Logger
 from siliconai.common.enums import DataType, ModelType
 from siliconai.data.modules import MNISTDataModule
-from siliconai.ml.models.conv_vae import ConvVAE
-from siliconai.ml.models.vae import BasicVAE, ConditioningVAE
+from siliconai.ml.models.vae import BasicVAE, ConvVAE
 
 
 def load_data_module(logger: Logger, config: Configuration) -> L.LightningDataModule:
@@ -28,8 +27,6 @@ def load_model(logger: Logger, config: Configuration) -> L.LightningModule:
 
     if config.model.type is ModelType.BasicVAE:
         return BasicVAE(config)
-    if config.model.type is ModelType.ConditioningVAE:
-        return ConditioningVAE(config)
     if config.model.type is ModelType.ConvVAE:
         return ConvVAE(config)
 
@@ -48,9 +45,6 @@ def load_model_from_checkpoint(
     model: L.LightningModule
     if config.model.type is ModelType.BasicVAE:
         model = BasicVAE.load_from_checkpoint(checkpoint)
-        return model  # noqa: RET504
-    if config.model.type is ModelType.ConditioningVAE:
-        model = ConditioningVAE.load_from_checkpoint(checkpoint)
         return model  # noqa: RET504
     if config.model.type is ModelType.ConvVAE:
         model = ConvVAE.load_from_checkpoint(checkpoint)

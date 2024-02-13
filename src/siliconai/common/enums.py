@@ -16,5 +16,4 @@ class ModelType(Enum):
     """Model type."""
 
     BasicVAE = "BasicVAE"
-    ConditioningVAE = "ConditioningVAE"
     ConvVAE = "ConvVAE"

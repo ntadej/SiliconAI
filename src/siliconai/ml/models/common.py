@@ -70,7 +70,7 @@ class SequentialConv2d(nn.Module):
 
     def __init__(
         self,
-        layers_dim: list[int],
+        layers_spec: list[tuple[int, int, int, int]],
         activation: str,
         activation_parameters: list[float],
         batch_norm: bool,
@@ -78,22 +78,24 @@ class SequentialConv2d(nn.Module):
         output_activation: bool = True,
         output_batch_norm: bool = True,
         transpose: bool = False,
+        paddings: list[int] | None = None,
     ) -> None:
         """Initialize the module."""
         super().__init__()
         activation_function = getattr(nn, activation)
 
         layers = []
-        for i in range(1, len(layers_dim)):
-            in_dim, out_dim = layers_dim[i - 1], layers_dim[i]
+        for i in range(1, len(layers_spec)):
+            in_spec, out_spec = layers_spec[i - 1], layers_spec[i]
             layers += self.generate_layers(
-                in_dim,
-                out_dim,
+                in_spec,
+                out_spec,
+                paddings[i] if paddings else 0,
                 activation_function
-                if output_activation or i < len(layers_dim) - 1
+                if output_activation or i < len(layers_spec) - 1
                 else None,
                 activation_parameters,
-                batch_norm if output_batch_norm or i < len(layers_dim) - 1 else False,
+                batch_norm if output_batch_norm or i < len(layers_spec) - 1 else False,
                 dropout,
                 transpose,
             )
@@ -102,8 +104,9 @@ class SequentialConv2d(nn.Module):
 
     @staticmethod
     def generate_layers(
-        input_dim: int,
-        output_dim: int,
+        input_spec: tuple[int, int, int, int],
+        output_spec: tuple[int, int, int, int],
+        padding: int,
         activation_function: type[nn.Module] | None,
         activation_parameters: list[float],
         batch_norm: bool,
@@ -118,21 +121,27 @@ class SequentialConv2d(nn.Module):
         if transpose:
             layers.append(
                 nn.ConvTranspose2d(
-                    input_dim,
-                    output_dim,
-                    kernel_size=3,
-                    stride=2,
-                    padding=1,
-                    output_padding=1,
+                    input_spec[0],
+                    output_spec[0],
+                    kernel_size=output_spec[1],
+                    stride=output_spec[2],
+                    padding=output_spec[3],
+                    output_padding=padding,
                 ),
             )
         else:
             layers.append(
-                nn.Conv2d(input_dim, output_dim, kernel_size=3, stride=2, padding=1),
+                nn.Conv2d(
+                    input_spec[0],
+                    output_spec[0],
+                    kernel_size=output_spec[1],
+                    stride=output_spec[2],
+                    padding=output_spec[3],
+                ),
             )
 
         if batch_norm:
-            layers.append(nn.BatchNorm2d(output_dim))
+            layers.append(nn.BatchNorm2d(output_spec[0]))
 
         if activation_function is not None:
             layers.append(activation_function(*activation_parameters))

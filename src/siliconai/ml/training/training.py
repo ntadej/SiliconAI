@@ -3,6 +3,7 @@ import lightning as L
 
 from siliconai.cli.config import Configuration
 from siliconai.cli.logging import Logger
+from siliconai.common.enums import ModelType
 from siliconai.ml.training.loaders import load_data_module, load_model
 from siliconai.ml.training.utils import common_setup, setup_callbacks, setup_logging
 from siliconai.plotting.validation import quick_validate
@@ -18,6 +19,13 @@ def train(logger: Logger, config: Configuration, diagnostics: bool) -> None:
     # load model
     model = load_model(logger, config)
     logger.info(model)
+    if config.model.type is ModelType.ConvVAE:
+        logger.info(
+            "Convolution image sizes: %s, %s, %s",
+            model.encoder.sizes,
+            model.decoder.sizes,
+            model.decoder.paddings,
+        )
 
     # define callbacks
     callbacks = setup_callbacks(config)

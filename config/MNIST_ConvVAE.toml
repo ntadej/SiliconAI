@@ -1,19 +1,21 @@
-name = "MNIST VAE Conditioning"
+name = "MNIST ConvVAE Conditioning"
 
 [data]
 type = "MNIST"
-input_dim = [28, 28]
+input_dim = [1, 28, 28]
 batch_size = 100
 
 [model]
-type = "ConditioningVAE"
-latent_dim = 200
-encoder_layers = [400, 400]
-decoder_layers = [400, 400]
+type = "ConvVAE"
+latent_dim = 128
+encoder_layers = [[32, 3, 2, 1], [64, 3, 2, 1], [128, 3, 2, 1]]
+decoder_layers = [[128, 3, 2, 1], [64, 3, 2, 1], [32, 3, 2, 1]]
 activation = "LeakyReLU"
 activation_parameters = [0.2]
 batch_norm = false
 dropout = 0.0
+loss = "logcosh_loss"
+loss_parameters = [10.0, 1.0]
 
 [model.conditioning]
 class_count = 10

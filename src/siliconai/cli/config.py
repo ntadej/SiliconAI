@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import tomli_w
@@ -315,8 +315,16 @@ class ModelConfiguration:
 
         self.type: ModelType = ModelType(config["type"])
         self.latent_dim: int = int(config["latent_dim"])
-        self.encoder_layers: list[int] = config["encoder_layers"]
-        self.decoder_layers: list[int] = config["decoder_layers"]
+        self.encoder_layers: list[int] | list[
+            tuple[int, int, int, int]
+        ] = self.process_layers(
+            config["encoder_layers"],
+        )
+        self.decoder_layers: list[int] | list[
+            tuple[int, int, int, int]
+        ] = self.process_layers(
+            config["decoder_layers"],
+        )
         self.activation: str = config["activation"]
         self.activation_parameters: list[float] = config.get(
             "activation_parameters",
@@ -336,6 +344,29 @@ class ModelConfiguration:
                 config["conditioning"]["class_count"],
                 config["conditioning"]["latent_dim"],
             )
+
+    @staticmethod
+    def process_layers(
+        layers: list[int | list[int]],
+    ) -> list[int] | list[tuple[int, int, int, int]]:
+        """Process layers."""
+        int_layers = []
+        tuple_layers: list[tuple[int, int, int, int]] = []
+        for layer in layers:
+            if isinstance(layer, int):
+                int_layers.append(layer)
+            else:
+                tuple_size = 4
+                if len(layer) != tuple_size:
+                    error = "Invalid layer configuration."
+                    raise ValueError(error)
+                tuple_layers.append(cast(tuple[int, int, int, int], tuple(layer)))
+
+        if int_layers and tuple_layers:
+            error = "Invalid layer configuration."
+            raise ValueError(error)
+
+        return tuple_layers if tuple_layers else int_layers
 
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
