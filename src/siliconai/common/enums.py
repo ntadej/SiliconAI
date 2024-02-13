@@ -10,6 +10,7 @@ class DataType(Enum):
 
     # data types
     MNIST = "MNIST"
+    FashionMNIST = "FashionMNIST"
 
 
 class ModelType(Enum):

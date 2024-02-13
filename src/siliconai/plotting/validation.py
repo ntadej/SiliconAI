@@ -24,7 +24,7 @@ def quick_validate(
         logger.info("TRK ntuple validation is not implemented yet.")
         return
 
-    if config.data.type is DataType.MNIST:
+    if config.data.type in [DataType.MNIST, DataType.FashionMNIST]:
         logger.info("Validating MNIST-based model output...")
         file = quick_validate_mnist(config, model)
         logger.info("Validation done and stored in %s.", file)

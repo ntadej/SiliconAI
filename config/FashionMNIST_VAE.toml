@@ -1,0 +1,28 @@
+name = "FashionMNIST VAE Conditioning"
+
+[data]
+type = "FashionMNIST"
+input_dim = [28, 28]
+batch_size = 100
+
+[model]
+type = "BasicVAE"
+latent_dim = 200
+encoder_layers = [400, 400]
+decoder_layers = [400, 400]
+activation = "LeakyReLU"
+activation_parameters = [0.2]
+batch_norm = false
+dropout = 0.0
+
+[model.conditioning]
+class_count = 10
+latent_dim = 16
+
+[training]
+epochs = 50
+early_stopping = 3
+
+optimizer = "Adam"
+learning_rate = 0.001
+weight_decay = 0.0

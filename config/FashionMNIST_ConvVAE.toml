@@ -1,7 +1,7 @@
-name = "MNIST ConvVAE Conditioning"
+name = "FashionMNIST ConvVAE Conditioning"
 
 [data]
-type = "MNIST"
+type = "FashionMNIST"
 input_dim = [1, 28, 28]
 batch_size = 64
 
