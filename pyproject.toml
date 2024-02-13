@@ -130,7 +130,7 @@ ignore = [
     "ANN101", # missing-type-self (deprecated)
     "ANN102", # missing-type-class (deprecated)
 ]
-pylint = { max-args = 8 }
+pylint = { max-args = 12 }
 
 [tool.mypy]
 plugins = "numpy.typing.mypy_plugin"

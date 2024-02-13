@@ -325,6 +325,10 @@ class ModelConfiguration:
         self.batch_norm: bool = config["batch_norm"]
         self.dropout: float = config["dropout"]
         self.loss: str = config.get("loss", "binary_cross_entropy_with_logits")
+        self.loss_parameters: list[float] = config.get(
+            "loss_parameters",
+            [],
+        )
 
         self.conditioning: tuple[int, int] | None = None
         if "conditioning" in config:
@@ -345,6 +349,7 @@ class ModelConfiguration:
             "batch_norm": self.batch_norm,
             "dropout": self.dropout,
             "loss": self.loss,
+            "loss_parameters": self.loss_parameters,
             "conditioning": self.conditioning,
         }
 
@@ -362,6 +367,8 @@ class ModelConfiguration:
         table.add_row("Batch normalization:", str(self.batch_norm))
         table.add_row("Dropout rate:", str(self.dropout))
         table.add_row("Loss function:", self.loss)
+        if self.loss_parameters:
+            table.add_row("Loss function parameters:", str(self.loss_parameters))
 
         if self.conditioning:
             table.add_row()

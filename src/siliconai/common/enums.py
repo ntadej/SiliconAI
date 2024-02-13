@@ -17,3 +17,4 @@ class ModelType(Enum):
 
     BasicVAE = "BasicVAE"
     ConditioningVAE = "ConditioningVAE"
+    ConvVAE = "ConvVAE"
