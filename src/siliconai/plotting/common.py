@@ -1,4 +1,5 @@
 """Common plotting helpers."""
+
 from typing import cast
 
 import matplotlib as mpl

@@ -1,4 +1,5 @@
 """Model training helpers."""
+
 import lightning as L
 
 from siliconai.cli.config import Configuration

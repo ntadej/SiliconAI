@@ -1,4 +1,5 @@
 """Module loaders."""
+
 from pathlib import Path
 
 import lightning as L
@@ -58,10 +59,10 @@ def load_model_from_checkpoint(
     model: L.LightningModule
     if config.model.type is ModelType.BasicVAE:
         model = BasicVAE.load_from_checkpoint(checkpoint)
-        return model  # noqa: RET504
+        return model
     if config.model.type is ModelType.ConvVAE:
         model = ConvVAE.load_from_checkpoint(checkpoint)
-        return model  # noqa: RET504
+        return model
 
     error = f"Model type {config.model.type} not supported."  # type: ignore
     raise ValueError(error)

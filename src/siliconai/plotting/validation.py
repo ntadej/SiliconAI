@@ -1,4 +1,5 @@
 """Validation plotting helpers."""
+
 import math
 from pathlib import Path
 from typing import cast

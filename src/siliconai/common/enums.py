@@ -1,4 +1,5 @@
 """Common enumerations."""
+
 from enum import Enum
 
 

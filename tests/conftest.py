@@ -1,4 +1,5 @@
 """Tests configuration."""
+
 from os import environ
 
 import pytest

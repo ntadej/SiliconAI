@@ -1,4 +1,5 @@
 """Vremenar Utils CLI."""
+
 import sys
 from pathlib import Path
 from sys import argv

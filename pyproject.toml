@@ -18,31 +18,31 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = [
-    "lightning == 2.1.*",
+    "lightning == 2.2.*",
     "matplotlib == 3.8.*",
-    "mlflow == 2.10.*",
+    "mlflow == 2.11.*",
     "mplhep == 0.3.*",
     "numpy == 1.26.*",
     "pandas == 2.2.*",
-    "scipy == 1.12.*",
+    "scipy == 1.13.*",
     "torch == 2.2.*",
     "torchvision == 0.17.*",
     "typer[all] == 0.9.*",
     "tomli-w == 1.0.*",
-    "uproot == 5.2.*",
+    "uproot == 5.3.*",
 ]
 
 [tool.pdm.dev-dependencies]
 dev = [
     "coverage[toml]",
     "ipykernel",
-    "mypy == 1.8.*",
-    "pre-commit-hooks == 4.5.*",
+    "mypy == 1.9.*",
+    "pre-commit-hooks == 4.6.*",
     "pre-commit",
-    "pytest >= 7.0",
+    "pytest >= 8.0",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.2.1",
+    "ruff == 0.3.7",
     "types-pyyaml",
 ]
 

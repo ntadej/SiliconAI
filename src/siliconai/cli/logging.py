@@ -1,4 +1,5 @@
 """Common logging setup."""
+
 from __future__ import annotations
 
 from logging import DEBUG, INFO, Formatter, Logger, getLogger

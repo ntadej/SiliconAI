@@ -1,4 +1,5 @@
 """Configuration utilities."""
+
 from __future__ import annotations
 
 import tomllib
@@ -315,15 +316,15 @@ class ModelConfiguration:
 
         self.type: ModelType = ModelType(config["type"])
         self.latent_dim: int = int(config["latent_dim"])
-        self.encoder_layers: list[int] | list[
-            tuple[int, int, int, int]
-        ] = self.process_layers(
-            config["encoder_layers"],
+        self.encoder_layers: list[int] | list[tuple[int, int, int, int]] = (
+            self.process_layers(
+                config["encoder_layers"],
+            )
         )
-        self.decoder_layers: list[int] | list[
-            tuple[int, int, int, int]
-        ] = self.process_layers(
-            config["decoder_layers"],
+        self.decoder_layers: list[int] | list[tuple[int, int, int, int]] = (
+            self.process_layers(
+                config["decoder_layers"],
+            )
         )
         self.activation: str = config["activation"]
         self.activation_parameters: list[float] = config.get(
