@@ -15,8 +15,8 @@ activation_parameters = [0.2]
 batch_norm = false
 dropout = 0.0
 
-[model.conditioning]
-class_count = 10
+[model.embedding]
+input_dim = 10
 latent_dim = 16
 
 [training]

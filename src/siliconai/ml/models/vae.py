@@ -75,6 +75,8 @@ class Decoder(nn.Module):
         latent_dim = config.model.latent_dim
         if config.model.conditioning:
             latent_dim += config.model.conditioning[1]
+        if config.model.embedding:
+            latent_dim += config.model.embedding[1]
 
         self.model = SequentialMLP(
             [latent_dim, *config.model.decoder_layers, config.data.flat_input_dim],
@@ -195,6 +197,8 @@ class DecoderConv2d(nn.Module):
         latent_dim = config.model.latent_dim
         if config.model.conditioning:
             latent_dim += config.model.conditioning[1]
+        if config.model.embedding:
+            latent_dim += config.model.embedding[1]
 
         self.model_input = nn.Linear(
             latent_dim,
@@ -238,8 +242,8 @@ class BasicVAE(Module):
     def __init__(self, config: Configuration) -> None:
         """Initialize the module."""
         super().__init__(config)
-        if config.model.conditioning is None:
-            error = "BasicVAE requires a conditioning layer"
+        if config.model.conditioning is None and config.model.embedding is None:
+            error = "BasicVAE requires a conditioning or an embedding layer"
             raise ValueError(error)
 
         self.input_dim = config.data.input_dim
@@ -247,15 +251,28 @@ class BasicVAE(Module):
 
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
-        self.conditioning = nn.Embedding(*config.model.conditioning)
+        self.conditioning: nn.Module
+        if config.model.conditioning:
+            self.conditioning = nn.Linear(*config.model.conditioning)
+            example_condition = torch.Tensor(
+                config.data.batch_size,
+                config.model.conditioning[0],
+            )
+        if config.model.embedding:
+            self.conditioning = nn.Embedding(*config.model.embedding)
+            example_condition = torch.randint(
+                0,
+                config.model.embedding[0],
+                (config.data.batch_size,),
+            )
 
         self.loss_function_ref = getattr(nn.functional, config.model.loss)
 
         self.example_input_array = (
-            torch.Tensor(config.data.batch_size, 1, *config.data.input_dim)
+            torch.Tensor(config.data.batch_size, *config.data.input_dim)
             if isinstance(config.data.input_dim, list)
-            else torch.Tensor(config.data.batch_size, 1, config.data.input_dim),
-            torch.randint(0, config.model.conditioning[0], (config.data.batch_size,)),
+            else torch.Tensor(config.data.batch_size, config.data.input_dim),
+            example_condition,
         )
 
         self.save_hyperparameters()
@@ -324,8 +341,11 @@ class BasicVAE(Module):
         conditions: Tensor | None = None,
     ) -> Tensor:
         """Generate model output based on class."""
-        if self.config.model.conditioning is None:
-            error = "BasicVAE requires a conditioning layer"
+        if (
+            self.config.model.conditioning is None
+            and self.config.model.embedding is None
+        ):
+            error = "BasicVAE requires a conditioning or an embedding layer"
             raise RuntimeError(error)
 
         if conditions is None:
@@ -347,8 +367,8 @@ class ConvVAE(Module):
     def __init__(self, config: Configuration) -> None:
         """Initialize the module."""
         super().__init__(config)
-        if config.model.conditioning is None:
-            error = "ConvVAE requires a conditioning layer"
+        if config.model.conditioning is None and config.model.embedding is None:
+            error = "ConvVAE requires a conditioning or an embedding layer"
             raise ValueError(error)
 
         self.input_dim = config.data.input_dim
@@ -356,7 +376,21 @@ class ConvVAE(Module):
 
         self.encoder = EncoderConv2d(config)
         self.decoder = DecoderConv2d(config)
-        self.conditioning = nn.Embedding(*config.model.conditioning)
+        self.conditioning: nn.Module
+        if config.model.conditioning:
+            self.conditioning = nn.Linear(*config.model.conditioning)
+            example_condition = torch.Tensor(
+                config.data.batch_size,
+                1,
+                config.model.conditioning[0],
+            )
+        if config.model.embedding:
+            self.conditioning = nn.Embedding(*config.model.embedding)
+            example_condition = torch.randint(
+                0,
+                config.model.embedding[0],
+                (config.data.batch_size,),
+            )
 
         if config.model.loss == "logcosh_loss":
             self.alpha = config.model.loss_parameters[0]
@@ -370,7 +404,7 @@ class ConvVAE(Module):
             torch.Tensor(config.data.batch_size, 1, *config.data.input_dim)
             if isinstance(config.data.input_dim, list)
             else torch.Tensor(config.data.batch_size, 1, config.data.input_dim),
-            torch.randint(0, config.model.conditioning[0], (config.data.batch_size,)),
+            example_condition,
         )
 
         self.save_hyperparameters()
@@ -459,8 +493,11 @@ class ConvVAE(Module):
         conditions: Tensor | None = None,
     ) -> Tensor:
         """Generate model output based on class."""
-        if self.config.model.conditioning is None:
-            error = "ConvVAE requires a conditioning layer"
+        if (
+            self.config.model.conditioning is None
+            and self.config.model.embedding is None
+        ):
+            error = "ConvVAE requires a conditioning or an embedding layer"
             raise RuntimeError(error)
 
         if conditions is None:

@@ -1,6 +1,7 @@
 """Validation plotting helpers."""
 import math
 from pathlib import Path
+from typing import cast
 
 import lightning as L
 import matplotlib
@@ -11,7 +12,13 @@ from torchvision.utils import make_grid  # type: ignore
 from siliconai.cli.config import Configuration
 from siliconai.cli.logging import Logger
 from siliconai.common.enums import DataType, ModelType
-from siliconai.ml.training.loaders import load_model_from_latest_checkpoint
+from siliconai.data.modules import TRKNtupleDataModule
+from siliconai.ml.training.loaders import (
+    load_data_module,
+    load_model_from_latest_checkpoint,
+)
+from siliconai.plotting.common import plot_hist, setup_style
+from siliconai.plotting.utils import PDFDocument
 
 
 def quick_validate(
@@ -21,8 +28,9 @@ def quick_validate(
 ) -> None:
     """Validate the model after training."""
     if config.data.type is DataType.TRKNtuple:
-        logger.info("TRK ntuple validation is not implemented yet.")
-        return
+        logger.info("Validating TRKNtuple-based model output...")
+        file = quick_validate_trkntuple(config, model)
+        logger.info("Validation done and stored in %s.", file)
 
     if config.data.type in [DataType.MNIST, DataType.FashionMNIST]:
         logger.info("Validating MNIST-based model output...")
@@ -63,6 +71,39 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     plt.axis("off")
     plt.imshow(grid.permute(1, 2, 0).cpu().numpy(), cmap=matplotlib.cm.gray)  # type: ignore
     plt.savefig(output_file)
+
+    return output_file
+
+
+def quick_validate_trkntuple(config: Configuration, model: L.LightningModule) -> Path:
+    """Validate TRKNtuple-based model output."""
+    setup_style()
+
+    batch_size = 1000
+    output_file = (
+        config.output_path
+        / f"run_{config.run_number(training=False)}"
+        / "validation.pdf"
+    )
+
+    data = cast(TRKNtupleDataModule, load_data_module(None, config))
+    data.prepare_data()
+    data.setup("test")
+
+    val_data = data.test_data[:batch_size]
+    orig = val_data[0].cpu().numpy()
+    gen = model.generate(batch_size, val_data[1]).cpu().numpy()
+
+    with PDFDocument(output_file) as pdf:  # type: ignore
+        for i, column in enumerate(data.columns):
+            fig, ax = plot_hist(
+                [gen[:, i], orig[:, i]],
+                column,
+                labels=["Generated", "Original"],
+            )
+            if not fig:
+                continue
+            pdf.save(fig)
 
     return output_file
 

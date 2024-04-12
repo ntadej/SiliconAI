@@ -186,6 +186,8 @@ def validate(
     config = Configuration(config_file, global_config)
     logger = setup_logger(global_config, "validate")
 
+    from siliconai.ml.training.utils import common_setup
     from siliconai.plotting.validation import validate
 
+    common_setup()
     validate(logger, config)

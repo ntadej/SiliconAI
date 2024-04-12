@@ -6,20 +6,31 @@ import lightning as L
 from siliconai.cli.config import Configuration
 from siliconai.cli.logging import Logger
 from siliconai.common.enums import DataType, ModelType
-from siliconai.data.modules import FashionMNISTDataModule, MNISTDataModule
+from siliconai.data.modules import (
+    FashionMNISTDataModule,
+    MNISTDataModule,
+    TRKNtupleDataModule,
+)
 from siliconai.ml.models.vae import BasicVAE, ConvVAE
 
 
-def load_data_module(logger: Logger, config: Configuration) -> L.LightningDataModule:
+def load_data_module(
+    logger: Logger | None,
+    config: Configuration,
+) -> L.LightningDataModule:
     """Load the data module based on the configuration."""
-    logger.info("Loading data type: %s", config.data.type.value)
+    if logger:
+        logger.info("Loading data type: %s", config.data.type.value)
 
+    if config.data.type is DataType.TRKNtuple:
+        return TRKNtupleDataModule(config)
+    # test samples
     if config.data.type is DataType.MNIST:
         return MNISTDataModule(config)
     if config.data.type is DataType.FashionMNIST:
         return FashionMNISTDataModule(config)
 
-    error = f"Data type {config.data.type} not supported."
+    error = f"Data type {config.data.type} not supported."  # type: ignore
     raise ValueError(error)
 
 

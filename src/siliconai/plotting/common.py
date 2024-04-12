@@ -70,22 +70,36 @@ def plot_column(
         return None, None
 
     column_data = cast(list[float], data[column].tolist())  # type: ignore
+    return plot_hist([column_data], column, nbins, logx)
+
+
+def plot_hist(
+    data: list[list[float]],
+    column: str,
+    nbins: int = 25,
+    logx: bool = False,
+    labels: list[str] | None = None,
+) -> tuple[Figure | None, Axes | None]:
+    """Plot a column from a dataframe."""
+    if not data:
+        return None, None
+
     binning_function = log_binning if logx else linear_binning
     binning = (
         common_binning[column]
         if column in common_binning
         else binning_function(
             nbins,
-            min(column_data),
-            max(column_data),
+            min(data[0]),
+            max(data[0]),
             rounded=False,
         )
     )
 
-    hist, bins = np.histogram(column_data, binning)
-
     fig, ax = plt.subplots(figsize=(6, 4))
-    hep.histplot(hist, bins, ax=ax, yerr=True, label=column)
+    for d, label in zip(data, labels or [column], strict=False):
+        hist, bins = np.histogram(d, binning)
+        hep.histplot(hist, bins, ax=ax, yerr=True, label=label)
     # TODO: make the label configurable
     hep.atlas.label(
         "Internal",
@@ -96,6 +110,8 @@ def plot_column(
     ax.set_ylim(ax.get_ylim()[0], ax.get_ylim()[1] * 1.2)
     ax.set_xlabel(column)
     ax.set_ylabel("Tracks")
+    if len(data) > 1:
+        plt.legend()
 
     return fig, ax
 

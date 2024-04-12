@@ -341,8 +341,15 @@ class ModelConfiguration:
         self.conditioning: tuple[int, int] | None = None
         if "conditioning" in config:
             self.conditioning = (
-                config["conditioning"]["class_count"],
+                config["conditioning"]["input_dim"],
                 config["conditioning"]["latent_dim"],
+            )
+
+        self.embedding: tuple[int, int] | None = None
+        if "embedding" in config:
+            self.embedding = (
+                config["embedding"]["input_dim"],
+                config["embedding"]["latent_dim"],
             )
 
     @staticmethod
@@ -382,6 +389,7 @@ class ModelConfiguration:
             "loss": self.loss,
             "loss_parameters": self.loss_parameters,
             "conditioning": self.conditioning,
+            "embedding": self.embedding,
         }
 
     def to_table(self) -> Table:
@@ -403,8 +411,13 @@ class ModelConfiguration:
 
         if self.conditioning:
             table.add_row()
-            table.add_row("Conditioning class count:", str(self.conditioning[0]))
+            table.add_row("Conditioning input dimension:", str(self.conditioning[0]))
             table.add_row("Conditioning latent dimension:", str(self.conditioning[1]))
+
+        if self.embedding:
+            table.add_row()
+            table.add_row("Embedding class count:", str(self.embedding[0]))
+            table.add_row("Embedding latent dimension:", str(self.embedding[1]))
 
         return table
 
