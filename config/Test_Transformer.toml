@@ -1,0 +1,25 @@
+name = "Transformer Test"
+
+[data]
+type = "TestSequence"
+input_dim = 4
+batch_size = 16
+
+[model]
+type = "Transformer"
+model_dim = 8          # 512
+encoder_layers = 2     # 6
+decoder_layers = 0     # 6
+heads = 2              # 8
+feedforward_dim = 32   # 2048
+activation = "ReLU"
+dropout = 0.1
+loss = "cross_entropy"
+
+[training]
+epochs = 50
+early_stopping = 3
+
+optimizer = "Adam"
+learning_rate = 0.001
+weight_decay = 0.0

@@ -22,8 +22,13 @@ class Encoder(nn.Module):
         """Initialize the module."""
         super().__init__()
 
-        if not config.model.encoder_layers or any(
-            isinstance(layer_spec, tuple) for layer_spec in config.model.encoder_layers
+        if (
+            not config.model.encoder_layers
+            or isinstance(config.model.encoder_layers, int)
+            or any(
+                isinstance(layer_spec, tuple)
+                for layer_spec in config.model.encoder_layers
+            )
         ):
             error = "Encoder layers must be a list of integers"
             raise TypeError(error)
@@ -40,11 +45,11 @@ class Encoder(nn.Module):
         )
         self.model_mu = nn.Linear(
             encoder_layers[-1],
-            config.model.latent_dim,
+            config.model.model_dim,
         )
         self.model_log_var = nn.Linear(
             encoder_layers[-1],
-            config.model.latent_dim,
+            config.model.model_dim,
         )
 
     def forward(
@@ -73,14 +78,25 @@ class Decoder(nn.Module):
         """Initialize the module."""
         super().__init__()
 
-        latent_dim = config.model.latent_dim
+        if (
+            not config.model.decoder_layers
+            or isinstance(config.model.decoder_layers, int)
+            or any(
+                isinstance(layer_spec, tuple)
+                for layer_spec in config.model.decoder_layers
+            )
+        ):
+            error = "Decoder layers must be a list of integers"
+            raise TypeError(error)
+
+        model_dim = config.model.model_dim
         if config.model.conditioning:
-            latent_dim += config.model.conditioning[1]
+            model_dim += config.model.conditioning[1]
         if config.model.embedding:
-            latent_dim += config.model.embedding[1]
+            model_dim += config.model.embedding[1]
 
         self.model = SequentialMLP(
-            [latent_dim, *config.model.decoder_layers, config.data.flat_input_dim],
+            [model_dim, *config.model.decoder_layers, config.data.flat_input_dim],
             config.model.activation,
             config.model.activation_parameters,
             config.model.batch_norm,
@@ -107,8 +123,13 @@ class EncoderConv2d(nn.Module):
             error = "ConvVAE requires a list input_dim"
             raise TypeError(error)
 
-        if not config.model.encoder_layers or any(
-            isinstance(layer_spec, int) for layer_spec in config.model.encoder_layers
+        if (
+            not config.model.encoder_layers
+            or isinstance(config.model.encoder_layers, int)
+            or any(
+                isinstance(layer_spec, int)
+                for layer_spec in config.model.encoder_layers
+            )
         ):
             error = "Encoder layers must be a list of tuples"
             raise TypeError(error)
@@ -130,11 +151,11 @@ class EncoderConv2d(nn.Module):
         self.model_flatten = nn.Flatten(start_dim=1)
         self.model_mu = nn.Linear(
             encoder_layers[-1][0] * self.sizes[-1] * self.sizes[-1],
-            config.model.latent_dim,
+            config.model.model_dim,
         )
         self.model_log_var = nn.Linear(
             encoder_layers[-1][0] * self.sizes[-1] * self.sizes[-1],
-            config.model.latent_dim,
+            config.model.model_dim,
         )
 
     def forward(
@@ -168,8 +189,13 @@ class DecoderConv2d(nn.Module):
             error = "ConvVAE requires a list input_dim"
             raise TypeError(error)
 
-        if not config.model.decoder_layers or any(
-            isinstance(layer_spec, int) for layer_spec in config.model.decoder_layers
+        if (
+            not config.model.decoder_layers
+            or isinstance(config.model.decoder_layers, int)
+            or any(
+                isinstance(layer_spec, int)
+                for layer_spec in config.model.decoder_layers
+            )
         ):
             error = "Decoder layers must be a list of tuples"
             raise TypeError(error)
@@ -195,14 +221,14 @@ class DecoderConv2d(nn.Module):
             decoder_layers[i] = (decoder_layers[i + 1][0], *decoder_layers[i][1:])
         decoder_layers[-1] = (config.data.input_dim[0], *decoder_layers[-1][1:])
 
-        latent_dim = config.model.latent_dim
+        model_dim = config.model.model_dim
         if config.model.conditioning:
-            latent_dim += config.model.conditioning[1]
+            model_dim += config.model.conditioning[1]
         if config.model.embedding:
-            latent_dim += config.model.embedding[1]
+            model_dim += config.model.embedding[1]
 
         self.model_input = nn.Linear(
-            latent_dim,
+            model_dim,
             decoder_layers[0][0] * self.sizes[0] * self.sizes[0],
         )
         self.model_unflatten = nn.Unflatten(
@@ -354,7 +380,7 @@ class BasicVAE(Module):
             raise RuntimeError(error)
 
         conditions = conditions.to(self.device)
-        z = torch.randn((batch_size, self.config.model.latent_dim)).to(self.device)
+        z = torch.randn((batch_size, self.config.model.model_dim)).to(self.device)
         y = self.conditioning(conditions)
         res: Tensor = self.decoder(z, y)
         if isinstance(self.input_dim, list):
@@ -506,7 +532,7 @@ class ConvVAE(Module):
             raise RuntimeError(error)
 
         conditions = conditions.to(self.device)
-        z = torch.randn((batch_size, self.config.model.latent_dim)).to(self.device)
+        z = torch.randn((batch_size, self.config.model.model_dim)).to(self.device)
         y = self.conditioning(conditions)
         res: Tensor = self.decoder(z, y)
         if isinstance(self.input_dim, list):

@@ -13,9 +13,13 @@ class DataType(Enum):
     MNIST = "MNIST"
     FashionMNIST = "FashionMNIST"
 
+    # test types
+    TestSequence = "TestSequence"
+
 
 class ModelType(Enum):
     """Model type."""
 
     BasicVAE = "BasicVAE"
     ConvVAE = "ConvVAE"
+    Transformer = "Transformer"

@@ -11,7 +11,7 @@ output = "TRKNtuple_mu_Pt100to150_Eta020to025pm.npy"
 
 [model]
 type = "BasicVAE"
-latent_dim = 16
+model_dim = 16
 encoder_layers = [128, 64]
 decoder_layers = [64, 128]
 activation = "LeakyReLU"
@@ -22,7 +22,7 @@ loss = "mse_loss"
 
 [model.conditioning]
 input_dim = 4
-latent_dim = 16
+model_dim = 16
 
 [training]
 epochs = 50

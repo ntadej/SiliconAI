@@ -169,7 +169,7 @@ class Configuration:
         """Return the sanitized output name."""
         return self.name.replace(" ", "_")
 
-    def run_number(self, training: bool = True) -> int:
+    def run_number(self, training: bool = False) -> int:
         """Return the run number."""
         if self._run_number:
             return self._run_number
@@ -302,11 +302,10 @@ class ModelConfiguration:
         match config:
             case {
                 "type": str(),
-                "latent_dim": int(),
-                "encoder_layers": list(),
-                "decoder_layers": list(),
+                "model_dim": int(),
+                "encoder_layers": int() | list(),
+                "decoder_layers": int() | list(),
                 "activation": str(),
-                "batch_norm": bool(),
                 "dropout": float(),
             }:
                 pass
@@ -315,13 +314,15 @@ class ModelConfiguration:
                 raise ValueError(error)
 
         self.type: ModelType = ModelType(config["type"])
-        self.latent_dim: int = int(config["latent_dim"])
-        self.encoder_layers: list[int] | list[tuple[int, int, int, int]] = (
+        self.model_dim: int = int(config["model_dim"])
+        self.heads: int = int(config.get("heads", 0))
+        self.feedforward_dim: int = int(config.get("feedforward_dim", 0))
+        self.encoder_layers: int | list[int] | list[tuple[int, int, int, int]] = (
             self.process_layers(
                 config["encoder_layers"],
             )
         )
-        self.decoder_layers: list[int] | list[tuple[int, int, int, int]] = (
+        self.decoder_layers: int | list[int] | list[tuple[int, int, int, int]] = (
             self.process_layers(
                 config["decoder_layers"],
             )
@@ -331,7 +332,7 @@ class ModelConfiguration:
             "activation_parameters",
             [],
         )
-        self.batch_norm: bool = config["batch_norm"]
+        self.batch_norm: bool = config.get("batch_norm", False)
         self.dropout: float = config["dropout"]
         self.loss: str = config.get("loss", "binary_cross_entropy_with_logits")
         self.loss_parameters: list[float] = config.get(
@@ -343,21 +344,24 @@ class ModelConfiguration:
         if "conditioning" in config:
             self.conditioning = (
                 config["conditioning"]["input_dim"],
-                config["conditioning"]["latent_dim"],
+                config["conditioning"]["model_dim"],
             )
 
         self.embedding: tuple[int, int] | None = None
         if "embedding" in config:
             self.embedding = (
                 config["embedding"]["input_dim"],
-                config["embedding"]["latent_dim"],
+                config["embedding"]["model_dim"],
             )
 
     @staticmethod
     def process_layers(
-        layers: list[int | list[int]],
-    ) -> list[int] | list[tuple[int, int, int, int]]:
+        layers: int | list[int | list[int]],
+    ) -> int | list[int] | list[tuple[int, int, int, int]]:
         """Process layers."""
+        if isinstance(layers, int):
+            return layers
+
         int_layers = []
         tuple_layers: list[tuple[int, int, int, int]] = []
         for layer in layers:
@@ -380,9 +384,11 @@ class ModelConfiguration:
         """Convert configuration to object."""
         return {
             "type": self.type.value,
-            "latent_dim": self.latent_dim,
+            "model_dim": self.model_dim,
             "encoder_layers": self.encoder_layers,
             "decoder_layers": self.decoder_layers,
+            "heads": self.heads,
+            "feedforward_dim": self.feedforward_dim,
             "activation": self.activation,
             "activation_parameters": self.activation_parameters,
             "batch_norm": self.batch_norm,
@@ -398,13 +404,18 @@ class ModelConfiguration:
         table = config_table()
 
         table.add_row("Type:", self.type.value)
-        table.add_row("Latent dimension:", str(self.latent_dim))
+        table.add_row("Latent dimension:", str(self.model_dim))
         table.add_row("Encoder layers:", str(self.encoder_layers))
         table.add_row("Decoder layers:", str(self.decoder_layers))
+        if self.heads:
+            table.add_row("Number of heads:", str(self.heads))
+        if self.feedforward_dim:
+            table.add_row("Feedworward dimension:", str(self.feedforward_dim))
         table.add_row("Activation function:", self.activation)
         if self.activation_parameters:
             table.add_row("Activation parameters:", str(self.activation_parameters))
-        table.add_row("Batch normalization:", str(self.batch_norm))
+        if self.type is not ModelType.Transformer:
+            table.add_row("Batch normalization:", str(self.batch_norm))
         table.add_row("Dropout rate:", str(self.dropout))
         table.add_row("Loss function:", self.loss)
         if self.loss_parameters:

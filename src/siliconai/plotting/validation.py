@@ -13,9 +13,9 @@ from torchvision.utils import make_grid  # type: ignore
 from siliconai.cli.config import Configuration
 from siliconai.cli.logging import Logger
 from siliconai.common.enums import DataType, ModelType
-from siliconai.data.modules import TRKNtupleDataModule
+from siliconai.data.modules import TestSequenceDataModule, TRKNtupleDataModule
 from siliconai.ml.training.loaders import (
-    load_data_module,
+    load_data_module_from_latest_checkpoint,
     load_model_from_latest_checkpoint,
 )
 from siliconai.plotting.common import plot_hist, setup_style
@@ -26,16 +26,22 @@ def quick_validate(
     logger: Logger,
     config: Configuration,
     model: L.LightningModule,
+    data: L.LightningDataModule,
 ) -> None:
     """Validate the model after training."""
     if config.data.type is DataType.TRKNtuple:
         logger.info("Validating TRKNtuple-based model output...")
-        file = quick_validate_trkntuple(config, model)
+        file = quick_validate_trkntuple(config, model, data)
         logger.info("Validation done and stored in %s.", file)
 
     if config.data.type in [DataType.MNIST, DataType.FashionMNIST]:
         logger.info("Validating MNIST-based model output...")
         file = quick_validate_mnist(config, model)
+        logger.info("Validation done and stored in %s.", file)
+
+    if config.data.type is DataType.TestSequence:
+        logger.info("Validating TestSequence-based model output...")
+        file = quick_validate_test_sequence(config, model, data, logger=logger)
         logger.info("Validation done and stored in %s.", file)
 
 
@@ -44,11 +50,7 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     batch_size = 100
     grid_size = int(math.sqrt(batch_size))
 
-    output_file = (
-        config.output_path
-        / f"run_{config.run_number(training=False)}"
-        / "validation.pdf"
-    )
+    output_file = config.output_path / f"run_{config.run_number()}" / "validation.pdf"
 
     if config.model.type in [ModelType.BasicVAE, ModelType.ConvVAE]:
         x = model.generate(
@@ -76,18 +78,18 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     return output_file
 
 
-def quick_validate_trkntuple(config: Configuration, model: L.LightningModule) -> Path:
+def quick_validate_trkntuple(
+    config: Configuration,
+    model: L.LightningModule,
+    data: L.LightningDataModule,
+) -> Path:
     """Validate TRKNtuple-based model output."""
     setup_style()
 
     batch_size = 1000
-    output_file = (
-        config.output_path
-        / f"run_{config.run_number(training=False)}"
-        / "validation.pdf"
-    )
+    output_file = config.output_path / f"run_{config.run_number()}" / "validation.pdf"
 
-    data = cast(TRKNtupleDataModule, load_data_module(None, config))
+    data = cast(TRKNtupleDataModule, data)
     data.prepare_data()
     data.setup("test")
 
@@ -109,13 +111,55 @@ def quick_validate_trkntuple(config: Configuration, model: L.LightningModule) ->
     return output_file
 
 
+def quick_validate_test_sequence(
+    _: Configuration,
+    model: L.LightningModule,
+    data: L.LightningDataModule,
+    logger: Logger | None = None,
+) -> Path:
+    """Validate TRKNtuple-based model output."""
+    setup_style()
+
+    data = cast(TestSequenceDataModule, data)
+
+    data.prepare_data()  # TODO: should not be needed
+
+    sequence = [8, 8, 8, 5]
+    sequence_tokenized = [data.token_dict.word2idx[x] for x in sequence]
+
+    if logger:
+        logger.info("Sequence: %s", sequence)
+        logger.info("Tokenized: %s", sequence_tokenized)
+
+    input_tensor = torch.tensor(
+        [sequence_tokenized],
+        dtype=torch.long,
+        device=model.device,
+    )
+
+    result = model.predict(input_tensor, end_token=data.token_dict.word2idx[0])
+
+    if logger:
+        logger.info("Tokenized result: %s", result)
+
+    result_translated = [
+        data.token_dict.idx2word[x] for x in result.squeeze().cpu().numpy()
+    ]
+
+    if logger:
+        logger.info("Result: %s", result_translated)
+
+    return Path()
+
+
 def validate(logger: Logger, config: Configuration) -> None:
     """Validate the model after training."""
     checkpoint_path = (
         config.global_config.output_path
         / config.output_name
-        / f"run_{config.run_number(training=False)}"
+        / f"run_{config.run_number()}"
         / "checkpoints"
     )
+    data = load_data_module_from_latest_checkpoint(logger, config, checkpoint_path)
     model = load_model_from_latest_checkpoint(logger, config, checkpoint_path)
-    quick_validate(logger, config, model)
+    quick_validate(logger, config, model, data)

@@ -8,7 +8,13 @@ from torchvision.datasets import MNIST, FashionMNIST  # type: ignore
 from torchvision.transforms import ToTensor  # type: ignore
 
 from siliconai.cli.config import Configuration
-from siliconai.data.datasets import TRKNtupleDataset, TRKNtupleToTensor
+from siliconai.data.datasets import TestSequenceDataset, TRKNtupleDataset
+from siliconai.data.utils import (
+    DataDictionary,
+    NdarrayToFloatTensor,
+    NdarrayToLongTensor,
+    Tokenize,
+)
 
 
 class MNISTDataModule(L.LightningDataModule):
@@ -101,11 +107,85 @@ class TRKNtupleDataModule(L.LightningDataModule):
             error = "TRKNtuple data path not set."
             raise ValueError(error)
 
-        dataset = TRKNtupleDataset(self.data_path, transforms=[TRKNtupleToTensor()])
+        dataset = TRKNtupleDataset(self.data_path, transforms=[NdarrayToFloatTensor()])
         self.columns = dataset.column_list[:]
 
-        self.train_data = dataset
-        self.train_data, self.val_data, self.test_data = random_split(  # type: ignore
+        self.train_data, self.val_data, self.test_data = random_split(
+            dataset,
+            [0.7, 0.15, 0.15],
+        )
+
+    def train_dataloader(self) -> DataLoader[Any]:
+        """Return the training DataLoader."""
+        return DataLoader(
+            self.train_data,
+            batch_size=self.batch_size,
+            num_workers=self.workers,
+        )
+
+    def val_dataloader(self) -> DataLoader[Any]:
+        """Return the validation DataLoader."""
+        return DataLoader(
+            self.val_data,
+            batch_size=self.batch_size,
+            num_workers=self.workers,
+        )
+
+    def test_dataloader(self) -> DataLoader[Any]:
+        """Return the test DataLoader."""
+        return DataLoader(
+            self.test_data,
+            batch_size=self.batch_size,
+            num_workers=self.workers,
+        )
+
+    def state_dict(self) -> dict[str, Any]:
+        """Track the data module state."""
+        return {}
+
+    def load_state_dict(self, _state_dict: dict[str, Any]) -> None:
+        """Restore the state based on what is tracked."""
+
+
+class TestSequenceDataModule(L.LightningDataModule):
+    """Sequence test data module."""
+
+    def __init__(self, data_config: Configuration) -> None:
+        """Initialize the data module."""
+        super().__init__()
+        self.data_path = data_config.global_config.data_path / "test_sequence.npy"
+        self.batch_size = data_config.data.batch_size
+        self.workers = 4
+
+        self.token_dict = DataDictionary("test_sequence")
+
+        self.save_hyperparameters()
+
+    def prepare_data(self) -> None:
+        """Prepare sequence test dataset."""
+        dataset = TestSequenceDataset(
+            self.data_path,
+            transforms=[
+                Tokenize(self.token_dict),
+                NdarrayToLongTensor(),
+            ],
+        )
+        for i in range(len(dataset)):
+            dataset[i]
+
+        assert len(self.token_dict) > 1
+
+    def setup(self, stage: str) -> None:  # noqa: ARG002
+        """Transform and setup the sequence test dataset."""
+        dataset = TestSequenceDataset(
+            self.data_path,
+            transforms=[
+                Tokenize(self.token_dict),
+                NdarrayToLongTensor(),
+            ],
+        )
+
+        self.train_data, self.val_data, self.test_data = random_split(
             dataset,
             [0.7, 0.15, 0.15],
         )

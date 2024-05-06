@@ -7,7 +7,7 @@ batch_size = 64
 
 [model]
 type = "ConvVAE"
-latent_dim = 128
+model_dim = 128
 encoder_layers = [[32, 3, 2, 1], [64, 3, 2, 1], [128, 3, 2, 1]]
 decoder_layers = [[128, 3, 2, 1], [64, 3, 2, 1], [32, 3, 2, 1]]
 activation = "LeakyReLU"
@@ -19,7 +19,7 @@ loss_parameters = [10.0, 1.0]
 
 [model.embedding]
 input_dim = 10
-latent_dim = 16
+model_dim = 16
 
 [training]
 epochs = 50

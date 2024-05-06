@@ -7,7 +7,7 @@ batch_size = 100
 
 [model]
 type = "BasicVAE"
-latent_dim = 200
+model_dim = 200
 encoder_layers = [400, 400]
 decoder_layers = [400, 400]
 activation = "LeakyReLU"
@@ -17,7 +17,7 @@ dropout = 0.0
 
 [model.embedding]
 input_dim = 10
-latent_dim = 16
+model_dim = 16
 
 [training]
 epochs = 50

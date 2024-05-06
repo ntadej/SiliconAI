@@ -14,6 +14,9 @@ def train(logger: Logger, config: Configuration, diagnostics: bool) -> None:
     """Train the model."""
     common_setup()
 
+    # setup run number
+    logger.info("Run number %d", config.run_number(training=True))
+
     # load data
     data = load_data_module(logger, config)
 
@@ -50,4 +53,4 @@ def train(logger: Logger, config: Configuration, diagnostics: bool) -> None:
 
     # diagnostics
     if diagnostics:
-        quick_validate(logger, config, model)
+        quick_validate(logger, config, model, data)
