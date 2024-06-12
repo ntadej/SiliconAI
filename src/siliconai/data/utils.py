@@ -8,65 +8,93 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
+from numpy.typing import NDArray
 
 if TYPE_CHECKING:
-    from numpy.typing import ArrayLike
     from torch import Tensor
 
 Word = Any
 
+NDArrayType = NDArray[np.float32 | np.uint64]
 
-class Transformation(ABC):
-    """Transformation base class."""
+
+class NDArrayTransformation(ABC):
+    """numpy ndarray transformation base class."""
 
     @abstractmethod
     def __call__(
         self,
-        sample: tuple[ArrayLike, ArrayLike],
-    ) -> tuple[ArrayLike | Tensor, ArrayLike | Tensor]:
+        sample: tuple[NDArrayType, NDArrayType],
+    ) -> tuple[NDArrayType, NDArrayType]:
         """Transform the sample."""
         raise NotImplementedError
 
 
-class NdarrayToFloatTensor(Transformation):
+class TensorTransformation(ABC):
+    """numpy to tensor transformation base class."""
+
+    @abstractmethod
+    def __call__(
+        self,
+        sample: tuple[NDArrayType, NDArrayType],
+    ) -> tuple[Tensor, Tensor]:
+        """Transform the sample."""
+        raise NotImplementedError
+
+
+class NDArrayToFloatTensor(TensorTransformation):
     """Convert ndarrays in sample to float Tensors."""
 
     def __call__(
         self,
-        sample: tuple[ArrayLike, ArrayLike],
+        sample: tuple[NDArrayType, NDArrayType],
     ) -> tuple[Tensor, Tensor]:
         """Transform the sample to tensors."""
         columns, labels = sample
         return (torch.from_numpy(columns).float(), torch.from_numpy(labels).float())
 
 
-class NdarrayToLongTensor(Transformation):
+class NDArrayToLongTensor(TensorTransformation):
     """Convert ndarrays in sample to long Tensors."""
 
     def __call__(
         self,
-        sample: tuple[ArrayLike, ArrayLike],
+        sample: tuple[NDArrayType, NDArrayType],
     ) -> tuple[Tensor, Tensor]:
         """Transform the sample to tensors."""
         columns, labels = sample
         return (torch.from_numpy(columns).long(), torch.from_numpy(labels).long())
 
 
-class Tokenize(Transformation):
+class Tokenize(NDArrayTransformation):
     """Tokenize the input data."""
 
-    def __init__(self, dictionary: DataDictionary) -> None:
+    def __init__(self, dictionary: DataDictionary, index: int) -> None:
         """Initialize the tokenizer."""
         self.dictionary = dictionary
+        self.index = index
 
     def __call__(
         self,
-        sample: tuple[ArrayLike, ArrayLike],
-    ) -> tuple[Tensor, Tensor]:
+        sample: tuple[NDArrayType, NDArrayType],
+    ) -> tuple[NDArrayType, NDArrayType]:
         """Transform the sample to tensors."""
         columns, labels = sample
         helper = np.vectorize(self.dictionary.add_word)
-        return (helper(columns), helper(labels))
+        columns[:, self.index] = helper(columns[:, self.index])
+        labels[:, self.index] = helper(labels[:, self.index])
+        return (columns, labels)
+
+    def inverse(
+        self,
+        sample: tuple[NDArrayType, NDArrayType],
+    ) -> tuple[NDArrayType, NDArrayType]:
+        """Inverse the tokenization."""
+        columns, labels = sample
+        helper = np.vectorize(self.dictionary.get_word)
+        columns[:, self.index] = helper(columns[:, self.index])
+        labels[:, self.index] = helper(labels[:, self.index])
+        return (columns, labels)
 
 
 class DataDictionary:
@@ -94,6 +122,10 @@ class DataDictionary:
             self.idx2word.append(word)
             self.word2idx[word] = len(self.idx2word) - 1
         return self.word2idx[word]
+
+    def get_word(self, index: int) -> Word:
+        """Get the word from the index."""
+        return self.idx2word[index]
 
     def __len__(self) -> int:
         """Return the size of the dictionary."""

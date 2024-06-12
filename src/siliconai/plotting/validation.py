@@ -1,17 +1,17 @@
 """Validation plotting helpers."""
 
+from __future__ import annotations
+
 import math
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-import lightning as L
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from torchvision.utils import make_grid  # type: ignore
 
-from siliconai.cli.config import Configuration
-from siliconai.cli.logging import Logger
 from siliconai.common.enums import DataType, ModelType
 from siliconai.data.modules import TestSequenceDataModule, TRKNtupleDataModule
 from siliconai.ml.training.loaders import (
@@ -20,6 +20,13 @@ from siliconai.ml.training.loaders import (
 )
 from siliconai.plotting.common import plot_hist, setup_style
 from siliconai.plotting.utils import PDFDocument
+
+if TYPE_CHECKING:
+    import lightning as L
+
+    from siliconai.cli.config import Configuration
+    from siliconai.cli.logging import Logger
+    from siliconai.data.utils import NDArrayType
 
 
 def quick_validate(
@@ -118,33 +125,52 @@ def quick_validate_test_sequence(
     logger: Logger | None = None,
 ) -> Path:
     """Validate TRKNtuple-based model output."""
+    _rich_traceback_guard = True
     setup_style()
 
+    model = model.cpu()
+
     data = cast(TestSequenceDataModule, data)
+    data.tokenize_data()  # TODO: should not be needed
 
-    data.prepare_data()  # TODO: should not be needed
+    sequence = np.array([[1, 2], [5, 2], [8, 2], [5, 2]])
 
-    sequence = [8, 8, 8, 5]
-    sequence_tokenized = [data.token_dict.word2idx[x] for x in sequence]
+    sequence_tokenized_tuple: tuple[NDArrayType, NDArrayType] = (
+        np.copy(sequence),
+        np.copy(sequence),
+    )
+    for tokenize in data.tokenize:
+        sequence_tokenized_tuple = tokenize(sequence_tokenized_tuple)
+
+    sequence_tokenized = sequence_tokenized_tuple[0]
 
     if logger:
         logger.info("Sequence: %s", sequence)
         logger.info("Tokenized: %s", sequence_tokenized)
 
     input_tensor = torch.tensor(
-        [sequence_tokenized],
+        np.array([sequence_tokenized]),
         dtype=torch.long,
         device=model.device,
     )
 
-    result = model.predict(input_tensor, end_token=data.token_dict.word2idx[0])
+    result = model.predict(
+        input_tensor,
+        end_token=data.tokenize[0].dictionary.word2idx[2],
+    )
 
     if logger:
         logger.info("Tokenized result: %s", result)
 
-    result_translated = [
-        data.token_dict.idx2word[x] for x in result.squeeze().cpu().numpy()
-    ]
+    result_translated = result.cpu().numpy()[0]
+    result_translated_tuple: tuple[NDArrayType, NDArrayType] = (
+        np.copy(result_translated),
+        np.copy(result_translated),
+    )
+    for tokenize in data.tokenize:
+        result_translated_tuple = tokenize.inverse(result_translated_tuple)
+
+    result_translated = result_translated_tuple[0]
 
     if logger:
         logger.info("Result: %s", result_translated)

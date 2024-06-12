@@ -58,10 +58,14 @@ class Transformer(Module):
         """Initialize the module."""
         super().__init__(config)
 
-        if not isinstance(config.data.input_dim, int):
-            error = "Input dimension must be an integer."
-            raise TypeError(error)
+        # store the list of discreet input dimensions
+        self.input_dim_discreet: list[int]
+        if isinstance(config.data.input_dim, int):
+            self.input_dim_discreet = [config.data.input_dim]
+        else:
+            self.input_dim_discreet = config.data.input_dim
 
+        # check if encoder and decoder layers are integers
         if not isinstance(
             config.model.encoder_layers,
             int,
@@ -72,9 +76,11 @@ class Transformer(Module):
             error = "Encoder and decoder layers must be integers."
             raise TypeError(error)
 
+        # cache the model parameters
         self.model_dim = config.model.model_dim
         self.has_decoder = config.model.decoder_layers > 0
 
+        # setup the transformer
         self.transformer = nn.Transformer(
             d_model=config.model.model_dim,
             nhead=config.model.heads,
@@ -85,28 +91,30 @@ class Transformer(Module):
             batch_first=True,
         )
 
+        # setup positional encoding
         self.positional_encoder = PositionalEncoding(
             model_dim=config.model.model_dim,
             dropout=config.model.dropout,
         )
 
-        # TODO: make configurable
-        self.embedding = nn.Embedding(config.data.input_dim, config.model.model_dim)
+        # setup embedding layers
+        for i, input_dim in enumerate(self.input_dim_discreet):
+            setattr(
+                self,
+                f"embedding_{i}",
+                nn.Embedding(input_dim, config.model.model_dim),
+            )
 
-        self.output = nn.Linear(config.model.model_dim, config.data.input_dim)
+        # setup the output layer
+        # should have the same number of dimensions as the input
+        self.output = nn.Linear(config.model.model_dim, sum(self.input_dim_discreet))
 
+        # setup the loss function
+        # TODO: probably will be hardcoded for discreet features at some point
         self.loss_function_ref = getattr(nn.functional, config.model.loss)
 
+        # save the hyperparameters
         self.save_hyperparameters()
-
-    def loss_function(self, x: Tensor, x_hat: Tensor) -> Tensor:
-        """Calculate transformer loss."""
-        reproduction_loss: Tensor = self.loss_function_ref(
-            x_hat.permute(0, 2, 1),
-            x,
-            reduction="mean",
-        )
-        return reproduction_loss
 
     @staticmethod
     def create_pad_mask(
@@ -117,33 +125,88 @@ class Transformer(Module):
         """Create a padding mask."""
         # If matrix = [1,2,3,0,0,0] where pad_token=0, the result mask is
         # [False, False, False, True, True, True]
-        mask = matrix == pad_token
+        mask = (
+            matrix[:, :, 0] == pad_token
+        )  # with multiple features just take the first one for now
         return torch.zeros_like(mask, dtype=dtype).masked_fill_(
             mask,
             float("-inf"),
         )
 
-    def process_loss(self, batch: Tensor) -> Tensor:
-        """Process the loss of a batch."""
-        x_data, y_data = batch
+    def loss_function(self, x: Tensor, x_hat: Tensor) -> Tensor:
+        """Calculate transformer loss."""
+        reduction = "mean"
 
-        x = self.embedding(x_data) * math.sqrt(self.model_dim)
+        reproduction_loss: Tensor = self.loss_function_ref(
+            x_hat[:, :, : self.input_dim_discreet[0]].permute(0, 2, 1),
+            x[:, :, 0],
+            reduction=reduction,
+        )
+        index = self.input_dim_discreet[0]
+
+        for i in range(1, len(self.input_dim_discreet)):
+            reproduction_loss += self.loss_function_ref(
+                x_hat[:, :, index : index + self.input_dim_discreet[i]].permute(
+                    0,
+                    2,
+                    1,
+                ),
+                x[:, :, i],
+                reduction=reduction,
+            )
+            index += self.input_dim_discreet[i]
+
+        return reproduction_loss
+
+    def forward_pass(
+        self,
+        x_data: Tensor,
+        y_data: Tensor,
+        evaluate: bool = False,
+    ) -> Tensor:
+        """Process the loss of a batch."""
+        # data is shaped in the form of [batch, sequence, features]
+
+        # Embedding
+        # we will always have one feature, having it separate helps with the sum
+        x = self.embedding_0(x_data[:, :, 0]) * math.sqrt(self.model_dim)
+        for i in range(1, len(self.input_dim_discreet)):
+            x += getattr(self, f"embedding_{i}")(x_data[:, :, i]) * math.sqrt(
+                self.model_dim,
+            )
+        # all the embeddings are summed up before positional encoding
         x = self.positional_encoder(x)
 
-        if self.has_decoder:
-            y = self.embedding(y_data) * math.sqrt(self.model_dim)
+        if self.has_decoder:  # only process target data if we have a decoder
+            y = self.embedding_0(y_data[:, :, 0]) * math.sqrt(self.model_dim)
+            for i in range(1, len(self.input_dim_discreet)):
+                y += getattr(self, f"embedding_{i}")(y_data[:, :, i]) * math.sqrt(
+                    self.model_dim,
+                )
             y = self.positional_encoder(y)
 
-        x_mask: Tensor = self.transformer.generate_square_subsequent_mask(x.size(1))
-        x_mask = x_mask.to(self.device)
+        # Masking
+        x_mask: Tensor | None = (
+            self.transformer.generate_square_subsequent_mask(
+                x_data.size(1),
+            ).to(self.device)
+            if not evaluate
+            else None
+        )
         x_padding_mask: Tensor = self.create_pad_mask(x_data, dtype=x.dtype)
 
         x_transformer: Tensor
         if self.has_decoder:
-            y_mask: Tensor = self.transformer.generate_square_subsequent_mask(y.size(1))
-            y_mask = y_mask.to(self.device)
+            y_mask: Tensor | None = (
+                self.transformer.generate_square_subsequent_mask(
+                    y_data.size(1),
+                ).to(self.device)
+                if not evaluate
+                else None
+            )
             y_padding_mask: Tensor = self.create_pad_mask(y_data, dtype=y.dtype)
 
+            # in case of having both encoder and decoder run the full transformer
             x_transformer = self.transformer(
                 x,
                 y,
@@ -152,6 +215,7 @@ class Transformer(Module):
                 tgt_key_padding_mask=y_padding_mask,
             )
         else:
+            # in case of having only encoder run the encoder directly
             x_transformer = self.transformer.encoder(
                 x,
                 mask=x_mask,
@@ -159,7 +223,12 @@ class Transformer(Module):
             )
 
         x_hat: Tensor = self.output(x_transformer)
+        return x_hat
 
+    def process_loss(self, batch: Tensor) -> Tensor:
+        """Process the loss of a batch."""
+        x_data, y_data = batch
+        x_hat = self.forward_pass(x_data, y_data)
         return self.loss_function(y_data, x_hat)
 
     def forward(self, *args: Tensor) -> Tensor:
@@ -169,34 +238,11 @@ class Transformer(Module):
         else:
             x_data = args[0]
 
-        x = self.embedding(x_data) * math.sqrt(self.model_dim)
-        x = self.positional_encoder(x)
-
-        if self.has_decoder:
-            y = self.embedding(y_data) * math.sqrt(self.model_dim)
-            y = self.positional_encoder(y)
-
-        # No positional masking for evaluation
-        x_padding_mask: Tensor = self.create_pad_mask(x_data, dtype=x.dtype)
-
-        x_transformer: Tensor
-        if self.has_decoder:
-            y_padding_mask: Tensor = self.create_pad_mask(y_data, dtype=y.dtype)
-
-            x_transformer = self.transformer(
-                x,
-                y,
-                src_key_padding_mask=x_padding_mask,
-                tgt_key_padding_mask=y_padding_mask,
-            )
-        else:
-            x_transformer = self.transformer.encoder(
-                x,
-                src_key_padding_mask=x_padding_mask,
-            )
-
-        x_hat: Tensor = self.output(x_transformer)
-        return x_hat
+        return self.forward_pass(
+            x_data,
+            y_data if self.has_decoder else x_data,
+            evaluate=True,
+        )
 
     def training_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
         """Run training step."""
@@ -222,21 +268,28 @@ class Transformer(Module):
     @torch.no_grad()
     def predict(self, input_sequence: Tensor, end_token: int = 1) -> Tensor:
         """Run predictions on the model."""
+        # _rich_traceback_guard = True
+
         input_tensor = input_sequence
 
         for _ in range(20):
             pred = self(input_tensor)
 
-            next_item = (
-                pred.topk(1)[1].view(-1)[-1].item()
-            )  # num with highest probability
-            next_item = torch.tensor([[next_item]], device=self.device)
+            next_items = []
+            index = 0
+            for dim in self.input_dim_discreet:
+                next_items.append(
+                    pred[:, :, index : index + dim].topk(1)[1].view(-1)[-1].item(),
+                )
+                index += dim
+
+            next_item = torch.tensor([[next_items]], device=self.device)
 
             # # Concatenate previous input with predicted best word
             input_tensor = torch.cat((input_tensor, next_item), dim=1)
 
             # Stop if model predicts end of sentence
-            if next_item.view(-1).item() == end_token:
+            if next_item.view(-1)[0].item() == end_token:
                 break
 
-        return input_tensor.view(-1)
+        return input_tensor

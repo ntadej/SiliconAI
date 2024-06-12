@@ -2,16 +2,16 @@ name = "Transformer Test"
 
 [data]
 type = "TestSequence"
-input_dim = 4
+input_dim = [5, 3]
 batch_size = 16
 
 [model]
 type = "Transformer"
-model_dim = 8          # 512
-encoder_layers = 2     # 6
+model_dim = 16         # 512
+encoder_layers = 3     # 6
 decoder_layers = 0     # 6
 heads = 2              # 8
-feedforward_dim = 32   # 2048
+feedforward_dim = 64   # 2048
 activation = "ReLU"
 dropout = 0.1
 loss = "cross_entropy"

@@ -1,20 +1,24 @@
 """Data modules."""
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 import lightning as L
 from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import MNIST, FashionMNIST  # type: ignore
 from torchvision.transforms import ToTensor  # type: ignore
 
-from siliconai.cli.config import Configuration
 from siliconai.data.datasets import TestSequenceDataset, TRKNtupleDataset
 from siliconai.data.utils import (
     DataDictionary,
-    NdarrayToFloatTensor,
-    NdarrayToLongTensor,
+    NDArrayToFloatTensor,
+    NDArrayToLongTensor,
     Tokenize,
 )
+
+if TYPE_CHECKING:
+    from siliconai.cli.config import Configuration
 
 
 class MNISTDataModule(L.LightningDataModule):
@@ -107,7 +111,10 @@ class TRKNtupleDataModule(L.LightningDataModule):
             error = "TRKNtuple data path not set."
             raise ValueError(error)
 
-        dataset = TRKNtupleDataset(self.data_path, transforms=[NdarrayToFloatTensor()])
+        dataset = TRKNtupleDataset(
+            self.data_path,
+            tensor_transform=NDArrayToFloatTensor(),
+        )
         self.columns = dataset.column_list[:]
 
         self.train_data, self.val_data, self.test_data = random_split(
@@ -157,32 +164,38 @@ class TestSequenceDataModule(L.LightningDataModule):
         self.batch_size = data_config.data.batch_size
         self.workers = 4
 
-        self.token_dict = DataDictionary("test_sequence")
+        self.input_dim_discreet: list[int]
+        if isinstance(data_config.data.input_dim, int):
+            self.input_dim_discreet = [data_config.data.input_dim]
+        else:
+            self.input_dim_discreet = data_config.data.input_dim
+
+        self.tokenize = [
+            Tokenize(DataDictionary(f"dict{i}"), i)
+            for i in range(len(self.input_dim_discreet))
+        ]
 
         self.save_hyperparameters()
 
-    def prepare_data(self) -> None:
-        """Prepare sequence test dataset."""
+    def tokenize_data(self) -> None:
+        """Tokenize the sequence test dataset."""
         dataset = TestSequenceDataset(
             self.data_path,
-            transforms=[
-                Tokenize(self.token_dict),
-                NdarrayToLongTensor(),
-            ],
+            transforms=[*self.tokenize],
+            tensor_transform=NDArrayToLongTensor(),
         )
         for i in range(len(dataset)):
             dataset[i]
 
-        assert len(self.token_dict) > 1
+        for tokenize in self.tokenize:
+            assert len(tokenize.dictionary) > 1
 
     def setup(self, stage: str) -> None:  # noqa: ARG002
         """Transform and setup the sequence test dataset."""
         dataset = TestSequenceDataset(
             self.data_path,
-            transforms=[
-                Tokenize(self.token_dict),
-                NdarrayToLongTensor(),
-            ],
+            transforms=[*self.tokenize],
+            tensor_transform=NDArrayToLongTensor(),
         )
 
         self.train_data, self.val_data, self.test_data = random_split(
