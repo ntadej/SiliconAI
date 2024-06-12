@@ -1,0 +1,19 @@
+{
+  "editor.formatOnSave": true,
+  "editor.tabSize": 4,
+  "python.defaultInterpreterPath": ".venv/bin/python",
+  "mypy-type-checker.args": [
+    "--show-column-numbers",
+    "--no-pretty",
+    "--cache-dir=${workspaceFolder}/.mypy_cache"
+  ],
+  "mypy-type-checker.preferDaemon": false,
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    },
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  }
+}
