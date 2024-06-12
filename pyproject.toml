@@ -19,14 +19,14 @@ classifiers = [
 ]
 dependencies = [
     "lightning == 2.2.*",
-    "matplotlib == 3.8.*",
-    "mlflow == 2.11.*",
+    "matplotlib == 3.9.*",
+    "mlflow == 2.13.*",
     "mplhep == 0.3.*",
     "numpy == 1.26.*",
     "pandas == 2.2.*",
     "scipy == 1.13.*",
-    "torch == 2.2.*",
-    "torchvision == 0.17.*",
+    "torch == 2.3.*",
+    "torchvision == 0.18.*",
     "typer[all] == 0.9.*",
     "tomli-w == 1.0.*",
     "uproot == 5.3.*",
@@ -36,13 +36,13 @@ dependencies = [
 dev = [
     "coverage[toml]",
     "ipykernel",
-    "mypy == 1.9.*",
+    "mypy == 1.10.*",
     "pre-commit-hooks == 4.6.*",
     "pre-commit",
     "pytest >= 8.0",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.3.7",
+    "ruff == 0.4.8",
     "types-pyyaml",
 ]
 
