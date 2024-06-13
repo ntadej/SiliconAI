@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import pickle
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
 
 from siliconai.common.enums import DataType
 from siliconai.plotting.common import plot_feature, setup_style
@@ -28,11 +30,67 @@ class InputConverter:
 
     def load(self) -> None:
         """Load the input."""
-        if self.config.type is DataType.TRKNtuple:
+        if self.config.type is DataType.ActsHits:
+            self.load_acts_hits()
+        elif self.config.type is DataType.TRKNtuple:
             self.load_trkntuple()
         else:
             error = f"Unsupported input type: {self.config.type}"
             raise RuntimeError(error)
+
+    def load_acts_hits(self) -> None:
+        """Load the ACTS hits input data."""
+        if not self.config.conversion_input_file or not self.config.input_file:
+            error = "Input and output files must be set"
+            raise ValueError(error)
+
+        self.logger.info(
+            "Loading ACTS hits input from %s",
+            self.config.conversion_input_file,
+        )
+
+        # TODO: make configurable
+        column_list = [
+            "geometry_id",
+            "particle_type",
+        ]
+
+        with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
+            data_frame = store["hits"][column_list].astype("int64")
+
+        # do auto-padding
+        data_frame = data_frame.unstack(fill_value=0).stack(future_stack=True)  # noqa: PD010 PD013
+
+        if not isinstance(data_frame.index, pd.MultiIndex):
+            error = "Index must be a MultiIndex"
+            raise TypeError(error)
+
+        self.logger.info("Converting to numpy arrays")
+
+        data_events = len(data_frame.index.levels[0])
+        data_hits = len(data_frame.index.levels[1])
+
+        output = list(
+            data_frame.to_numpy().reshape(data_events, data_hits, len(column_list)),
+        )
+
+        output_nonzero = []
+        for i in range(len(output)):
+            nz = np.nonzero(output[i])
+            output_nonzero.append(
+                output[i][nz[0].min() : nz[0].max() + 1, nz[1].min() : nz[1].max() + 1],
+            )
+
+        self.logger.info("Writing to %s", self.config.input_file)
+
+        with self.config.input_file.open("wb") as f:
+            pickle.dump(output_nonzero, f)
+
+        self.logger.info("Testing %s", self.config.input_file)
+
+        # test loading
+        with self.config.input_file.open("rb") as f:
+            loaded_output = pickle.load(f)  # noqa: F841
 
     def load_trkntuple(self) -> None:
         """Load the input as TRKNtuple."""
