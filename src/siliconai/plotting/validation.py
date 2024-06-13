@@ -36,6 +36,11 @@ def quick_validate(
     data: L.LightningDataModule,
 ) -> None:
     """Validate the model after training."""
+    if config.data.type is DataType.ActsHits:
+        logger.info("Validating ActsHits-based model output...")
+        file = quick_validate_acts_hits(config, model, data)
+        logger.info("Validation done and stored in %s.", file)
+
     if config.data.type is DataType.TRKNtuple:
         logger.info("Validating TRKNtuple-based model output...")
         file = quick_validate_trkntuple(config, model, data)
@@ -85,6 +90,17 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     return output_file
 
 
+def quick_validate_acts_hits(
+    _config: Configuration,
+    _model: L.LightningModule,
+    _data: L.LightningDataModule,
+) -> Path:
+    """Validate ActsHits-based model output."""
+    setup_style()
+
+    return Path()
+
+
 def quick_validate_trkntuple(
     config: Configuration,
     model: L.LightningModule,
@@ -105,10 +121,10 @@ def quick_validate_trkntuple(
     gen = model.generate(batch_size, val_data[1]).cpu().numpy()
 
     with PDFDocument(output_file) as pdf:  # type: ignore
-        for i, column in enumerate(data.columns):
+        for i, feature in enumerate(data.features):
             fig, ax = plot_hist(
                 [gen[:, i], orig[:, i]],
-                column,
+                feature,
                 labels=["Generated", "Original"],
             )
             if not fig:
@@ -125,17 +141,15 @@ def quick_validate_test_sequence(
     logger: Logger | None = None,
 ) -> Path:
     """Validate TRKNtuple-based model output."""
-    _rich_traceback_guard = True
+    # _rich_traceback_guard = True
     setup_style()
-
-    model = model.cpu()
 
     data = cast(TestSequenceDataModule, data)
     data.tokenize_data()  # TODO: should not be needed
 
     sequence = np.array([[1, 2], [5, 2], [8, 2], [5, 2]])
 
-    sequence_tokenized_tuple: tuple[NDArrayType, NDArrayType] = (
+    sequence_tokenized_tuple: tuple[NDArrayType, NDArrayType | None] = (
         np.copy(sequence),
         np.copy(sequence),
     )
@@ -163,7 +177,7 @@ def quick_validate_test_sequence(
         logger.info("Tokenized result: %s", result)
 
     result_translated = result.cpu().numpy()[0]
-    result_translated_tuple: tuple[NDArrayType, NDArrayType] = (
+    result_translated_tuple: tuple[NDArrayType, NDArrayType | None] = (
         np.copy(result_translated),
         np.copy(result_translated),
     )

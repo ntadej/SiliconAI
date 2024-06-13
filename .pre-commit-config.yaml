@@ -10,6 +10,7 @@ repos:
           - matplotlib
           - mplhep
           - numpy
+          - pandas-stubs
           - pytest
           - rich
           - torch

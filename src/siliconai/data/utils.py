@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -16,6 +17,44 @@ if TYPE_CHECKING:
 Word = Any
 
 NDArrayType = NDArray[np.float32 | np.uint64]
+CollateFnType = Callable[[list[Any]], Any]
+
+
+def collate_sequence(batch: list[Any]) -> list[Any]:
+    """Collate the ACTS dataset."""
+    # get sequence feature length
+    feature_len = len(batch[0][0])
+    # get max length of the sequences
+    max_len = max([len(item) for item in batch])
+
+    output: list[Any] = []
+    for item in batch:
+        # append zeros to the end of the sequence if needed
+        out_item = (
+            np.vstack(
+                [
+                    item,
+                    np.zeros((max_len - len(item), feature_len), dtype=np.int64),
+                ],
+            )
+            if len(item) < max_len
+            else item
+        )
+        # shift the prediction for one to the left and append zeros to the end
+        out_item_shifted = np.vstack(
+            [
+                item[1:],
+                np.zeros(
+                    (max_len - len(item) + 1, feature_len),
+                    dtype=np.int64,
+                ),
+            ],
+        )
+        # append to the output
+        output.append((out_item, out_item_shifted))
+
+    # now with proper padding run the default collate function
+    return torch.utils.data.default_collate(output)  # type: ignore
 
 
 class NDArrayTransformation(ABC):
@@ -24,8 +63,8 @@ class NDArrayTransformation(ABC):
     @abstractmethod
     def __call__(
         self,
-        sample: tuple[NDArrayType, NDArrayType],
-    ) -> tuple[NDArrayType, NDArrayType]:
+        sample: tuple[NDArrayType, NDArrayType | None],
+    ) -> tuple[NDArrayType, NDArrayType | None]:
         """Transform the sample."""
         raise NotImplementedError
 
@@ -36,8 +75,8 @@ class TensorTransformation(ABC):
     @abstractmethod
     def __call__(
         self,
-        sample: tuple[NDArrayType, NDArrayType],
-    ) -> tuple[Tensor, Tensor]:
+        sample: tuple[NDArrayType, NDArrayType | None],
+    ) -> tuple[Tensor, Tensor | None]:
         """Transform the sample."""
         raise NotImplementedError
 
@@ -47,11 +86,14 @@ class NDArrayToFloatTensor(TensorTransformation):
 
     def __call__(
         self,
-        sample: tuple[NDArrayType, NDArrayType],
-    ) -> tuple[Tensor, Tensor]:
+        sample: tuple[NDArrayType, NDArrayType | None],
+    ) -> tuple[Tensor, Tensor | None]:
         """Transform the sample to tensors."""
-        columns, labels = sample
-        return (torch.from_numpy(columns).float(), torch.from_numpy(labels).float())
+        features, labels = sample
+        return (
+            torch.from_numpy(features).float(),
+            torch.from_numpy(labels).float() if labels is not None else None,
+        )
 
 
 class NDArrayToLongTensor(TensorTransformation):
@@ -59,11 +101,14 @@ class NDArrayToLongTensor(TensorTransformation):
 
     def __call__(
         self,
-        sample: tuple[NDArrayType, NDArrayType],
-    ) -> tuple[Tensor, Tensor]:
+        sample: tuple[NDArrayType, NDArrayType | None],
+    ) -> tuple[Tensor, Tensor | None]:
         """Transform the sample to tensors."""
-        columns, labels = sample
-        return (torch.from_numpy(columns).long(), torch.from_numpy(labels).long())
+        features, labels = sample
+        return (
+            torch.from_numpy(features).long(),
+            torch.from_numpy(labels).long() if labels is not None else None,
+        )
 
 
 class Tokenize(NDArrayTransformation):
@@ -76,25 +121,27 @@ class Tokenize(NDArrayTransformation):
 
     def __call__(
         self,
-        sample: tuple[NDArrayType, NDArrayType],
-    ) -> tuple[NDArrayType, NDArrayType]:
+        sample: tuple[NDArrayType, NDArrayType | None],
+    ) -> tuple[NDArrayType, NDArrayType | None]:
         """Transform the sample to tensors."""
-        columns, labels = sample
+        features, labels = sample
         helper = np.vectorize(self.dictionary.add_word)
-        columns[:, self.index] = helper(columns[:, self.index])
-        labels[:, self.index] = helper(labels[:, self.index])
-        return (columns, labels)
+        features[:, self.index] = helper(features[:, self.index])
+        if labels is not None:
+            labels[:, self.index] = helper(labels[:, self.index])
+        return (features, labels)
 
     def inverse(
         self,
-        sample: tuple[NDArrayType, NDArrayType],
-    ) -> tuple[NDArrayType, NDArrayType]:
+        sample: tuple[NDArrayType, NDArrayType | None],
+    ) -> tuple[NDArrayType, NDArrayType | None]:
         """Inverse the tokenization."""
-        columns, labels = sample
+        features, labels = sample
         helper = np.vectorize(self.dictionary.get_word)
-        columns[:, self.index] = helper(columns[:, self.index])
-        labels[:, self.index] = helper(labels[:, self.index])
-        return (columns, labels)
+        features[:, self.index] = helper(features[:, self.index])
+        if labels is not None:
+            labels[:, self.index] = helper(labels[:, self.index])
+        return (features, labels)
 
 
 class DataDictionary:

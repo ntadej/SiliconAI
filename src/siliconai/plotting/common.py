@@ -60,35 +60,35 @@ def log_binning(
     return edges
 
 
-def plot_column(
+def plot_feature(
     data: ArrayLike,
-    column: str,
+    feature: str,
     nbins: int = 25,
     logx: bool = False,
 ) -> tuple[Figure | None, Axes | None]:
-    """Plot a column from a dataframe."""
+    """Plot a feature/column from a dataframe."""
     if not data:
         return None, None
 
-    column_data = cast(list[float], data[column].tolist())  # type: ignore
-    return plot_hist([column_data], column, nbins, logx)
+    feature_data = cast(list[float], data[feature].tolist())  # type: ignore
+    return plot_hist([feature_data], feature, nbins, logx)
 
 
 def plot_hist(
     data: list[list[float]],
-    column: str,
+    feature: str,
     nbins: int = 25,
     logx: bool = False,
     labels: list[str] | None = None,
 ) -> tuple[Figure | None, Axes | None]:
-    """Plot a column from a dataframe."""
+    """Plot a feature/column from a dataframe."""
     if not data:
         return None, None
 
     binning_function = log_binning if logx else linear_binning
     binning = (
-        common_binning[column]
-        if column in common_binning
+        common_binning[feature]
+        if feature in common_binning
         else binning_function(
             nbins,
             min(data[0]),
@@ -98,7 +98,7 @@ def plot_hist(
     )
 
     fig, ax = plt.subplots(figsize=(6, 4))
-    for d, label in zip(data, labels or [column], strict=False):
+    for d, label in zip(data, labels or [feature], strict=False):
         hist, bins = np.histogram(d, binning)
         hep.histplot(hist, bins, ax=ax, yerr=True, label=label)
     # TODO: make the label configurable
@@ -109,7 +109,7 @@ def plot_hist(
         rlabel=r"$\sqrt{s} = \mathrm{13.6\ TeV}$",
     )
     ax.set_ylim(ax.get_ylim()[0], ax.get_ylim()[1] * 1.2)
-    ax.set_xlabel(column)
+    ax.set_xlabel(feature)
     ax.set_ylabel("Tracks")
     if len(data) > 1:
         plt.legend()

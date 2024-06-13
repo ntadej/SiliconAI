@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:b9bfd0a797410877e3473697d1363a8d961754632bb053388718f498153bc2ce"
+content_hash = "sha256:d2a9f875cda90a849ec0747be8103f1f97fad1b2d30c162f1422485a91d5e952"
 
 [[package]]
 name = "aiohttp"
@@ -190,6 +190,37 @@ groups = ["default"]
 files = [
     {file = "blinker-1.8.2-py3-none-any.whl", hash = "sha256:1779309f71bf239144b9399d06ae925637cf6634cf6bd131104184531bf67c01"},
     {file = "blinker-1.8.2.tar.gz", hash = "sha256:8f77b09d3bf7c795e969e9486f39c2c5e9c39d4ee07424be2bc594ece9642d83"},
+]
+
+[[package]]
+name = "blosc2"
+version = "2.6.2"
+requires_python = "<4,>=3.10"
+summary = "Python wrapper for the C-Blosc2 library"
+groups = ["default"]
+dependencies = [
+    "msgpack",
+    "ndindex>=1.4",
+    "numexpr",
+    "numpy>=1.20.3",
+    "py-cpuinfo",
+]
+files = [
+    {file = "blosc2-2.6.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:15d91ba9fd24391a67dcb1051b82490b0cbde3a1d473209fa578e7a96d801bf7"},
+    {file = "blosc2-2.6.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:cbe8e97f0bc94a45456f186c374e5fb91d35123ebe80e530d849d1da95cf6770"},
+    {file = "blosc2-2.6.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:50661d5e9147b8f50a86c7d86ec2be907ac33418c5ec82963f4487d851e9c88c"},
+    {file = "blosc2-2.6.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:81b0d7cf029b097fd130817ddae66e67a92253136812a5dddba3d9504bce15ed"},
+    {file = "blosc2-2.6.2-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:be1925fbf1ce37d384f47d3f02710abe79cc7722d09c2d50044845947e85d2fa"},
+    {file = "blosc2-2.6.2-cp311-cp311-win32.whl", hash = "sha256:6c5b861a8c51af1cd7eabf59c3bdd944f873ea5de8497602af9c5617cabe4f7e"},
+    {file = "blosc2-2.6.2-cp311-cp311-win_amd64.whl", hash = "sha256:db38cc7aed6547f0855ef5dbb13853f653a91174bf5e79841dd00ff1914a83d3"},
+    {file = "blosc2-2.6.2-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:bb8fc5c0420eab9c4c0c7eddf1b8747b817f7aae5145e3e99607918af3f42588"},
+    {file = "blosc2-2.6.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:f4c2272915e0f28cd10258393506cc31616317d94fed77b61617c98734588016"},
+    {file = "blosc2-2.6.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:6ca4c24cb1f64dba1b900fbfc165649bbfd9c890d76e356a682a9cff4c34f967"},
+    {file = "blosc2-2.6.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9c4fec36f58267fa0b5b1ed7f688469313e5af83ed1cc70ba01001d3fe4b824f"},
+    {file = "blosc2-2.6.2-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8a63ad8ae52af974d4ffa1490aa7715cfe0d6408363686fb141ff6f7513bb0ad"},
+    {file = "blosc2-2.6.2-cp312-cp312-win32.whl", hash = "sha256:3025e4d0bdab498853e0cf971ece10ac5709c875f0b6b4272fe069326b69ef42"},
+    {file = "blosc2-2.6.2-cp312-cp312-win_amd64.whl", hash = "sha256:b99157758b5d3ba11c46db26602750555053aee2b917ba3209eaf37ee266ccb4"},
+    {file = "blosc2-2.6.2.tar.gz", hash = "sha256:8ca29d9aa988b85318bd8a9b707a7a06c8d6604ae1304cae059170437ae4f53a"},
 ]
 
 [[package]]
@@ -1367,6 +1398,38 @@ files = [
 ]
 
 [[package]]
+name = "msgpack"
+version = "1.0.8"
+requires_python = ">=3.8"
+summary = "MessagePack serializer"
+groups = ["default"]
+files = [
+    {file = "msgpack-1.0.8-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:9517004e21664f2b5a5fd6333b0731b9cf0817403a941b393d89a2f1dc2bd836"},
+    {file = "msgpack-1.0.8-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:d16a786905034e7e34098634b184a7d81f91d4c3d246edc6bd7aefb2fd8ea6ad"},
+    {file = "msgpack-1.0.8-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:e2872993e209f7ed04d963e4b4fbae72d034844ec66bc4ca403329db2074377b"},
+    {file = "msgpack-1.0.8-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5c330eace3dd100bdb54b5653b966de7f51c26ec4a7d4e87132d9b4f738220ba"},
+    {file = "msgpack-1.0.8-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:83b5c044f3eff2a6534768ccfd50425939e7a8b5cf9a7261c385de1e20dcfc85"},
+    {file = "msgpack-1.0.8-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:1876b0b653a808fcd50123b953af170c535027bf1d053b59790eebb0aeb38950"},
+    {file = "msgpack-1.0.8-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:dfe1f0f0ed5785c187144c46a292b8c34c1295c01da12e10ccddfc16def4448a"},
+    {file = "msgpack-1.0.8-cp311-cp311-musllinux_1_1_i686.whl", hash = "sha256:3528807cbbb7f315bb81959d5961855e7ba52aa60a3097151cb21956fbc7502b"},
+    {file = "msgpack-1.0.8-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:e2f879ab92ce502a1e65fce390eab619774dda6a6ff719718069ac94084098ce"},
+    {file = "msgpack-1.0.8-cp311-cp311-win32.whl", hash = "sha256:26ee97a8261e6e35885c2ecd2fd4a6d38252246f94a2aec23665a4e66d066305"},
+    {file = "msgpack-1.0.8-cp311-cp311-win_amd64.whl", hash = "sha256:eadb9f826c138e6cf3c49d6f8de88225a3c0ab181a9b4ba792e006e5292d150e"},
+    {file = "msgpack-1.0.8-cp312-cp312-macosx_10_9_universal2.whl", hash = "sha256:114be227f5213ef8b215c22dde19532f5da9652e56e8ce969bf0a26d7c419fee"},
+    {file = "msgpack-1.0.8-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:d661dc4785affa9d0edfdd1e59ec056a58b3dbb9f196fa43587f3ddac654ac7b"},
+    {file = "msgpack-1.0.8-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:d56fd9f1f1cdc8227d7b7918f55091349741904d9520c65f0139a9755952c9e8"},
+    {file = "msgpack-1.0.8-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0726c282d188e204281ebd8de31724b7d749adebc086873a59efb8cf7ae27df3"},
+    {file = "msgpack-1.0.8-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8db8e423192303ed77cff4dce3a4b88dbfaf43979d280181558af5e2c3c71afc"},
+    {file = "msgpack-1.0.8-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:99881222f4a8c2f641f25703963a5cefb076adffd959e0558dc9f803a52d6a58"},
+    {file = "msgpack-1.0.8-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:b5505774ea2a73a86ea176e8a9a4a7c8bf5d521050f0f6f8426afe798689243f"},
+    {file = "msgpack-1.0.8-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:ef254a06bcea461e65ff0373d8a0dd1ed3aa004af48839f002a0c994a6f72d04"},
+    {file = "msgpack-1.0.8-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:e1dd7839443592d00e96db831eddb4111a2a81a46b028f0facd60a09ebbdd543"},
+    {file = "msgpack-1.0.8-cp312-cp312-win32.whl", hash = "sha256:64d0fcd436c5683fdd7c907eeae5e2cbb5eb872fafbc03a43609d7941840995c"},
+    {file = "msgpack-1.0.8-cp312-cp312-win_amd64.whl", hash = "sha256:74398a4cf19de42e1498368c36eed45d9528f5fd0155241e82c4082b7e16cffd"},
+    {file = "msgpack-1.0.8.tar.gz", hash = "sha256:95c02b0e27e706e48d0e5426d1710ca78e0f0628d6e89d5b5a5b91a5f12274f3"},
+]
+
+[[package]]
 name = "multidict"
 version = "6.0.5"
 requires_python = ">=3.7"
@@ -1444,6 +1507,17 @@ files = [
 ]
 
 [[package]]
+name = "ndindex"
+version = "1.8"
+requires_python = ">=3.8"
+summary = "A Python library for manipulating indices of ndarrays."
+groups = ["default"]
+files = [
+    {file = "ndindex-1.8-py3-none-any.whl", hash = "sha256:b5132cd331f3e4106913ed1a974a3e355967a5991543c2f512b40cb8bb9f50b8"},
+    {file = "ndindex-1.8.tar.gz", hash = "sha256:5fc87ebc784605f01dd5367374cb40e8da8f2c30988968990066c5098a7eebe8"},
+]
+
+[[package]]
 name = "nest-asyncio"
 version = "1.6.0"
 requires_python = ">=3.5"
@@ -1477,11 +1551,38 @@ files = [
 ]
 
 [[package]]
+name = "numexpr"
+version = "2.10.0"
+requires_python = ">=3.9"
+summary = "Fast numerical expression evaluator for NumPy"
+groups = ["default"]
+dependencies = [
+    "numpy>=1.19.3",
+]
+files = [
+    {file = "numexpr-2.10.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:a602692cd52ce923ce8a0a90fb1d6cf186ebe8706eed83eee0de685e634b9aa9"},
+    {file = "numexpr-2.10.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:745b46a1fb76920a3eebfaf26e50bc94a9c13b5aee34b256ab4b2d792dbaa9ca"},
+    {file = "numexpr-2.10.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:10789450032357afaeda4ac4d06da9542d1535c13151e8d32b49ae1a488d1358"},
+    {file = "numexpr-2.10.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4feafc65ea3044b8bf8f305b757a928e59167a310630c22b97a57dff07a56490"},
+    {file = "numexpr-2.10.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:937d36c6d3cf15601f26f84f0f706649f976491e9e0892d16cd7c876d77fa7dc"},
+    {file = "numexpr-2.10.0-cp311-cp311-win32.whl", hash = "sha256:03d0ba492e484a5a1aeb24b300c4213ed168f2c246177be5733abb4e18cbb043"},
+    {file = "numexpr-2.10.0-cp311-cp311-win_amd64.whl", hash = "sha256:6b5f8242c075477156d26b3a6b8e0cd0a06d4c8eb68d907bde56dd3c9c683e92"},
+    {file = "numexpr-2.10.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:b276e2ba3e87ace9a30fd49078ad5dcdc6a1674d030b1ec132599c55465c0346"},
+    {file = "numexpr-2.10.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:cb5e12787101f1216f2cdabedc3417748f2e1f472442e16bbfabf0bab2336300"},
+    {file = "numexpr-2.10.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:05278bad96b5846d712eba58b44e5cec743bdb3e19ca624916c921d049fdbcf6"},
+    {file = "numexpr-2.10.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a6cdf9e64c5b3dbb61729edb505ea75ee212fa02b85c5b1d851331381ae3b0e1"},
+    {file = "numexpr-2.10.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:e3a973265591b0a875fd1151c4549e468959c7192821aac0bb86937694a08efa"},
+    {file = "numexpr-2.10.0-cp312-cp312-win32.whl", hash = "sha256:416e0e9f0fc4cced67767585e44cb6b301728bdb9edbb7c534a853222ec62cac"},
+    {file = "numexpr-2.10.0-cp312-cp312-win_amd64.whl", hash = "sha256:748e8d4cde22d9a5603165293fb293a4de1a4623513299416c64fdab557118c2"},
+    {file = "numexpr-2.10.0.tar.gz", hash = "sha256:c89e930752639df040539160326d8f99a84159bbea41943ab8e960591edaaef0"},
+]
+
+[[package]]
 name = "numpy"
 version = "1.26.4"
 requires_python = ">=3.9"
 summary = "Fundamental package for array computing in Python"
-groups = ["default"]
+groups = ["default", "dev"]
 files = [
     {file = "numpy-1.26.4-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:4c66707fabe114439db9068ee468c26bbdf909cac0fb58686a42a24de1760c71"},
     {file = "numpy-1.26.4-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:edd8b5fe47dab091176d21bb6de568acdd906d1887a4584a15a9a96a1dca06ef"},
@@ -1747,6 +1848,22 @@ files = [
 ]
 
 [[package]]
+name = "pandas-stubs"
+version = "2.2.2.240603"
+requires_python = ">=3.9"
+summary = "Type annotations for pandas"
+groups = ["dev"]
+dependencies = [
+    "numpy>=1.23.5; python_version >= \"3.9\" and python_version < \"3.12\"",
+    "numpy>=1.26.0; python_version >= \"3.12\" and python_version < \"3.13\"",
+    "types-pytz>=2022.1.1",
+]
+files = [
+    {file = "pandas_stubs-2.2.2.240603-py3-none-any.whl", hash = "sha256:e08ce7f602a4da2bff5a67475ba881c39f2a4d4f7fccc1cba57c6f35a379c6c0"},
+    {file = "pandas_stubs-2.2.2.240603.tar.gz", hash = "sha256:2dcc86e8fa6ea41535a4561c1f08b3942ba5267b464eff2e99caeee66f9e4cd1"},
+]
+
+[[package]]
 name = "parso"
 version = "0.8.4"
 requires_python = ">=3.6"
@@ -1947,6 +2064,16 @@ groups = ["dev"]
 files = [
     {file = "py-1.11.0-py2.py3-none-any.whl", hash = "sha256:607c53218732647dff4acdfcd50cb62615cedf612e72d1724fb1a0cc6405b378"},
     {file = "py-1.11.0.tar.gz", hash = "sha256:51c75c4126074b472f746a24399ad32f6053d1b34b68d2fa41e558e6f4a98719"},
+]
+
+[[package]]
+name = "py-cpuinfo"
+version = "9.0.0"
+summary = "Get CPU info with pure Python"
+groups = ["default"]
+files = [
+    {file = "py-cpuinfo-9.0.0.tar.gz", hash = "sha256:3cdbbf3fac90dc6f118bfd64384f309edeadd902d7c8fb17f02ffa1fc3f49690"},
+    {file = "py_cpuinfo-9.0.0-py3-none-any.whl", hash = "sha256:859625bc251f64e21f077d099d4162689c762b5d6a4c3c97553d56241c9674d5"},
 ]
 
 [[package]]
@@ -2480,6 +2607,31 @@ files = [
 ]
 
 [[package]]
+name = "tables"
+version = "3.9.2"
+requires_python = ">=3.9"
+summary = "Hierarchical datasets for Python"
+groups = ["default"]
+dependencies = [
+    "blosc2>=2.3.0",
+    "numexpr>=2.6.2",
+    "numpy>=1.19.0",
+    "packaging",
+    "py-cpuinfo",
+]
+files = [
+    {file = "tables-3.9.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:d71913fb8147dc6132595b94fc82f88f6c2436a3b5c57aadfe26c680f96aa387"},
+    {file = "tables-3.9.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9d6bbc477d038a17c5062ab6ccd94c8b1fa365cf017b9a2ad6c2dff1a07abb2b"},
+    {file = "tables-3.9.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8e67c71070b871fade3694a4c764504e03836bb1843321766cf2e40b7d280e84"},
+    {file = "tables-3.9.2-cp311-cp311-win_amd64.whl", hash = "sha256:ab9291ff4d243e7966b6706a2675b83138bd9bbe82721d695b78971660d59632"},
+    {file = "tables-3.9.2-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:c14dc879b041cf53be1afe9e5ed581e1aeacdcee9e2e1ee79110dc96a4c8d97c"},
+    {file = "tables-3.9.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2848fb3dce30a7b83fa099d026a91d7b10ad48afae04fa10f974f1da3f1e2bbf"},
+    {file = "tables-3.9.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b131c9b4e003816a45e2efe5c5c797d01d8308cac4aee72597a15837cedb605c"},
+    {file = "tables-3.9.2-cp312-cp312-win_amd64.whl", hash = "sha256:c6304d321452fd56865e5c309e38373011b0f0f6c714786c5660613ceb623acb"},
+    {file = "tables-3.9.2.tar.gz", hash = "sha256:d470263c2e50c4b7c8635a0d99ac1ff2f9e704c24d71e5fa33c4529e7d0ad9c3"},
+]
+
+[[package]]
 name = "tbb"
 version = "2021.12.0"
 summary = "Intel® oneAPI Threading Building Blocks (oneTBB)"
@@ -2681,6 +2833,17 @@ dependencies = [
 files = [
     {file = "typer-0.9.4-py3-none-any.whl", hash = "sha256:aa6c4a4e2329d868b80ecbaf16f807f2b54e192209d7ac9dd42691d63f7a54eb"},
     {file = "typer-0.9.4.tar.gz", hash = "sha256:f714c2d90afae3a7929fcd72a3abb08df305e1ff61719381384211c4070af57f"},
+]
+
+[[package]]
+name = "types-pytz"
+version = "2024.1.0.20240417"
+requires_python = ">=3.8"
+summary = "Typing stubs for pytz"
+groups = ["dev"]
+files = [
+    {file = "types-pytz-2024.1.0.20240417.tar.gz", hash = "sha256:6810c8a1f68f21fdf0f4f374a432487c77645a0ac0b31de4bf4690cf21ad3981"},
+    {file = "types_pytz-2024.1.0.20240417-py3-none-any.whl", hash = "sha256:8335d443310e2db7b74e007414e74c4f53b67452c0cb0d228ca359ccfba59659"},
 ]
 
 [[package]]

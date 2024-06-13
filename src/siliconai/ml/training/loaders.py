@@ -1,13 +1,12 @@
 """Module loaders."""
 
-from pathlib import Path
+from __future__ import annotations
 
-import lightning as L
+from typing import TYPE_CHECKING
 
-from siliconai.cli.config import Configuration
-from siliconai.cli.logging import Logger
 from siliconai.common.enums import DataType, ModelType
 from siliconai.data.modules import (
+    ActsDataModule,
     FashionMNISTDataModule,
     MNISTDataModule,
     TestSequenceDataModule,
@@ -15,6 +14,14 @@ from siliconai.data.modules import (
 )
 from siliconai.ml.models.transformer import Transformer
 from siliconai.ml.models.vae import BasicVAE, ConvVAE
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import lightning as L
+
+    from siliconai.cli.config import Configuration
+    from siliconai.cli.logging import Logger
 
 
 def load_data_module(
@@ -25,6 +32,8 @@ def load_data_module(
     if logger:
         logger.info("Loading data type: %s", config.data.type.value)
 
+    if config.data.type is DataType.ActsHits:
+        return ActsDataModule(config)
     if config.data.type is DataType.TRKNtuple:
         return TRKNtupleDataModule(config)
     # test samples
@@ -48,6 +57,9 @@ def load_data_module_from_checkpoint(
     logger.info("Loading data module type: %s", config.model.type.value)
 
     data_module: L.LightningDataModule
+    if config.data.type is DataType.ActsHits:
+        data_module = ActsDataModule.load_from_checkpoint(checkpoint)
+        return data_module
     if config.data.type is DataType.TRKNtuple:
         data_module = TRKNtupleDataModule.load_from_checkpoint(checkpoint)
         return data_module

@@ -7,6 +7,7 @@ class DataType(Enum):
     """Input type."""
 
     # actual types
+    ActsHits = "ActsHits"
     TRKNtuple = "TRKNtuple"
 
     # data types

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from siliconai.common.enums import DataType
-from siliconai.plotting.common import plot_column, setup_style
+from siliconai.plotting.common import plot_feature, setup_style
 from siliconai.plotting.utils import PDFDocument
 
 if TYPE_CHECKING:
@@ -114,9 +114,9 @@ class InputConverter:
 
         # cache the result
         self.data = output_data.to_numpy()
-        if self.data is not None and self.config.conversion_output_file is not None:
-            np.save(self.config.conversion_output_file, self.data)
-            self.logger.info("Saved %s", self.config.conversion_output_file)
+        if self.data is not None and self.config.input_file is not None:
+            np.save(self.config.input_file, self.data)
+            self.logger.info("Saved %s", self.config.input_file)
 
     def diagnostics(self) -> None:
         """Make diagnostics plots."""
@@ -128,7 +128,7 @@ class InputConverter:
         with PDFDocument(f"{self.output_file}.diagnostics.pdf") as pdf:  # type: ignore
             for column in self.data.dtype.names:
                 self.logger.info("Plotting %s", column)
-                fig, ax = plot_column(self.data, column)
+                fig, ax = plot_feature(self.data, column)
                 if not fig:
                     continue
                 pdf.save(fig)

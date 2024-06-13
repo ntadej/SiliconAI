@@ -234,21 +234,24 @@ class DataConfiguration:
                 raise ValueError(error)
 
         self.type: DataType = DataType(config["type"])
+        self.input_file: Path | None = None
         self.input_dim: list[int] | int = config["input_dim"]
+        self.split_ratio: list[float] = config.get("split_ratio", [0.7, 0.15, 0.15])
         self.batch_size: int = config["batch_size"]
+        self.workers: int = config.get("workers", 4)
 
         self.conversion: bool = False
         self.conversion_input_file: Path | None = None
-        self.conversion_output_file: Path | None = None
 
         if "conversion" in config:
             self.conversion = True
             self.conversion_input_file = (
                 global_config.data_path / config["conversion"]["input"]
             )
-            self.conversion_output_file = (
-                global_config.data_path / config["conversion"]["output"]
-            )
+            self.input_file = global_config.data_path / config["conversion"]["output"]
+
+        if "input_file" in config:
+            self.input_file = global_config.data_path / config["input_file"]
 
     @property
     def flat_input_dim(self) -> int:
@@ -261,11 +264,13 @@ class DataConfiguration:
         """Convert configuration to object."""
         return {
             "type": self.type.value,
+            "input_file": str(self.input_file),
             "input_dim": self.input_dim,
+            "split_ratio": self.split_ratio,
             "batch_size": self.batch_size,
+            "workers": self.workers,
             "conversion": self.conversion,
             "conversion_input_file": str(self.conversion_input_file),
-            "conversion_output_file": str(self.conversion_output_file),
         }
 
     def to_table(self) -> Table:
@@ -273,18 +278,18 @@ class DataConfiguration:
         table = config_table()
 
         table.add_row("Type:", self.type.value)
+        if self.input_file:
+            table.add_row("Input file:", print_path(self.input_file))
         table.add_row("Input dimension:", str(self.input_dim))
+        table.add_row("Split ratio:", str(self.split_ratio))
         table.add_row("Batch size:", str(self.batch_size))
+        table.add_row("Workers:", str(self.workers))
         table.add_row("Conversion needed:", str(self.conversion))
         if self.conversion:
             table.add_row()
             table.add_row(
                 "Conversion input file:",
                 print_path(self.conversion_input_file),
-            )
-            table.add_row(
-                "Conversion output file:",
-                print_path(self.conversion_output_file),
             )
 
         return table
