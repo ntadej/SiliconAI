@@ -53,10 +53,19 @@ class InputConverter:
         column_list = [
             "geometry_id",
             "particle_type",
+            "lxq",
+            "lyq",
         ]
 
         with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
-            data_frame = store["hits"][column_list].astype("int64")
+            data_frame = store["hits"][column_list]
+
+        # scale quantised coordinates
+        data_frame["lxq"] = data_frame["lxq"] * 100
+        data_frame["lyq"] = data_frame["lyq"] * 100
+
+        # convert everything to int64 for now
+        data_frame = data_frame.astype("int64")
 
         # do auto-padding
         data_frame = data_frame.unstack(fill_value=0).stack(future_stack=True)  # noqa: PD010 PD013

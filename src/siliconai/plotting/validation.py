@@ -3,17 +3,23 @@
 from __future__ import annotations
 
 import math
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from torchvision.utils import make_grid  # type: ignore
 
 from siliconai.common.enums import DataType, ModelType
-from siliconai.data.modules import TestSequenceDataModule, TRKNtupleDataModule
+from siliconai.data.modules import (
+    ActsDataModule,
+    TestSequenceDataModule,
+    TRKNtupleDataModule,
+)
 from siliconai.ml.training.loaders import (
     load_data_module_from_latest_checkpoint,
     load_model_from_latest_checkpoint,
@@ -38,7 +44,7 @@ def quick_validate(
     """Validate the model after training."""
     if config.data.type is DataType.ActsHits:
         logger.info("Validating ActsHits-based model output...")
-        file = quick_validate_acts_hits(config, model, data)
+        file = quick_validate_acts_hits(config, model, data, logger=logger)
         logger.info("Validation done and stored in %s.", file)
 
     if config.data.type is DataType.TRKNtuple:
@@ -90,15 +96,177 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     return output_file
 
 
-def quick_validate_acts_hits(
-    _config: Configuration,
-    _model: L.LightningModule,
-    _data: L.LightningDataModule,
+def quick_validate_acts_hits(  # noqa: PLR0915
+    config: Configuration,
+    model: L.LightningModule,
+    data: L.LightningDataModule,
+    logger: Logger | None = None,
 ) -> Path:
     """Validate ActsHits-based model output."""
+    _rich_traceback_guard = True
     setup_style()
 
-    return Path()
+    output_file = config.output_path / f"run_{config.run_number()}" / "validation.pdf"
+
+    data = cast(ActsDataModule, data)
+    data.setup("test")
+
+    input_full = []
+    result_full = []
+    if logger:
+        logger.info("Starting inference")
+    time_start = time.perf_counter()
+    for batch in data.test_dataloader():
+        batch_full = batch[0]
+        batch_start = batch_full[:, :1]
+
+        result = model.predict(
+            batch_start.to(model.device),
+            end_token=data.tokenize[0].dictionary.word2idx[10001],
+        )
+
+        input_full += batch_full
+        result_full += list(result.cpu().numpy())
+
+    input_translated = [data.translate_data(i) for i in batch_full.numpy()]
+    result_translated = [data.translate_data(i) for i in result_full]
+
+    time_end = time.perf_counter()
+
+    if logger:
+        logger.info(
+            "Inference done in %.4f s (%.4f s per 10k particles)",
+            time_end - time_start,
+            (time_end - time_start) / len(input_full) * 10000,
+        )
+
+    # non-zero results
+    input_nonzero = []
+    result_nonzero = []
+    for i in range(len(input_translated)):
+        nz = np.nonzero(input_translated[i])
+        input_nonzero.append(
+            input_translated[i][
+                nz[0].min() : nz[0].max() + 1,
+                nz[1].min() : nz[1].max() + 1,
+            ],
+        )
+        nz = np.nonzero(result_translated[i])
+        result_nonzero.append(
+            result_translated[i][
+                nz[0].min() : nz[0].max() + 1,
+                nz[1].min() : nz[1].max() + 1,
+            ],
+        )
+
+    # data frame
+    input_labels = [
+        np.transpose(
+            np.array(
+                [
+                    np.full(
+                        shape=len(v),
+                        fill_value=i,
+                        dtype=int,
+                    ),
+                    np.arange(0, len(v)),
+                ],
+            ),
+        )
+        for i, v in enumerate(input_nonzero)
+    ]
+    result_labels = [
+        np.transpose(
+            np.array(
+                [
+                    np.full(
+                        shape=len(v),
+                        fill_value=i,
+                        dtype=int,
+                    ),
+                    np.arange(0, len(v)),
+                ],
+            ),
+        )
+        for i, v in enumerate(result_nonzero)
+    ]
+    input_annotated = np.concatenate(
+        [np.hstack([a, b]) for a, b in zip(input_labels, input_nonzero, strict=True)],
+    )
+    result_annotated = np.concatenate(
+        [np.hstack([a, b]) for a, b in zip(result_labels, result_nonzero, strict=True)],
+    )
+    input_df = pd.DataFrame(input_annotated)
+    result_df = pd.DataFrame(result_annotated)
+    input_df = input_df.rename(
+        columns={
+            0: "event_id",
+            1: "index",
+            2: "geometry_id",
+            3: "particle_type",
+            4: "lxq",
+            5: "lyq",
+        },
+    )
+    result_df = result_df.rename(
+        columns={
+            0: "event_id",
+            1: "index",
+            2: "geometry_id",
+            3: "particle_type",
+            4: "lxq",
+            5: "lyq",
+        },
+    )
+    input_df = input_df.set_index(["event_id", "index"])
+    result_df = result_df.set_index(["event_id", "index"])
+    input_df["lxq"] /= 100
+    result_df["lxq"] /= 100
+    input_df["lyq"] /= 100
+    result_df["lyq"] /= 100
+
+    with pd.HDFStore(
+        config.output_path / f"run_{config.run_number()}" / "data.h5",
+        mode="w",
+    ) as store:
+        store["reference_data"] = input_df
+        store["generated_data"] = result_df
+
+    # validation plots
+    with PDFDocument(output_file) as pdf:  # type: ignore
+        labels = ["Original", "Generated"]
+
+        n_hits_input = [len(i) - 2 for i in input_nonzero]
+        n_hits_result = [len(i) - 2 for i in result_nonzero]
+        fig, ax = plot_hist(
+            [n_hits_input, n_hits_result],
+            "Number of hits",
+            labels=labels,
+        )
+        if fig:
+            pdf.save(fig)
+
+        lxq_input = list(np.concatenate([i[1:-2, 2] for i in input_nonzero]))
+        lyq_input = list(np.concatenate([i[1:-2, 3] for i in input_nonzero]))
+        lxq_result = list(np.concatenate([i[1:-2, 2] for i in result_nonzero]))
+        lyq_result = list(np.concatenate([i[1:-2, 3] for i in result_nonzero]))
+        fig, ax = plot_hist(
+            [lxq_input, lxq_result],
+            "Local x position",
+            labels=labels,
+        )
+        if fig:
+            pdf.save(fig)
+
+        fig, ax = plot_hist(
+            [lyq_input, lyq_result],
+            "Local y position",
+            labels=labels,
+        )
+        if fig:
+            pdf.save(fig)
+
+    return output_file
 
 
 def quick_validate_trkntuple(
@@ -140,7 +308,7 @@ def quick_validate_test_sequence(
     data: L.LightningDataModule,
     logger: Logger | None = None,
 ) -> Path:
-    """Validate TRKNtuple-based model output."""
+    """Validate test sequence model output."""
     # _rich_traceback_guard = True
     setup_style()
 

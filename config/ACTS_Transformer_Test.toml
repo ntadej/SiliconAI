@@ -2,9 +2,9 @@ name = "ACTS Test Transformer Muon 100 GeV Barrel"
 
 [data]
 type = "ActsHits"
-input_dim = [2667, 3]
+input_dim = [2667, 3, 8000, 8000]
 split_ratio = [0.8, 0.1, 0.1]
-batch_size = 16
+batch_size = 2
 workers = 12
 
 [data.conversion]

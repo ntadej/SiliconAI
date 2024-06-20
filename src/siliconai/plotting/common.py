@@ -75,7 +75,7 @@ def plot_feature(
 
 
 def plot_hist(
-    data: list[list[float]],
+    data: list[list[float] | list[int]],
     feature: str,
     nbins: int = 25,
     logx: bool = False,
@@ -102,12 +102,12 @@ def plot_hist(
         hist, bins = np.histogram(d, binning)
         hep.histplot(hist, bins, ax=ax, yerr=True, label=label)
     # TODO: make the label configurable
-    hep.atlas.label(
-        "Internal",
-        ax=ax,
-        data=False,
-        rlabel=r"$\sqrt{s} = \mathrm{13.6\ TeV}$",
-    )
+    # hep.atlas.label(
+    #     "Internal",
+    #     ax=ax,
+    #     data=False,
+    #     rlabel=r"$\sqrt{s} = \mathrm{13.6\ TeV}$",
+    # )
     ax.set_ylim(ax.get_ylim()[0], ax.get_ylim()[1] * 1.2)
     ax.set_xlabel(feature)
     ax.set_ylabel("Tracks")

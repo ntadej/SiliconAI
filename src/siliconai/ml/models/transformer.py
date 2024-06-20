@@ -266,30 +266,31 @@ class Transformer(Module):
         return loss
 
     @torch.no_grad()
-    def predict(self, input_sequence: Tensor, end_token: int = 1) -> Tensor:
+    def predict(self, input_sequence: Tensor, end_token: int) -> Tensor:
         """Run predictions on the model."""
         # _rich_traceback_guard = True
 
+        end_tensor = torch.tensor([0, end_token]).to(self.device)
         input_tensor = input_sequence
 
-        for _ in range(20):
+        for _ in range(50):  # TODO: make this a parameter
             pred = self(input_tensor)
 
             next_items = []
             index = 0
             for dim in self.input_dim_discreet:
                 next_items.append(
-                    pred[:, :, index : index + dim].topk(1)[1].view(-1)[-1].item(),
+                    pred[:, -1:, index : index + dim].topk(1)[1],
                 )
                 index += dim
 
-            next_item = torch.tensor([[next_items]], device=self.device)
+            next_item = torch.concat(next_items, dim=-1)
 
-            # # Concatenate previous input with predicted best word
+            # Concatenate previous input with predicted best word
             input_tensor = torch.cat((input_tensor, next_item), dim=1)
 
             # Stop if model predicts end of sentence
-            if next_item.view(-1)[0].item() == end_token:
+            if torch.all(torch.isin(next_item[:, :, 0].view(-1), end_tensor)):
                 break
 
         return input_tensor

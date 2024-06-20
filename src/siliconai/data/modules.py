@@ -18,6 +18,7 @@ from siliconai.data.utils import (
     CollateFnType,
     DataDictionary,
     NDArrayToFloatTensor,
+    NDArrayType,
     Tokenize,
     collate_sequence,
 )
@@ -145,9 +146,15 @@ class ActsDataModule(BaseDataModule):
         for i in range(len(dataset)):
             dataset[i]
 
-        for tokenize in self.tokenize:
-            assert len(tokenize.dictionary) > 1
+        for i, tokenize in enumerate(self.tokenize):
+            assert len(tokenize.dictionary) <= self.input_dim_discreet[i]
             # TODO: add summary printing
+
+    def translate_data(self, data: NDArrayType) -> NDArrayType:
+        """Translate back from tokens to the original data."""
+        for tokenize in self.tokenize:
+            data, _ = tokenize.inverse((data, None))
+        return data
 
     def prepare_data(self) -> None:
         """Prepare and tokenise the ACTS dataset."""
