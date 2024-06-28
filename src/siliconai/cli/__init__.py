@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from siliconai import __version__
+from siliconai.common.enums import DataLoadingType
 
 from .config import Configuration, GlobalConfiguration, TyperState, config_missing
 from .logging import setup_logger
@@ -181,6 +182,14 @@ def validate(
             help="Task configuration file.",
         ),
     ],
+    data_type: Annotated[
+        DataLoadingType,
+        typer.Option(
+            "-t",
+            "--type",
+            help="Data type to validate.",
+        ),
+    ] = DataLoadingType.test,
 ) -> None:
     """Validate the model."""
     global_config = GlobalConfiguration.load(state)
@@ -191,4 +200,4 @@ def validate(
     from siliconai.plotting.validation import validate
 
     common_setup()
-    validate(logger, config)
+    validate(logger, config, data_type)

@@ -14,7 +14,7 @@ import pandas as pd
 import torch
 from torchvision.utils import make_grid  # type: ignore
 
-from siliconai.common.enums import DataType, ModelType
+from siliconai.common.enums import DataLoadingType, DataType, ModelType
 from siliconai.data.modules import (
     ActsDataModule,
     TestSequenceDataModule,
@@ -40,11 +40,12 @@ def quick_validate(
     config: Configuration,
     model: L.LightningModule,
     data: L.LightningDataModule,
+    data_type: DataLoadingType,
 ) -> None:
     """Validate the model after training."""
     if config.data.type is DataType.ActsHits:
         logger.info("Validating ActsHits-based model output...")
-        file = quick_validate_acts_hits(config, model, data, logger=logger)
+        file = quick_validate_acts_hits(config, model, data, data_type, logger=logger)
         logger.info("Validation done and stored in %s.", file)
 
     if config.data.type is DataType.TRKNtuple:
@@ -96,27 +97,80 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     return output_file
 
 
-def quick_validate_acts_hits(  # noqa: PLR0915
+def acts_process_data(
+    data: list[NDArrayType],
+) -> tuple[list[NDArrayType], pd.DataFrame]:
+    """Process ActsHits data."""
+    # non-zero results
+    data_nonzero = []
+    for i in range(len(data)):
+        nz = np.nonzero(data[i][:, 0])
+        data_nonzero.append(data[i][nz[0].min() : nz[0].max() + 1])
+
+    # data frame
+    data_labels = [
+        np.transpose(
+            np.array(
+                [
+                    np.full(
+                        shape=len(v),
+                        fill_value=i,
+                        dtype=int,
+                    ),
+                    np.arange(0, len(v)),
+                ],
+            ),
+        )
+        for i, v in enumerate(data_nonzero)
+    ]
+    data_annotated = np.concatenate(
+        [np.hstack([a, b]) for a, b in zip(data_labels, data_nonzero, strict=True)],
+    )
+    data_df = pd.DataFrame(data_annotated)
+    data_df = data_df.rename(
+        columns={
+            0: "event_id",
+            1: "index",
+            2: "geometry_id",
+            3: "particle_type",
+            4: "lxq",
+            5: "lyq",
+        },
+    )
+    data_df = data_df.set_index(["event_id", "index"])
+    data_df["lxq"] /= 100
+    data_df["lyq"] /= 100
+
+    return data_nonzero, data_df
+
+
+def quick_validate_acts_hits(
     config: Configuration,
     model: L.LightningModule,
     data: L.LightningDataModule,
+    data_type: DataLoadingType,
     logger: Logger | None = None,
 ) -> Path:
     """Validate ActsHits-based model output."""
-    _rich_traceback_guard = True
+    # _rich_traceback_guard = True
     setup_style()
 
-    output_file = config.output_path / f"run_{config.run_number()}" / "validation.pdf"
+    output_file = (
+        config.output_path
+        / f"run_{config.run_number()}"
+        / f"validation_{data_type.value}.pdf"
+    )
 
     data = cast(ActsDataModule, data)
-    data.setup("test")
+    data.setup(data_type.value)
 
     input_full = []
     result_full = []
     if logger:
         logger.info("Starting inference")
     time_start = time.perf_counter()
-    for batch in data.test_dataloader():
+
+    for batch in data.get_dataloader(data_type):
         batch_full = batch[0]
         batch_start = batch_full[:, :1]
 
@@ -125,10 +179,10 @@ def quick_validate_acts_hits(  # noqa: PLR0915
             end_token=data.tokenize[0].dictionary.word2idx[10001],
         )
 
-        input_full += batch_full
+        input_full += list(batch_full.cpu().numpy())
         result_full += list(result.cpu().numpy())
 
-    input_translated = [data.translate_data(i) for i in batch_full.numpy()]
+    input_translated = [data.translate_data(i) for i in input_full]
     result_translated = [data.translate_data(i) for i in result_full]
 
     time_end = time.perf_counter()
@@ -140,93 +194,20 @@ def quick_validate_acts_hits(  # noqa: PLR0915
             (time_end - time_start) / len(input_full) * 10000,
         )
 
-    # non-zero results
-    input_nonzero = []
-    result_nonzero = []
-    for i in range(len(input_translated)):
-        nz = np.nonzero(input_translated[i])
-        input_nonzero.append(
-            input_translated[i][
-                nz[0].min() : nz[0].max() + 1,
-                nz[1].min() : nz[1].max() + 1,
-            ],
-        )
-        nz = np.nonzero(result_translated[i])
-        result_nonzero.append(
-            result_translated[i][
-                nz[0].min() : nz[0].max() + 1,
-                nz[1].min() : nz[1].max() + 1,
-            ],
-        )
+    # non-zero results and DF conversion
+    input_nonzero, input_df = acts_process_data(input_translated)
+    result_nonzero, result_df = acts_process_data(result_translated)
 
-    # data frame
-    input_labels = [
-        np.transpose(
-            np.array(
-                [
-                    np.full(
-                        shape=len(v),
-                        fill_value=i,
-                        dtype=int,
-                    ),
-                    np.arange(0, len(v)),
-                ],
-            ),
-        )
-        for i, v in enumerate(input_nonzero)
-    ]
-    result_labels = [
-        np.transpose(
-            np.array(
-                [
-                    np.full(
-                        shape=len(v),
-                        fill_value=i,
-                        dtype=int,
-                    ),
-                    np.arange(0, len(v)),
-                ],
-            ),
-        )
-        for i, v in enumerate(result_nonzero)
-    ]
-    input_annotated = np.concatenate(
-        [np.hstack([a, b]) for a, b in zip(input_labels, input_nonzero, strict=True)],
-    )
-    result_annotated = np.concatenate(
-        [np.hstack([a, b]) for a, b in zip(result_labels, result_nonzero, strict=True)],
-    )
-    input_df = pd.DataFrame(input_annotated)
-    result_df = pd.DataFrame(result_annotated)
-    input_df = input_df.rename(
-        columns={
-            0: "event_id",
-            1: "index",
-            2: "geometry_id",
-            3: "particle_type",
-            4: "lxq",
-            5: "lyq",
-        },
-    )
-    result_df = result_df.rename(
-        columns={
-            0: "event_id",
-            1: "index",
-            2: "geometry_id",
-            3: "particle_type",
-            4: "lxq",
-            5: "lyq",
-        },
-    )
-    input_df = input_df.set_index(["event_id", "index"])
-    result_df = result_df.set_index(["event_id", "index"])
-    input_df["lxq"] /= 100
-    result_df["lxq"] /= 100
-    input_df["lyq"] /= 100
-    result_df["lyq"] /= 100
+    assert len(input_nonzero) == len(result_nonzero)
 
+    if logger:
+        logger.info("Total events processed: %d", len(result_nonzero))
+
+    # store data
     with pd.HDFStore(
-        config.output_path / f"run_{config.run_number()}" / "data.h5",
+        config.output_path
+        / f"run_{config.run_number()}"
+        / f"data_{data_type.value}.h5",
         mode="w",
     ) as store:
         store["reference_data"] = input_df
@@ -360,7 +341,7 @@ def quick_validate_test_sequence(
     return Path()
 
 
-def validate(logger: Logger, config: Configuration) -> None:
+def validate(logger: Logger, config: Configuration, data_type: DataLoadingType) -> None:
     """Validate the model after training."""
     checkpoint_path = (
         config.global_config.output_path
@@ -370,4 +351,4 @@ def validate(logger: Logger, config: Configuration) -> None:
     )
     data = load_data_module_from_latest_checkpoint(logger, config, checkpoint_path)
     model = load_model_from_latest_checkpoint(logger, config, checkpoint_path)
-    quick_validate(logger, config, model, data)
+    quick_validate(logger, config, model, data, data_type)

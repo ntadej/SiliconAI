@@ -18,6 +18,14 @@ class DataType(Enum):
     TestSequence = "TestSequence"
 
 
+class DataLoadingType(Enum):
+    """Data loading type."""
+
+    fit = "fit"
+    validate = "validate"
+    test = "test"
+
+
 class ModelType(Enum):
     """Model type."""
 

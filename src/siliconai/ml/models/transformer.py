@@ -273,7 +273,7 @@ class Transformer(Module):
         end_tensor = torch.tensor([0, end_token]).to(self.device)
         input_tensor = input_sequence
 
-        for _ in range(50):  # TODO: make this a parameter
+        for _ in range(21):  # TODO: make this a parameter
             pred = self(input_tensor)
 
             next_items = []

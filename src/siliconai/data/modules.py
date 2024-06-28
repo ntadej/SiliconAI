@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader, Subset, random_split
 from torchvision.datasets import MNIST, FashionMNIST  # type: ignore
 from torchvision.transforms import ToTensor  # type: ignore
 
+from siliconai.common.enums import DataLoadingType
 from siliconai.data.datasets import (
     ActsHitsDataset,
     TestSequenceDataset,
@@ -48,6 +49,15 @@ class BaseDataModule(L.LightningDataModule):
         self.train_data: Subset[Any]
         self.val_data: Subset[Any]
         self.test_data: Subset[Any]
+
+    def get_dataloader(self, data_type: DataLoadingType) -> DataLoader[Any]:
+        """Get the DataLoader for the specified data type."""
+        if data_type == DataLoadingType.fit:
+            return self.train_dataloader()
+        if data_type == DataLoadingType.validate:
+            return self.val_dataloader()
+        if data_type == DataLoadingType.test:  # noqa: RET503
+            return self.test_dataloader()
 
     def train_dataloader(self) -> DataLoader[Any]:
         """Return the training DataLoader."""
