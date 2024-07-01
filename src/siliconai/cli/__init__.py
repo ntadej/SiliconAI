@@ -189,7 +189,7 @@ def validate(
             "--type",
             help="Data type to validate.",
         ),
-    ] = DataLoadingType.test,
+    ] = DataLoadingType.test.value,
 ) -> None:
     """Validate the model."""
     global_config = GlobalConfiguration.load(state)

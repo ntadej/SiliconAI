@@ -344,21 +344,21 @@ class BasicVAE(Module):
         """Run training step."""
         loss = self.process_loss(batch)
 
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, sync_dist=True)
         return loss
 
     def validation_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
         """Run validation step."""
         loss = self.process_loss(batch)
 
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def test_step(self, batch: Tensor, _batch_idx: int) -> Tensor:  # noqa: PT019
         """Run test step."""
         loss = self.process_loss(batch)
 
-        self.log("test_loss", loss)
+        self.log("test_loss", loss, sync_dist=True)
         return loss
 
     @torch.no_grad()
@@ -496,21 +496,21 @@ class ConvVAE(Module):
         """Run training step."""
         loss = self.process_loss(batch)
 
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, sync_dist=True)
         return loss
 
     def validation_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
         """Run validation step."""
         loss = self.process_loss(batch)
 
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def test_step(self, batch: Tensor, _batch_idx: int) -> Tensor:  # noqa: PT019
         """Run test step."""
         loss = self.process_loss(batch)
 
-        self.log("test_loss", loss)
+        self.log("test_loss", loss, sync_dist=True)
         return loss
 
     @torch.no_grad()

@@ -31,7 +31,7 @@ class PositionalEncoding(nn.Module):
         encoding = torch.zeros(max_len, model_dim)
         positions = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         division_term = torch.exp(  # 1000^(2i/dim_model)
-            torch.arange(0, model_dim, 2).float() * (-math.log(10000.0)) / model_dim,
+            torch.arange(0, model_dim, 2).float() * (-math.log(10000.0) / model_dim),
         )
 
         # PE(pos, 2i) = sin(pos/1000^(2i/dim_model))
@@ -41,7 +41,9 @@ class PositionalEncoding(nn.Module):
 
         # saving buffer (same as parameter without gradients needed)
         encoding = encoding.unsqueeze(0).transpose(0, 1)
-        self.register_buffer("positional_encoding", encoding)
+        # TODO: figure out why this breaks distributed training
+        # self.register_buffer("positional_encoding", encoding)
+        self.positional_encoding = nn.Parameter(encoding, requires_grad=False)
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass."""
@@ -95,6 +97,7 @@ class Transformer(Module):
         self.positional_encoder = PositionalEncoding(
             model_dim=config.model.model_dim,
             dropout=config.model.dropout,
+            max_len=config.data.batch_size,
         )
 
         # setup embedding layers
@@ -248,21 +251,21 @@ class Transformer(Module):
         """Run training step."""
         loss = self.process_loss(batch)
 
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, sync_dist=True)
         return loss
 
     def validation_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
         """Run validation step."""
         loss = self.process_loss(batch)
 
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def test_step(self, batch: Tensor, _batch_idx: int) -> Tensor:  # noqa: PT019
         """Run test step."""
         loss = self.process_loss(batch)
 
-        self.log("test_loss", loss)
+        self.log("test_loss", loss, sync_dist=True)
         return loss
 
     @torch.no_grad()
