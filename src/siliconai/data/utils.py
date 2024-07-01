@@ -10,9 +10,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 from numpy.typing import NDArray
+from sklearn.preprocessing import MaxAbsScaler  # type: ignore
 
 if TYPE_CHECKING:
     from torch import Tensor
+
+    from siliconai.cli.logging import Logger
 
 Word = Any
 
@@ -23,35 +26,69 @@ CollateFnType = Callable[[list[Any]], Any]
 def collate_sequence(batch: list[Any]) -> list[Any]:
     """Collate the ACTS dataset."""
     # get sequence feature length
-    feature_len = len(batch[0][0])
+    feature_len_int = len(batch[0][0][0])
+    feature_len_float = len(batch[0][1][0])
     # get max length of the sequences
-    max_len = max([len(item) for item in batch])
+    max_len = max([len(item[0]) for item in batch])
 
     output: list[Any] = []
     for item in batch:
+        item_int, item_float = item
         # append zeros to the end of the sequence if needed
-        out_item = (
+        out_item_int = (
             np.vstack(
                 [
-                    item,
-                    np.zeros((max_len - len(item), feature_len), dtype=np.int64),
+                    item_int,
+                    np.zeros(
+                        (max_len - len(item_int), feature_len_int),
+                        dtype=np.int64,
+                    ),
                 ],
             )
-            if len(item) < max_len
-            else item
+            if len(item_int) < max_len
+            else item_int
+        )
+        out_item_float = (
+            np.vstack(
+                [
+                    item_float,
+                    np.zeros(
+                        (max_len - len(item_float), feature_len_float),
+                        dtype=np.float32,
+                    ),
+                ],
+            )
+            if len(item_float) < max_len
+            else item_float
         )
         # shift the prediction for one to the left and append zeros to the end
-        out_item_shifted = np.vstack(
+        out_item_int_shifted = np.vstack(
             [
-                item[1:],
+                item_int[1:],
                 np.zeros(
-                    (max_len - len(item) + 1, feature_len),
+                    (max_len - len(item_int) + 1, feature_len_int),
                     dtype=np.int64,
                 ),
             ],
         )
+        out_item_float_shifted = np.vstack(
+            [
+                item_float[1:],
+                np.zeros(
+                    (max_len - len(item_float) + 1, feature_len_float),
+                    dtype=np.float32,
+                ),
+            ],
+        )
         # append to the output
-        output.append((out_item, out_item_shifted))
+        output.append(
+            (
+                out_item_int,
+                out_item_float,
+                out_item_int_shifted,
+                out_item_float_shifted,
+            ),
+        )
 
     # now with proper padding run the default collate function
     return torch.utils.data.default_collate(output)  # type: ignore
@@ -119,6 +156,14 @@ class Tokenize(NDArrayTransformation):
         self.dictionary = dictionary
         self.index = index
 
+    def summary(self, logger: Logger) -> None:
+        """Log summary of the dictionary."""
+        logger.info(
+            'Dictionary for "%s": %d words',
+            self.dictionary.name,
+            len(self.dictionary),
+        )
+
     def __call__(
         self,
         sample: tuple[NDArrayType, NDArrayType | None],
@@ -141,6 +186,58 @@ class Tokenize(NDArrayTransformation):
         features[:, self.index] = helper(features[:, self.index])
         if labels is not None:
             labels[:, self.index] = helper(labels[:, self.index])
+        return (features, labels)
+
+
+class ScikitLearnTransformation(NDArrayTransformation):
+    """Normalize the input data to a gaussian function."""
+
+    def __init__(self, name: str, index: int) -> None:
+        """Initialize the tokenizer."""
+        self.name = name
+        self.transformation = MaxAbsScaler()
+        self.index = index
+
+    def summary(self, logger: Logger) -> None:
+        """Log summary of the transformation."""
+        logger.info(
+            'Scale for "%s": %f',
+            self.name,
+            self.transformation.scale_[0],
+        )
+
+    def fit(self, data: tuple[NDArrayType, NDArrayType | None]) -> None:
+        """Fit the transformation."""
+        self.transformation.fit(data[0][:, self.index].reshape(-1, 1))
+
+    def __call__(
+        self,
+        sample: tuple[NDArrayType, NDArrayType | None],
+    ) -> tuple[NDArrayType, NDArrayType | None]:
+        """Transform the sample to tensors."""
+        features, labels = sample
+        features[:, self.index] = self.transformation.transform(
+            features[:, self.index].reshape(-1, 1),
+        ).reshape(1, -1)
+        if labels is not None:
+            labels[:, self.index] = self.transformation.transform(
+                labels[:, self.index].reshape(-1, 1),
+            ).reshape(1, -1)
+        return (features, labels)
+
+    def inverse(
+        self,
+        sample: tuple[NDArrayType, NDArrayType | None],
+    ) -> tuple[NDArrayType, NDArrayType | None]:
+        """Inverse the tokenization."""
+        features, labels = sample
+        features[:, self.index] = self.transformation.inverse_transform(
+            features[:, self.index].reshape(-1, 1),
+        ).reshape(1, -1)
+        if labels is not None:
+            labels[:, self.index] = self.transformation.inverse_transform(
+                labels[:, self.index].reshape(-1, 1),
+            ).reshape(1, -1)
         return (features, labels)
 
 

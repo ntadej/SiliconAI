@@ -26,27 +26,33 @@ class ActsHitsDataset(Dataset):  # type: ignore
     def __init__(
         self,
         input_file: Path,
-        transforms: list[NDArrayTransformation] | None = None,
+        transforms_int: list[NDArrayTransformation] | None = None,
+        transforms_float: list[NDArrayTransformation] | None = None,
     ) -> None:
         """Load the ActsHits as a dataset."""
-        self.transforms = transforms
+        self.transforms_int = transforms_int
+        self.transforms_float = transforms_float
 
         with input_file.open("rb") as f:
-            self.data = pickle.load(f)
+            self.data_int, self.data_float = pickle.load(f)
 
     def __len__(self) -> int:
         """Return the length of the dataset."""
-        return len(self.data)
+        return len(self.data_int)
 
-    def __getitem__(self, idx: int) -> NDArrayType:
+    def __getitem__(self, idx: int) -> tuple[NDArrayType, NDArrayType]:
         """Return the item at the given index."""
-        sequence: NDArrayType = self.data[idx]
+        sequence_int: NDArrayType = self.data_int[idx]
+        sequence_float: NDArrayType = self.data_float[idx]
 
-        if self.transforms:
-            for t in self.transforms:
-                sequence, _ = t((sequence, None))
+        if self.transforms_int:
+            for t in self.transforms_int:
+                sequence_int, _ = t((sequence_int, None))
+        if self.transforms_float:
+            for t in self.transforms_float:
+                sequence_float, _ = t((sequence_float, None))
 
-        return sequence
+        return sequence_int, sequence_float
 
 
 class TRKNtupleDataset(Dataset):  # type: ignore

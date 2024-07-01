@@ -1,4 +1,4 @@
-name = "ACTS Test Transformer Muon 100 GeV Barrel"
+name = "ACTS Test Transformer Muon 100 GeV Barrel Discrete"
 
 [data]
 type = "ActsHits"
@@ -11,7 +11,6 @@ workers = 12
 input = "ACTS_Muon_100GeV_Barrel_hits_test.h5"
 output = "ACTS_Muon_100GeV_Barrel_hits_test.pkl"
 columns_integer = ["geometry_id", "particle_type"]
-columns_float = ["lx", "ly"]
 
 [model]
 type = "Transformer"

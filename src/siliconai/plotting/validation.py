@@ -98,14 +98,18 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
 
 
 def acts_process_data(
-    data: list[NDArrayType],
-) -> tuple[list[NDArrayType], pd.DataFrame]:
+    config: Configuration,
+    data_int: list[NDArrayType],
+    data_float: list[NDArrayType],
+) -> tuple[list[NDArrayType], list[NDArrayType], pd.DataFrame]:
     """Process ActsHits data."""
     # non-zero results
-    data_nonzero = []
-    for i in range(len(data)):
-        nz = np.nonzero(data[i][:, 0])
-        data_nonzero.append(data[i][nz[0].min() : nz[0].max() + 1])
+    data_nonzero_int = []
+    data_nonzero_float = []
+    for i in range(len(data_int)):
+        nz = np.nonzero(data_int[i][:, 0])
+        data_nonzero_int.append(data_int[i][nz[0].min() : nz[0].max() + 1])
+        data_nonzero_float.append(data_float[i][nz[0].min() : nz[0].max() + 1])
 
     # data frame
     data_labels = [
@@ -121,30 +125,51 @@ def acts_process_data(
                 ],
             ),
         )
-        for i, v in enumerate(data_nonzero)
+        for i, v in enumerate(data_nonzero_int)
     ]
-    data_annotated = np.concatenate(
-        [np.hstack([a, b]) for a, b in zip(data_labels, data_nonzero, strict=True)],
+
+    data_annotated_int = np.concatenate(
+        [np.hstack([a, b]) for a, b in zip(data_labels, data_nonzero_int, strict=True)],
     )
-    data_df = pd.DataFrame(data_annotated)
-    data_df = data_df.rename(
-        columns={
-            0: "event_id",
-            1: "index",
-            2: "geometry_id",
-            3: "particle_type",
-            4: "lxq",
-            5: "lyq",
-        },
+    data_annotated_float = np.concatenate(
+        [
+            np.hstack([a, b])
+            for a, b in zip(data_labels, data_nonzero_float, strict=True)
+        ],
     )
-    data_df = data_df.set_index(["event_id", "index"])
-    data_df["lxq"] /= 100
-    data_df["lyq"] /= 100
 
-    return data_nonzero, data_df
+    data_df_int = pd.DataFrame(data_annotated_int)
+    data_df_float = pd.DataFrame(data_annotated_float)
+
+    columns_labels = {
+        0: "event_id",
+        1: "index",
+    }
+    for i, label in enumerate(config.data.columns_integer):
+        columns_labels[i + 2] = label
+    data_df_int = data_df_int.rename(columns=columns_labels)
+    data_df_int = data_df_int.set_index(["event_id", "index"])
+
+    columns_labels = {
+        0: "event_id",
+        1: "index",
+    }
+    for i, label in enumerate(config.data.columns_float):
+        columns_labels[i + 2] = label
+    data_df_float = data_df_float.rename(columns=columns_labels)
+    data_df_float = data_df_float.set_index(["event_id", "index"])
+
+    data_df = pd.concat([data_df_int, data_df_float], axis=1)
+
+    if "lxq" in data_df.columns:
+        data_df["lxq"] /= 100
+    if "lyq" in data_df.columns:
+        data_df["lyq"] /= 100
+
+    return data_nonzero_int, data_nonzero_float, data_df
 
 
-def quick_validate_acts_hits(
+def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
     config: Configuration,
     model: L.LightningModule,
     data: L.LightningDataModule,
@@ -163,27 +188,42 @@ def quick_validate_acts_hits(
 
     data = cast(ActsDataModule, data)
     data.setup(data_type.value)
+    if logger:
+        for tokenize in data.tokenize:
+            tokenize.summary(logger)
+        for normalize in data.normalize:
+            normalize.summary(logger)
 
-    input_full = []
-    result_full = []
+    input_full_int = []
+    input_full_float = []
+    result_full_int = []
+    result_full_float = []
     if logger:
         logger.info("Starting inference")
     time_start = time.perf_counter()
 
     for batch in data.get_dataloader(data_type):
-        batch_full = batch[0]
-        batch_start = batch_full[:, :1]
+        batch_full_int, batch_full_float = batch[0], batch[1]
+        batch_start_int, batch_start_float = (
+            batch_full_int[:, :1],
+            batch_full_float[:, :1],
+        )
 
-        result = model.predict(
-            batch_start.to(model.device),
+        result_int, result_float = model.predict(
+            batch_start_int.to(model.device),
+            batch_start_float.to(model.device),
             end_token=data.tokenize[0].dictionary.word2idx[10001],
         )
 
-        input_full += list(batch_full.cpu().numpy())
-        result_full += list(result.cpu().numpy())
+        input_full_int += list(batch_full_int.cpu().numpy())
+        input_full_float += list(batch_full_float.cpu().numpy())
+        result_full_int += list(result_int.cpu().numpy())
+        result_full_float += list(result_float.cpu().numpy())
 
-    input_translated = [data.translate_data(i) for i in input_full]
-    result_translated = [data.translate_data(i) for i in result_full]
+    input_translated_int = [data.translate_data(i) for i in input_full_int]
+    input_translated_float = [data.inverse_data(i) for i in input_full_float]
+    result_translated_int = [data.translate_data(i) for i in result_full_int]
+    result_translated_float = [data.inverse_data(i) for i in result_full_float]
 
     time_end = time.perf_counter()
 
@@ -191,17 +231,25 @@ def quick_validate_acts_hits(
         logger.info(
             "Inference done in %.4f s (%.4f s per 10k particles)",
             time_end - time_start,
-            (time_end - time_start) / len(input_full) * 10000,
+            (time_end - time_start) / len(input_full_int) * 10000,
         )
 
     # non-zero results and DF conversion
-    input_nonzero, input_df = acts_process_data(input_translated)
-    result_nonzero, result_df = acts_process_data(result_translated)
+    input_nonzero_int, input_nonzero_float, input_df = acts_process_data(
+        config,
+        input_translated_int,
+        input_translated_float,
+    )
+    result_nonzero_int, result_nonzero_float, result_df = acts_process_data(
+        config,
+        result_translated_int,
+        result_translated_float,
+    )
 
-    assert len(input_nonzero) == len(result_nonzero)
+    assert len(input_nonzero_int) == len(result_nonzero_int)
 
     if logger:
-        logger.info("Total events processed: %d", len(result_nonzero))
+        logger.info("Total events processed: %d", len(result_nonzero_int))
 
     # store data
     with pd.HDFStore(
@@ -217,8 +265,8 @@ def quick_validate_acts_hits(
     with PDFDocument(output_file) as pdf:  # type: ignore
         labels = ["Original", "Generated"]
 
-        n_hits_input = [len(i) - 2 for i in input_nonzero]
-        n_hits_result = [len(i) - 2 for i in result_nonzero]
+        n_hits_input = [len(i) - 2 for i in input_nonzero_int]
+        n_hits_result = [len(i) - 2 for i in result_nonzero_int]
         fig, ax = plot_hist(
             [n_hits_input, n_hits_result],
             "Number of hits",
@@ -227,25 +275,69 @@ def quick_validate_acts_hits(
         if fig:
             pdf.save(fig)
 
-        lxq_input = list(np.concatenate([i[1:-2, 2] for i in input_nonzero]))
-        lyq_input = list(np.concatenate([i[1:-2, 3] for i in input_nonzero]))
-        lxq_result = list(np.concatenate([i[1:-2, 2] for i in result_nonzero]))
-        lyq_result = list(np.concatenate([i[1:-2, 3] for i in result_nonzero]))
-        fig, ax = plot_hist(
-            [lxq_input, lxq_result],
-            "Local x position",
-            labels=labels,
-        )
-        if fig:
-            pdf.save(fig)
+        if "lx" in config.data.columns_float:
+            lx_index = config.data.columns_float.index("lx")
+            lx_input = list(
+                np.concatenate([i[1:-2, lx_index] for i in input_nonzero_float]),
+            )
+            lx_result = list(
+                np.concatenate([i[1:-2, lx_index] for i in result_nonzero_float]),
+            )
+            fig, ax = plot_hist(
+                [lx_input, lx_result],
+                "Local x position",
+                labels=labels,
+            )
+            if fig:
+                pdf.save(fig)
 
-        fig, ax = plot_hist(
-            [lyq_input, lyq_result],
-            "Local y position",
-            labels=labels,
-        )
-        if fig:
-            pdf.save(fig)
+        if "ly" in config.data.columns_float:
+            ly_index = config.data.columns_float.index("ly")
+            ly_input = list(
+                np.concatenate([i[1:-2, ly_index] for i in input_nonzero_float]),
+            )
+            ly_result = list(
+                np.concatenate([i[1:-2, ly_index] for i in result_nonzero_float]),
+            )
+            fig, ax = plot_hist(
+                [ly_input, ly_result],
+                "Local y position",
+                labels=labels,
+            )
+            if fig:
+                pdf.save(fig)
+
+        if "lxq" in config.data.columns_integer:
+            lxq_index = config.data.columns_integer.index("lxq")
+            lxq_input = list(
+                np.concatenate([i[1:-2, lxq_index] for i in input_nonzero_int]),
+            )
+            lxq_result = list(
+                np.concatenate([i[1:-2, lxq_index] for i in result_nonzero_int]),
+            )
+            fig, ax = plot_hist(
+                [lxq_input, lxq_result],
+                "Local x position",
+                labels=labels,
+            )
+            if fig:
+                pdf.save(fig)
+
+        if "lyq" in config.data.columns_integer:
+            lyq_index = config.data.columns_integer.index("lyq")
+            lyq_input = list(
+                np.concatenate([i[1:-2, lyq_index] for i in input_nonzero_int]),
+            )
+            lyq_result = list(
+                np.concatenate([i[1:-2, lyq_index] for i in result_nonzero_int]),
+            )
+            fig, ax = plot_hist(
+                [lyq_input, lyq_result],
+                "Local y position",
+                labels=labels,
+            )
+            if fig:
+                pdf.save(fig)
 
     return output_file
 

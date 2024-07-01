@@ -49,57 +49,82 @@ class InputConverter:
             self.config.conversion_input_file,
         )
 
-        # TODO: make configurable
-        column_list = [
-            "geometry_id",
-            "particle_type",
-            "lxq",
-            "lyq",
-        ]
-
         with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
-            data_frame = store["hits"][column_list]
+            data_frame_int = store["hits"][self.config.columns_integer]
+            data_frame_float = store["hits"][self.config.columns_float]
 
         # scale quantised coordinates
-        data_frame["lxq"] = data_frame["lxq"] * 100
-        data_frame["lyq"] = data_frame["lyq"] * 100
+        if "lxq" in data_frame_int:
+            data_frame_int["lxq"] = data_frame_int["lxq"] * 100
+        if "lyq" in data_frame_int:
+            data_frame_int["lyq"] = data_frame_int["lyq"] * 100
 
-        # convert everything to int64 for now
-        data_frame = data_frame.astype("int64")
+        # convert to correct types
+        data_frame_int = data_frame_int.astype("int64")
+        data_frame_float = data_frame_float.astype("float32")
 
         # do auto-padding
-        data_frame = data_frame.unstack(fill_value=0).stack(future_stack=True)  # noqa: PD010 PD013
+        data_frame_int = data_frame_int.unstack(fill_value=0).stack(future_stack=True)  # noqa: PD010 PD013
+        data_frame_float = data_frame_float.unstack(fill_value=0).stack(  # noqa: PD010 PD013
+            future_stack=True,
+        )
 
-        if not isinstance(data_frame.index, pd.MultiIndex):
+        if not isinstance(data_frame_int.index, pd.MultiIndex) or not isinstance(
+            data_frame_float.index,
+            pd.MultiIndex,
+        ):
             error = "Index must be a MultiIndex"
             raise TypeError(error)
 
         self.logger.info("Converting to numpy arrays")
 
-        data_events = len(data_frame.index.levels[0])
-        data_hits = len(data_frame.index.levels[1])
+        data_events = len(data_frame_int.index.levels[0])
+        data_hits = len(data_frame_int.index.levels[1])
 
-        output = list(
-            data_frame.to_numpy().reshape(data_events, data_hits, len(column_list)),
+        output_int = list(
+            data_frame_int.to_numpy().reshape(
+                data_events,
+                data_hits,
+                len(self.config.columns_integer),
+            ),
+        )
+        output_float = list(
+            data_frame_float.to_numpy().reshape(
+                data_events,
+                data_hits,
+                len(self.config.columns_float),
+            ),
         )
 
-        output_nonzero = []
-        for i in range(len(output)):
-            nz = np.nonzero(output[i])
-            output_nonzero.append(
-                output[i][nz[0].min() : nz[0].max() + 1, nz[1].min() : nz[1].max() + 1],
+        output_int_nonzero = []
+        output_float_nonzero = []
+        for i in range(len(output_int)):
+            nz = np.nonzero(output_int[i])
+            output_int_nonzero.append(
+                output_int[i][
+                    nz[0].min() : nz[0].max() + 1,
+                    nz[1].min() : nz[1].max() + 1,
+                ],
+            )
+            output_float_nonzero.append(
+                output_float[i][
+                    nz[0].min() : nz[0].max() + 1,
+                    nz[1].min() : nz[1].max() + 1,
+                ],
             )
 
         self.logger.info("Writing to %s", self.config.input_file)
 
         with self.config.input_file.open("wb") as f:
-            pickle.dump(output_nonzero, f)
+            pickle.dump((output_int_nonzero, output_float_nonzero), f)
 
         self.logger.info("Testing %s", self.config.input_file)
 
         # test loading
         with self.config.input_file.open("rb") as f:
-            loaded_output = pickle.load(f)  # noqa: F841
+            loaded_output_int, loaded_output_float = pickle.load(f)
+            self.logger.info("%s", loaded_output_int[0])
+            self.logger.info("%s", loaded_output_float[0])
 
     def load_trkntuple(self) -> None:
         """Load the input as TRKNtuple."""

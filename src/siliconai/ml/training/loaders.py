@@ -33,7 +33,7 @@ def load_data_module(
         logger.info("Loading data type: %s", config.data.type.value)
 
     if config.data.type is DataType.ActsHits:
-        return ActsDataModule(config)
+        return ActsDataModule(config, logger)
     if config.data.type is DataType.TRKNtuple:
         return TRKNtupleDataModule(config)
     # test samples

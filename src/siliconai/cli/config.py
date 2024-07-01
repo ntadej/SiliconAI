@@ -249,9 +249,14 @@ class DataConfiguration:
                 global_config.data_path / config["conversion"]["input"]
             )
             self.input_file = global_config.data_path / config["conversion"]["output"]
+            self.columns_integer = config["conversion"].get("columns_integer", [])
+            self.columns_float = config["conversion"].get("columns_float", [])
 
         if "input_file" in config:
             self.input_file = global_config.data_path / config["input_file"]
+
+        if self.columns_integer and not isinstance(self.input_dim, int):
+            assert len(self.columns_integer) == len(self.input_dim)
 
     @property
     def flat_input_dim(self) -> int:
@@ -265,6 +270,8 @@ class DataConfiguration:
         return {
             "type": self.type.value,
             "input_file": str(self.input_file),
+            "columns_integer": self.columns_integer,
+            "columns_float": self.columns_float,
             "input_dim": self.input_dim,
             "split_ratio": self.split_ratio,
             "batch_size": self.batch_size,
@@ -280,6 +287,10 @@ class DataConfiguration:
         table.add_row("Type:", self.type.value)
         if self.input_file:
             table.add_row("Input file:", print_path(self.input_file))
+        if self.columns_integer:
+            table.add_row("Integer columns:", str(self.columns_integer))
+        if self.columns_float:
+            table.add_row("Floating-point columns:", str(self.columns_float))
         table.add_row("Input dimension:", str(self.input_dim))
         table.add_row("Split ratio:", str(self.split_ratio))
         table.add_row("Batch size:", str(self.batch_size))

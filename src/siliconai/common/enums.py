@@ -18,7 +18,7 @@ class DataType(Enum):
     TestSequence = "TestSequence"
 
 
-class DataLoadingType(Enum):
+class DataLoadingType(str, Enum):
     """Data loading type."""
 
     fit = "fit"
