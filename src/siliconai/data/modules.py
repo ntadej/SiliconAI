@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import lightning as L
 import numpy as np
+from sklearn.preprocessing import StandardScaler  # type: ignore
 from torch.utils.data import DataLoader, Subset, random_split
 from torchvision.datasets import MNIST, FashionMNIST  # type: ignore
 from torchvision.transforms import ToTensor  # type: ignore
@@ -158,7 +159,7 @@ class ActsDataModule(BaseDataModule):
             for i, label in enumerate(data_config.data.columns_integer)
         ]
         self.normalize = [
-            ScikitLearnTransformation(label, i)
+            ScikitLearnTransformation(label, i, StandardScaler)
             for i, label in enumerate(data_config.data.columns_float)
         ]
 
@@ -223,8 +224,12 @@ class ActsDataModule(BaseDataModule):
         """Track the data module state."""
         word2idx = {i: t.dictionary.word2idx for i, t in enumerate(self.tokenize)}
         idx2word = {i: t.dictionary.idx2word for i, t in enumerate(self.tokenize)}
-        scales = {i: t.transformation.scale_ for i, t in enumerate(self.normalize)}
-        return {"word2idx": word2idx, "idx2word": idx2word, "scales": scales}
+        scalers = {i: t.transformation for i, t in enumerate(self.normalize)}
+        return {
+            "word2idx": word2idx,
+            "idx2word": idx2word,
+            "scalers": scalers,
+        }
 
     def load_state_dict(self, state_dict: dict[str, Any]) -> None:
         """Restore the state based on what is tracked."""
@@ -233,7 +238,7 @@ class ActsDataModule(BaseDataModule):
             tokenize.dictionary.word2idx = state_dict["word2idx"][i]
             tokenize.dictionary.idx2word = state_dict["idx2word"][i]
         for i, transformation in enumerate(self.normalize):
-            transformation.transformation.scale_ = state_dict["scales"][i]
+            transformation.transformation = state_dict["scalers"][i]
 
 
 class TRKNtupleDataModule(BaseDataModule):

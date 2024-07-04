@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 from numpy.typing import NDArray
-from sklearn.preprocessing import MaxAbsScaler  # type: ignore
 
 if TYPE_CHECKING:
+    from sklearn import BaseEstimator  # type: ignore
     from torch import Tensor
 
     from siliconai.cli.logging import Logger
@@ -192,10 +192,10 @@ class Tokenize(NDArrayTransformation):
 class ScikitLearnTransformation(NDArrayTransformation):
     """Normalize the input data to a gaussian function."""
 
-    def __init__(self, name: str, index: int) -> None:
+    def __init__(self, name: str, index: int, transformation: BaseEstimator) -> None:
         """Initialize the tokenizer."""
         self.name = name
-        self.transformation = MaxAbsScaler()
+        self.transformation = transformation()
         self.index = index
 
     def summary(self, logger: Logger) -> None:
