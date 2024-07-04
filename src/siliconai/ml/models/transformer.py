@@ -60,6 +60,9 @@ class Transformer(Module):
         """Initialize the module."""
         super().__init__(config)
 
+        # enable concatenation of the input instead of sum
+        self.cat = False
+
         # store the list of discreet input dimensions
         self.input_dim_discreet: list[int]
         if isinstance(config.data.input_dim, int):
@@ -81,12 +84,16 @@ class Transformer(Module):
             raise TypeError(error)
 
         # cache the model parameters
-        self.model_dim = config.model.model_dim
+        self.model_dim = (
+            config.model.model_dim
+            if not self.cat
+            else config.model.model_dim * (len(self.input_dim_discreet) + 1)
+        )
         self.has_decoder = config.model.decoder_layers > 0
 
         # setup the transformer
         self.transformer = nn.Transformer(
-            d_model=config.model.model_dim,
+            d_model=self.model_dim,
             nhead=config.model.heads,
             dim_feedforward=config.model.feedforward_dim,
             num_encoder_layers=config.model.encoder_layers,
@@ -97,7 +104,7 @@ class Transformer(Module):
 
         # setup positional encoding
         self.positional_encoder = PositionalEncoding(
-            model_dim=config.model.model_dim,
+            model_dim=self.model_dim,
             dropout=config.model.dropout,
             max_len=config.data.batch_size,
         )
@@ -118,7 +125,7 @@ class Transformer(Module):
         # setup the output layer
         # should have the same number of dimensions as the input
         self.output = nn.Linear(
-            config.model.model_dim,
+            self.model_dim,
             sum(self.input_dim_discreet) + self.input_dim_continuous,
         )
 
@@ -203,13 +210,30 @@ class Transformer(Module):
 
         # Embedding
         # we will always have one feature, having it separate helps with the sum
-        x = self.embedding_0(x_data_int[:, :, 0]) * math.sqrt(self.model_dim)
-        for i in range(1, len(self.input_dim_discreet)):
-            x += getattr(self, f"embedding_{i}")(x_data_int[:, :, i]) * math.sqrt(
+        components: list[Tensor] = []
+        components.append(
+            self.embedding_0(x_data_int[:, :, 0]) * math.sqrt(self.model_dim),
+        )
+        components += [
+            getattr(self, f"embedding_{i}")(x_data_int[:, :, i])
+            * math.sqrt(
                 self.model_dim,
             )
+            for i in range(1, len(self.input_dim_discreet))
+        ]
+
         if self.input_dim_continuous:
-            x += self.embedding_continuous(x_data_float) * math.sqrt(self.model_dim)
+            components.append(
+                self.embedding_continuous(x_data_float) * math.sqrt(self.model_dim),
+            )
+
+        if self.cat:
+            x = torch.cat(components, dim=2)
+        else:
+            x = torch.clone(components[0])
+            for i in range(1, len(components)):
+                x += components[i]
+
         # all the embeddings are summed up before positional encoding
         x = self.positional_encoder(x)
 
