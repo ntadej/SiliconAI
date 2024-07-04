@@ -1,26 +1,25 @@
-name = "ACTS Transformer Muon 100 GeV Barrel"
+name = "ACTS Transformer Discrete Muon 100 GeV Barrel"
 
 [data]
 type = "ActsHits"
-input_dim = [3762, 3]
-# input_dim = [3762, 3, 6773, 7589]
+input_dim = [3762, 3, 6773, 7589]
 split_ratio = [0.5, 0.25, 0.25]
-batch_size = 8000
+batch_size = 2000
 workers = 12
 
 [data.conversion]
 input = "ACTS_Muon_100GeV_Barrel_hits.h5"
 output = "ACTS_Muon_100GeV_Barrel_hits.pkl"
-columns_integer = ["geometry_id", "particle_type"]
-columns_float = ["lx", "ly"]
+columns_integer = ["geometry_id", "particle_type", "lxq", "lyq"]
+columns_float = []
 
 [model]
 type = "Transformer"
-model_dim = 128       # 512
-encoder_layers = 3    # 6
-decoder_layers = 0    # 6
-heads = 4             # 8
-feedforward_dim = 512 # 2048
+model_dim = 1024       # 512
+encoder_layers = 4     # 6
+decoder_layers = 0     # 6
+heads = 4              # 8
+feedforward_dim = 2048 # 2048
 activation = "ReLU"
 dropout = 0.1
 loss = "mse_loss"
