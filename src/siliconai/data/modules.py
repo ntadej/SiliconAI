@@ -162,6 +162,8 @@ class ActsDataModule(BaseDataModule):
             for i, label in enumerate(data_config.data.columns_float)
         ]
 
+        self.preprocessing_loaded = False
+
         self.save_hyperparameters("data_config")
 
     def translate_data(self, data: NDArrayType) -> NDArrayType:
@@ -176,7 +178,7 @@ class ActsDataModule(BaseDataModule):
             data, _ = normalize.inverse((data, None))
         return data
 
-    def prepare_data(self) -> None:
+    def preprocess_data(self) -> None:
         """Prepare and tokenise the ACTS dataset."""
         if self.logger:
             self.logger.info(
@@ -203,6 +205,9 @@ class ActsDataModule(BaseDataModule):
 
     def setup(self, stage: str) -> None:  # noqa: ARG002
         """Transform and setup the ACTS dataset."""
+        if not self.preprocessing_loaded:
+            self.preprocess_data()
+
         dataset = ActsHitsDataset(
             self.data_path,
             transforms_int=self.tokenize,  # type: ignore
@@ -223,6 +228,7 @@ class ActsDataModule(BaseDataModule):
 
     def load_state_dict(self, state_dict: dict[str, Any]) -> None:
         """Restore the state based on what is tracked."""
+        self.preprocessing_loaded = True
         for i, tokenize in enumerate(self.tokenize):
             tokenize.dictionary.word2idx = state_dict["word2idx"][i]
             tokenize.dictionary.idx2word = state_dict["idx2word"][i]
