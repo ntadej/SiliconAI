@@ -26,8 +26,8 @@ dropout = 0.1
 loss = "mse_loss"
 
 [training]
-epochs = 1000
-early_stopping = 25
+epochs = 2000
+early_stopping = 0
 
 optimizer = "Adam"
 learning_rate = 0.001

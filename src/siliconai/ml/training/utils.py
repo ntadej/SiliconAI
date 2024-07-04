@@ -20,22 +20,29 @@ def common_setup() -> None:
 
 def setup_callbacks(config: Configuration) -> list[Callback]:
     """Prepare common training callbacks."""
-    return [
-        RichProgressBar(),
-        LearningRateMonitor(logging_interval="step"),
-        EarlyStopping(
-            monitor="val_loss",
-            mode="min",
-            patience=config.training.early_stopping,
-        ),
+    callbacks = [RichProgressBar(), LearningRateMonitor(logging_interval="step")]
+
+    if config.training.early_stopping > 0:
+        callbacks.append(
+            EarlyStopping(
+                monitor="val_loss",
+                mode="min",
+                patience=config.training.early_stopping,
+            ),
+        )
+
+    callbacks.append(
         ModelCheckpoint(
             dirpath=f"{config.output_path}/run_{config.run_number()}/checkpoints",
             save_weights_only=True,
             mode="min",
             monitor="val_loss",
-            save_top_k=1,
+            save_top_k=-1,
+            every_n_epochs=50,
         ),
-    ]
+    )
+
+    return callbacks
 
 
 def setup_logging(config: Configuration) -> Logger:

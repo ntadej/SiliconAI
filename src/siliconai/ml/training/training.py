@@ -10,12 +10,19 @@ from siliconai.ml.training.utils import common_setup, setup_callbacks, setup_log
 from siliconai.plotting.validation import quick_validate
 
 
-def train(logger: Logger, config: Configuration, diagnostics: bool) -> None:
+def train(
+    logger: Logger,
+    config: Configuration,
+    diagnostics: bool = False,
+    batch: bool = False,
+    n_gpu: int = 1,
+    n_node: int = 1,
+) -> None:
     """Train the model."""
     common_setup()
 
     # setup run number
-    logger.info("Run number %d", config.run_number(training=True))
+    logger.info("Run number %d", config.run_number(training=not batch))
 
     # load data
     data = load_data_module(logger, config)
@@ -39,6 +46,12 @@ def train(logger: Logger, config: Configuration, diagnostics: bool) -> None:
 
     # setup training
     trainer = L.Trainer(
+        accelerator="gpu" if batch else "auto",
+        devices=n_gpu,
+        num_nodes=n_node,
+        strategy="ddp_find_unused_parameters_true"
+        if n_gpu > 1 or n_node > 1
+        else "auto",
         max_epochs=config.training.epochs,
         logger=ml_logger,
         callbacks=callbacks,

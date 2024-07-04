@@ -160,6 +160,21 @@ def train(
             help="Prepare diagnostics plots.",
         ),
     ] = False,
+    batch: Annotated[
+        bool,
+        typer.Option(
+            "--batch",
+            help="Run in batch mode.",
+        ),
+    ] = False,
+    n_gpu: Annotated[
+        int,
+        typer.Option("--ngpu", help="Number of GPUs to use."),
+    ] = 1,
+    n_node: Annotated[
+        int,
+        typer.Option("--nnode", help="Number of nodes to use."),
+    ] = 1,
 ) -> None:
     """Train the model."""
     global_config = GlobalConfiguration.load(state)
@@ -168,7 +183,7 @@ def train(
 
     from siliconai.ml.training.training import train
 
-    train(logger, config, diagnostics)
+    train(logger, config, diagnostics, batch, n_gpu, n_node)
 
 
 @application.command()
@@ -201,3 +216,33 @@ def validate(
 
     common_setup()
     validate(logger, config, data_type)
+
+
+@application.command()
+def submit(
+    config_file: Annotated[
+        Path,
+        typer.Option(
+            "-c",
+            "--config",
+            envvar="SILICONAI_CONFIG",
+            help="Task configuration file.",
+        ),
+    ],
+    n_gpu: Annotated[
+        int,
+        typer.Option("--ngpu", help="Number of GPUs to use."),
+    ] = 1,
+    n_node: Annotated[
+        int,
+        typer.Option("--nnode", help="Number of nodes to use."),
+    ] = 1,
+) -> None:
+    """Submit training to a batch system."""
+    global_config = GlobalConfiguration.load(state)
+    config = Configuration(config_file, global_config)
+    logger = setup_logger(global_config, "submit")
+
+    from siliconai.cli.submission import submit
+
+    submit(logger, config, n_gpu, n_node)
