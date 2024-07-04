@@ -75,12 +75,19 @@ def load_data_module_from_latest_checkpoint(
     logger: Logger,
     config: Configuration,
     path: Path,
+    checkpoint: int = -1,
 ) -> L.LightningDataModule:
     """Load the model from the latest checkpoint."""
     logger.info("Loading data module from the latest checkpoint in %s.", path)
 
     files = path.glob("*")
-    file = max(files, key=lambda x: x.stat().st_ctime)
+    if checkpoint > 0:
+        for f in files:
+            if f.name.startswith(f"epoch={checkpoint}"):
+                file = f
+                break
+    else:
+        file = max(files, key=lambda x: x.stat().st_ctime)
 
     return load_data_module_from_checkpoint(logger, config, file)
 
@@ -127,11 +134,18 @@ def load_model_from_latest_checkpoint(
     logger: Logger,
     config: Configuration,
     path: Path,
+    checkpoint: int = -1,
 ) -> L.LightningModule:
     """Load the model from the latest checkpoint."""
     logger.info("Loading model from the latest checkpoint in %s.", path)
 
     files = path.glob("*")
-    file = max(files, key=lambda x: x.stat().st_ctime)
+    if checkpoint > 0:
+        for f in files:
+            if f.name.startswith(f"epoch={checkpoint}"):
+                file = f
+                break
+    else:
+        file = max(files, key=lambda x: x.stat().st_ctime)
 
     return load_model_from_checkpoint(logger, config, file)

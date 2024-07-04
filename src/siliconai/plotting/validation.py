@@ -433,7 +433,12 @@ def quick_validate_test_sequence(
     return Path()
 
 
-def validate(logger: Logger, config: Configuration, data_type: DataLoadingType) -> None:
+def validate(
+    logger: Logger,
+    config: Configuration,
+    data_type: DataLoadingType,
+    checkpoint: int,
+) -> None:
     """Validate the model after training."""
     checkpoint_path = (
         config.global_config.output_path
@@ -441,6 +446,16 @@ def validate(logger: Logger, config: Configuration, data_type: DataLoadingType) 
         / f"run_{config.run_number()}"
         / "checkpoints"
     )
-    data = load_data_module_from_latest_checkpoint(logger, config, checkpoint_path)
-    model = load_model_from_latest_checkpoint(logger, config, checkpoint_path)
+    data = load_data_module_from_latest_checkpoint(
+        logger,
+        config,
+        checkpoint_path,
+        checkpoint,
+    )
+    model = load_model_from_latest_checkpoint(
+        logger,
+        config,
+        checkpoint_path,
+        checkpoint,
+    )
     quick_validate(logger, config, model, data, data_type)

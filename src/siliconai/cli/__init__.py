@@ -205,6 +205,10 @@ def validate(
             help="Data type to validate.",
         ),
     ] = DataLoadingType.test,
+    checkpoint: Annotated[
+        int,
+        typer.Option("-n", "--checkpoint", help="Checkpoint to use."),
+    ] = -1,
 ) -> None:
     """Validate the model."""
     global_config = GlobalConfiguration.load(state)
@@ -215,7 +219,7 @@ def validate(
     from siliconai.plotting.validation import validate
 
     common_setup()
-    validate(logger, config, data_type)
+    validate(logger, config, data_type, checkpoint)
 
 
 @application.command()
