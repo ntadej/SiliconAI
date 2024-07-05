@@ -21,26 +21,34 @@ class PositionalEncoding(nn.Module):
         self,
         model_dim: int,
         dropout: float = 0.1,
-        max_len: int = 5000,
+        max_seq_size: int = 25,
+        batch_first: bool = True,
     ) -> None:
         """Initialize the module."""
         super().__init__()
+        self.batch_first = batch_first
         self.dropout = nn.Dropout(dropout)
 
         # encoding
-        encoding = torch.zeros(max_len, model_dim)
-        positions = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        positions = torch.arange(0, max_seq_size, dtype=torch.float).unsqueeze(1)
         division_term = torch.exp(  # 1000^(2i/dim_model)
             torch.arange(0, model_dim, 2).float() * (-math.log(10000.0) / model_dim),
         )
 
-        # PE(pos, 2i) = sin(pos/1000^(2i/dim_model))
-        encoding[:, 0::2] = torch.sin(positions * division_term)
-        # PE(pos, 2i + 1) = cos(pos/1000^(2i/dim_model))
-        encoding[:, 1::2] = torch.cos(positions * division_term)
+        if self.batch_first:
+            encoding = torch.zeros(1, max_seq_size, model_dim)
+            # PE(pos, 2i) = sin(pos/1000^(2i/dim_model))
+            encoding[0, :, 0::2] = torch.sin(positions * division_term)
+            # PE(pos, 2i + 1) = cos(pos/1000^(2i/dim_model))
+            encoding[0, :, 1::2] = torch.cos(positions * division_term)
+        else:
+            encoding = torch.zeros(max_seq_size, 1, model_dim)
+            # PE(pos, 2i) = sin(pos/1000^(2i/dim_model))
+            encoding[:, 0, 0::2] = torch.sin(positions * division_term)
+            # PE(pos, 2i + 1) = cos(pos/1000^(2i/dim_model))
+            encoding[:, 0, 1::2] = torch.cos(positions * division_term)
 
         # saving buffer (same as parameter without gradients needed)
-        encoding = encoding.unsqueeze(0).transpose(0, 1)
         # TODO: figure out why this breaks distributed training
         # self.register_buffer("positional_encoding", encoding)
         self.positional_encoding = nn.Parameter(encoding, requires_grad=False)
@@ -48,7 +56,11 @@ class PositionalEncoding(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass."""
         # Residual connection + pos encoding
-        x = x + self.positional_encoding[: x.size(0), :]
+        if self.batch_first:
+            x = x + self.positional_encoding[:, : x.size(1), :]
+        else:
+            x = x + self.positional_encoding[: x.size(0), :, :]
+
         x_hat: Tensor = self.dropout(x)
         return x_hat
 
@@ -59,6 +71,9 @@ class Transformer(Module):
     def __init__(self, config: Configuration) -> None:
         """Initialize the module."""
         super().__init__(config)
+
+        # batch first
+        self.batch_first = True
 
         # enable concatenation of the input instead of sum
         self.cat = False
@@ -99,14 +114,14 @@ class Transformer(Module):
             num_encoder_layers=config.model.encoder_layers,
             num_decoder_layers=config.model.decoder_layers,
             dropout=config.model.dropout,
-            batch_first=True,
+            batch_first=self.batch_first,
         )
 
         # setup positional encoding
         self.positional_encoder = PositionalEncoding(
             model_dim=self.model_dim,
             dropout=config.model.dropout,
-            max_len=config.data.batch_size,
+            max_seq_size=25,
         )
 
         # setup embedding layers
@@ -227,6 +242,7 @@ class Transformer(Module):
                 self.embedding_continuous(x_data_float) * math.sqrt(self.model_dim),
             )
 
+        # all the embeddings are summed up or concatenated before positional encoding
         if self.cat:
             x = torch.cat(components, dim=2)
         else:
@@ -234,7 +250,6 @@ class Transformer(Module):
             for i in range(1, len(components)):
                 x += components[i]
 
-        # all the embeddings are summed up before positional encoding
         x = self.positional_encoder(x)
 
         if self.has_decoder:  # only process target data if we have a decoder
