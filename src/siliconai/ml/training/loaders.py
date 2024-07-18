@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from siliconai.common.enums import DataType, ModelType
@@ -16,8 +17,6 @@ from siliconai.ml.models.transformer import Transformer
 from siliconai.ml.models.vae import BasicVAE, ConvVAE
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     import lightning as L
 
     from siliconai.cli.config import Configuration
@@ -81,11 +80,15 @@ def load_data_module_from_latest_checkpoint(
     logger.info("Loading data module from the latest checkpoint in %s.", path)
 
     files = path.glob("*")
+    file = Path()
     if checkpoint > 0:
         for f in files:
             if f.name.startswith(f"epoch={checkpoint}"):
                 file = f
                 break
+        if not file:
+            error = f"Checkpoint {checkpoint} not found."
+            raise ValueError(error)
     else:
         file = max(files, key=lambda x: x.stat().st_ctime)
 
@@ -140,11 +143,15 @@ def load_model_from_latest_checkpoint(
     logger.info("Loading model from the latest checkpoint in %s.", path)
 
     files = path.glob("*")
+    file = Path()
     if checkpoint > 0:
         for f in files:
             if f.name.startswith(f"epoch={checkpoint}"):
                 file = f
                 break
+        if not file:
+            error = f"Checkpoint {checkpoint} not found."
+            raise ValueError(error)
     else:
         file = max(files, key=lambda x: x.stat().st_ctime)
 
