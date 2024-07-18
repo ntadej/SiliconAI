@@ -38,12 +38,12 @@ class ActsHitsDataset(Dataset):  # type: ignore
 
     def __len__(self) -> int:
         """Return the length of the dataset."""
-        return len(self.data_int)
+        return len(self.data_int) if self.data_int else len(self.data_float)
 
     def __getitem__(self, idx: int) -> tuple[NDArrayType, NDArrayType]:
         """Return the item at the given index."""
-        sequence_int: NDArrayType = self.data_int[idx]
-        sequence_float: NDArrayType = self.data_float[idx]
+        sequence_int: NDArrayType = self.data_int[idx] if self.data_int else None
+        sequence_float: NDArrayType = self.data_float[idx] if self.data_float else None
 
         if self.transforms_int:
             for t in self.transforms_int:

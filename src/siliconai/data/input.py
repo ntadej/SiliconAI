@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pickle
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
@@ -38,6 +38,43 @@ class InputConverter:
             error = f"Unsupported input type: {self.config.type}"
             raise RuntimeError(error)
 
+    def process_acts_hist(
+        self,
+        data_frame: pd.DataFrame,
+        column_count: int,
+    ) -> list[ArrayLike]:
+        """Process loaded ACTS hits data."""
+        # do auto-padding
+        data_frame = cast(
+            pd.DataFrame,
+            data_frame.unstack(fill_value=0).stack(  # noqa: PD010 PD013
+                future_stack=True,
+            ),
+        )
+
+        if not isinstance(data_frame.index, pd.MultiIndex):
+            error = "Index must be a MultiIndex"
+            raise TypeError(error)
+
+        data_events = len(data_frame.index.levels[0])
+        data_hits = len(data_frame.index.levels[1])
+
+        output_list = list(
+            data_frame.to_numpy().reshape(data_events, data_hits, column_count),
+        )
+
+        output_nonzero = []
+        for i in range(len(output_list)):
+            nz = np.nonzero(output_list[i])
+            output_nonzero.append(
+                output_list[i][
+                    nz[0].min() : nz[0].max() + 1,
+                    nz[1].min() : nz[1].max() + 1,
+                ],
+            )
+
+        return output_nonzero
+
     def load_acts_hits(self) -> None:
         """Load the ACTS hits input data."""
         if not self.config.conversion_input_file or not self.config.input_file:
@@ -50,68 +87,52 @@ class InputConverter:
         )
 
         with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
-            data_frame_int = store["hits"][self.config.columns_integer]
-            data_frame_float = store["hits"][self.config.columns_float]
+            data_frame_int: pd.DataFrame | None = (
+                store["hits"][self.config.columns_integer]
+                if self.config.columns_integer
+                else None
+            )
+            data_frame_float: pd.DataFrame | None = (
+                store["hits"][self.config.columns_float]
+                if self.config.columns_float
+                else None
+            )
+
+        if data_frame_int is None and data_frame_float is None:
+            error = "No data set to be converted"
+            raise ValueError(error)
 
         # scale quantised coordinates
-        if "lxq" in data_frame_int:
+        if data_frame_int is not None and "lxq" in data_frame_int:
             data_frame_int["lxq"] = data_frame_int["lxq"] * 100
-        if "lyq" in data_frame_int:
+        if data_frame_int is not None and "lyq" in data_frame_int:
             data_frame_int["lyq"] = data_frame_int["lyq"] * 100
 
         # convert to correct types
-        data_frame_int = data_frame_int.astype("int64")
-        data_frame_float = data_frame_float.astype("float32")
-
-        # do auto-padding
-        data_frame_int = data_frame_int.unstack(fill_value=0).stack(future_stack=True)  # noqa: PD010 PD013
-        data_frame_float = data_frame_float.unstack(fill_value=0).stack(  # noqa: PD010 PD013
-            future_stack=True,
-        )
-
-        if not isinstance(data_frame_int.index, pd.MultiIndex) or not isinstance(
-            data_frame_float.index,
-            pd.MultiIndex,
-        ):
-            error = "Index must be a MultiIndex"
-            raise TypeError(error)
+        if data_frame_int is not None:
+            data_frame_int = data_frame_int.astype("int64")
+        if data_frame_float is not None:
+            data_frame_float = data_frame_float.astype("float32")
 
         self.logger.info("Converting to numpy arrays")
 
-        data_events = len(data_frame_int.index.levels[0])
-        data_hits = len(data_frame_int.index.levels[1])
-
-        output_int = list(
-            data_frame_int.to_numpy().reshape(
-                data_events,
-                data_hits,
+        output_int_nonzero = (
+            self.process_acts_hist(
+                data_frame_int,
                 len(self.config.columns_integer),
-            ),
-        )
-        output_float = list(
-            data_frame_float.to_numpy().reshape(
-                data_events,
-                data_hits,
-                len(self.config.columns_float),
-            ),
+            )
+            if data_frame_int is not None
+            else []
         )
 
-        output_int_nonzero = []
-        output_float_nonzero = []
-        for i in range(len(output_int)):
-            nz = np.nonzero(output_int[i])
-            output_int_nonzero.append(
-                output_int[i][
-                    nz[0].min() : nz[0].max() + 1,
-                    nz[1].min() : nz[1].max() + 1,
-                ],
+        output_float_nonzero = (
+            self.process_acts_hist(
+                data_frame_float,
+                len(self.config.columns_float),
             )
-            output_float_nonzero.append(
-                output_float[i][
-                    nz[0].min() : nz[0].max() + 1,
-                    nz[1].min() : nz[1].max() + 1,
-                ],
-            )
+            if data_frame_float is not None
+            else []
+        )
 
         self.logger.info("Writing to %s", self.config.input_file)
 
@@ -123,8 +144,11 @@ class InputConverter:
         # test loading
         with self.config.input_file.open("rb") as f:
             loaded_output_int, loaded_output_float = pickle.load(f)
-            self.logger.info("%s", loaded_output_int[0])
-            self.logger.info("%s", loaded_output_float[0])
+            self.logger.info("%s", loaded_output_int[:3] if loaded_output_int else None)
+            self.logger.info(
+                "%s",
+                loaded_output_float[:3] if loaded_output_float else None,
+            )
 
     def load_trkntuple(self) -> None:
         """Load the input as TRKNtuple."""

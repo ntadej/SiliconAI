@@ -26,59 +26,75 @@ CollateFnType = Callable[[list[Any]], Any]
 def collate_sequence(batch: list[Any]) -> list[Any]:
     """Collate the ACTS dataset."""
     # get sequence feature length
-    feature_len_int = len(batch[0][0][0])
-    feature_len_float = len(batch[0][1][0])
+    feature_len_int = len(batch[0][0][0]) if batch[0][0] is not None else 0
+    feature_len_float = len(batch[0][1][0]) if batch[0][1] is not None else 0
     # get max length of the sequences
-    max_len = max([len(item[0]) for item in batch])
+    max_len = max([len(item[0] if item[0] is not None else item[1]) for item in batch])
 
     output: list[Any] = []
     for item in batch:
         item_int, item_float = item
         # append zeros to the end of the sequence if needed
         out_item_int = (
+            (
+                np.vstack(
+                    [
+                        item_int,
+                        np.zeros(
+                            (max_len - len(item_int), feature_len_int),
+                            dtype=np.int64,
+                        ),
+                    ],
+                )
+                if len(item_int) < max_len
+                else item_int
+            )
+            if item_int is not None
+            else torch.Tensor()
+        )
+        out_item_float = (
+            (
+                np.vstack(
+                    [
+                        item_float,
+                        np.zeros(
+                            (max_len - len(item_float), feature_len_float),
+                            dtype=np.float32,
+                        ),
+                    ],
+                )
+                if len(item_float) < max_len
+                else item_float
+            )
+            if item_float is not None
+            else torch.Tensor()
+        )
+        # shift the prediction for one to the left and append zeros to the end
+        out_item_int_shifted = (
             np.vstack(
                 [
-                    item_int,
+                    item_int[1:],
                     np.zeros(
-                        (max_len - len(item_int), feature_len_int),
+                        (max_len - len(item_int) + 1, feature_len_int),
                         dtype=np.int64,
                     ),
                 ],
             )
-            if len(item_int) < max_len
-            else item_int
+            if item_int is not None
+            else torch.Tensor()
         )
-        out_item_float = (
+        out_item_float_shifted = (
             np.vstack(
                 [
-                    item_float,
+                    item_float[1:],
                     np.zeros(
-                        (max_len - len(item_float), feature_len_float),
+                        (max_len - len(item_float) + 1, feature_len_float),
                         dtype=np.float32,
                     ),
                 ],
             )
-            if len(item_float) < max_len
-            else item_float
-        )
-        # shift the prediction for one to the left and append zeros to the end
-        out_item_int_shifted = np.vstack(
-            [
-                item_int[1:],
-                np.zeros(
-                    (max_len - len(item_int) + 1, feature_len_int),
-                    dtype=np.int64,
-                ),
-            ],
-        )
-        out_item_float_shifted = np.vstack(
-            [
-                item_float[1:],
-                np.zeros(
-                    (max_len - len(item_float) + 1, feature_len_float),
-                    dtype=np.float32,
-                ),
-            ],
+            if item_float is not None
+            else torch.Tensor()
         )
         # append to the output
         output.append(
