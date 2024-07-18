@@ -7,10 +7,14 @@ from typing import TYPE_CHECKING
 
 import torch
 from torch import Tensor, nn
+from torch.nn import functional as F
 
 from siliconai.ml.common.module import Module
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any
+
     from siliconai.cli.config import Configuration
 
 
@@ -65,6 +69,131 @@ class PositionalEncoding(nn.Module):
         return x_hat
 
 
+class RZTXEncoderLayer(nn.Module):
+    r"""RZTXEncoderLayer - an encoder layer with residual weights for faster convergece.
+
+    This encoder layer is based on the paper
+    "ReZero is All You Need: Fast Convergence at Large Depth".
+    Thomas Bachlechner, Bodhisattwa Prasad Majumder, Huanru Henry Mao,
+    Garrison W. Cottrell, Julian McAuley. 2020.
+
+    Args:
+    ----
+        d_model: the number of expected features in the input (required).
+        nhead: the number of heads in the multiheadattention models (required).
+        dim_feedforward: the dimension of the feedforward network model (default=2048).
+        dropout: the dropout value (default=0.1).
+        activation: the activation function of the intermediate layer, can be a string
+            ("relu" or "gelu") or a unary callable. Default: relu
+        use_res_init: Use residual initialization
+        batch_first: If ``True``, then the input and output tensors are provided
+            as (batch, seq, feature). Default: ``False`` (seq, batch, feature).
+        bias: If set to ``False``, ``Linear`` and ``LayerNorm`` layers will not learn
+            an additive bias. Default: ``True``.
+    Examples::
+        >>> encoder_layer = RZTXEncoderLayer(d_model=512, nhead=8)
+        >>> src = torch.rand(10, 32, 512)
+        >>> out = encoder_layer(src)
+
+    """
+
+    def __init__(
+        self,
+        d_model: int,
+        nhead: int,
+        dim_feedforward: int = 2048,
+        dropout: float = 0.1,
+        activation: str | Callable[[Tensor], Tensor] = F.relu,
+        batch_first: bool = False,
+        bias: bool = True,
+    ) -> None:
+        """Initialize the layer module."""
+        super().__init__()
+
+        self.self_attn = nn.MultiheadAttention(
+            d_model,
+            nhead,
+            dropout=dropout,
+            bias=bias,
+            batch_first=batch_first,
+        )
+        # Implementation of Feedforward model
+        self.linear1 = nn.Linear(d_model, dim_feedforward, bias=bias)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, d_model, bias=bias)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.resweight = nn.Parameter(torch.Tensor([0]))
+
+        self.activation: Callable[[Tensor], Tensor]
+        if activation == "relu":
+            self.activation = F.relu
+        elif activation == "gelu":
+            self.activation = F.gelu
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Set state."""
+        if "activation" not in state:
+            state["activation"] = F.relu
+        super().__setstate__(state)  # type: ignore
+
+    def forward(
+        self,
+        src: Tensor,
+        src_mask: Tensor | None = None,
+        src_key_padding_mask: Tensor | None = None,
+        is_causal: bool = False,
+    ) -> Tensor:
+        r"""Pass the input through the encoder layer.
+
+        Args:
+        ----
+            src: the sequence to the encoder layer (required).
+            src_mask: the mask for the src sequence (optional).
+            src_key_padding_mask: the mask for the src keys per batch (optional).
+            is_causal: if True, the self-attention layer will be causal
+                (default: False).
+
+        """
+        src_key_padding_mask = F._canonical_mask(  # noqa: SLF001
+            mask=src_key_padding_mask,
+            mask_name="src_key_padding_mask",
+            other_type=F._none_or_dtype(src_mask),  # noqa: SLF001
+            other_name="src_mask",
+            target_type=src.dtype,
+        )
+
+        src_mask = F._canonical_mask(  # noqa: SLF001
+            mask=src_mask,
+            mask_name="src_mask",
+            other_type=None,
+            other_name="",
+            target_type=src.dtype,
+            check_other=False,
+        )
+
+        # Self attention layer
+        x = src
+        x = self.self_attn(
+            x,
+            x,
+            x,
+            attn_mask=src_mask,
+            key_padding_mask=src_key_padding_mask,
+            need_weights=False,
+            is_causal=is_causal,
+        )[0]  # no attention weights
+        x = x * self.resweight
+        src = src + self.dropout1(x)
+
+        # Pointwise FF Layer
+        x = src
+        x = self.linear2(self.dropout(self.activation(self.linear1(x))))
+        x = x * self.resweight
+        out: Tensor = src + self.dropout2(x)
+        return out
+
+
 class TransformerBase(Module):
     """Transformer module base."""
 
@@ -106,19 +235,32 @@ class TransformerBase(Module):
         )
 
         # setup the transformer
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=self.model_dim,
-            nhead=config.model.heads,
-            dim_feedforward=config.model.feedforward_dim,
-            dropout=config.model.dropout,
-            activation=config.model.activation,
-            batch_first=self.batch_first,
-        )
-        encoder_norm = nn.LayerNorm(self.model_dim)
+        encoder_layer: nn.Module
+        if config.model.transformer_residual_weights:
+            encoder_layer = RZTXEncoderLayer(
+                d_model=self.model_dim,
+                nhead=config.model.heads,
+                dim_feedforward=config.model.feedforward_dim,
+                dropout=config.model.dropout,
+                activation=config.model.activation,
+                batch_first=self.batch_first,
+            )
+            encoder_norm = None
+        else:
+            encoder_layer = nn.TransformerEncoderLayer(
+                d_model=self.model_dim,
+                nhead=config.model.heads,
+                dim_feedforward=config.model.feedforward_dim,
+                dropout=config.model.dropout,
+                activation=config.model.activation,
+                batch_first=self.batch_first,
+            )
+            encoder_norm = nn.LayerNorm(self.model_dim)
         self.encoder = nn.TransformerEncoder(
-            encoder_layer,
+            encoder_layer,  # type: ignore
             config.model.encoder_layers,
             encoder_norm,
+            enable_nested_tensor=not config.model.transformer_residual_weights,
         )
 
         # setup positional encoding

@@ -340,6 +340,10 @@ class ModelConfiguration:
         self.decoder_layers: int | list[int] | list[tuple[int, int, int, int]] = (
             self.process_layers(config.get("decoder_layers", 0))
         )
+        self.transformer_residual_weights: bool = config.get(
+            "residual_weights",
+            False,
+        )
         self.activation: str = config["activation"]
         self.activation_parameters: list[float] = config.get(
             "activation_parameters",
@@ -403,6 +407,7 @@ class ModelConfiguration:
             "decoder_layers": self.decoder_layers,
             "heads": self.heads,
             "feedforward_dim": self.feedforward_dim,
+            "transformer_residual_weights": self.transformer_residual_weights,
             "activation": self.activation,
             "activation_parameters": self.activation_parameters,
             "batch_norm": self.batch_norm,
@@ -427,6 +432,11 @@ class ModelConfiguration:
             table.add_row("Number of heads:", str(self.heads))
         if self.feedforward_dim:
             table.add_row("Feedworward dimension:", str(self.feedforward_dim))
+        if self.type in [ModelType.DiscreteTransformer]:
+            table.add_row(
+                "Transformer residual weights:",
+                str(self.transformer_residual_weights),
+            )
         table.add_row("Activation function:", self.activation)
         if self.activation_parameters:
             table.add_row("Activation parameters:", str(self.activation_parameters))
