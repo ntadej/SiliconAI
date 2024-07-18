@@ -97,7 +97,7 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     return output_file
 
 
-def acts_process_data(
+def acts_process_data(  # noqa: C901
     config: Configuration,
     data_int: list[NDArrayType],
     data_float: list[NDArrayType],
@@ -106,10 +106,12 @@ def acts_process_data(
     # non-zero results
     data_nonzero_int = []
     data_nonzero_float = []
-    for i in range(len(data_int)):
-        nz = np.nonzero(data_int[i][:, 0])
-        data_nonzero_int.append(data_int[i][nz[0].min() : nz[0].max() + 1])
-        data_nonzero_float.append(data_float[i][nz[0].min() : nz[0].max() + 1])
+    for i in range(max(len(data_int), len(data_float))):
+        nz = np.nonzero(data_int[i][:, 0] if data_int else data_float[i][:, 0])
+        if data_int:
+            data_nonzero_int.append(data_int[i][nz[0].min() : nz[0].max() + 1])
+        if data_float:
+            data_nonzero_float.append(data_float[i][nz[0].min() : nz[0].max() + 1])
 
     # data frame
     data_labels = [
@@ -125,41 +127,53 @@ def acts_process_data(
                 ],
             ),
         )
-        for i, v in enumerate(data_nonzero_int)
+        for i, v in enumerate(data_nonzero_int if data_int else data_nonzero_float)
     ]
 
-    data_annotated_int = np.concatenate(
-        [np.hstack([a, b]) for a, b in zip(data_labels, data_nonzero_int, strict=True)],
-    )
-    data_annotated_float = np.concatenate(
-        [
-            np.hstack([a, b])
-            for a, b in zip(data_labels, data_nonzero_float, strict=True)
-        ],
-    )
+    if data_nonzero_int:
+        data_annotated_int = np.concatenate(
+            [
+                np.hstack([a, b])
+                for a, b in zip(data_labels, data_nonzero_int, strict=True)
+            ],
+        )
 
-    data_df_int = pd.DataFrame(data_annotated_int)
-    data_df_float = pd.DataFrame(data_annotated_float)
+        data_df_int = pd.DataFrame(data_annotated_int)
 
-    columns_labels = {
-        0: "event_id",
-        1: "index",
-    }
-    for i, label in enumerate(config.data.columns_integer):
-        columns_labels[i + 2] = label
-    data_df_int = data_df_int.rename(columns=columns_labels)
-    data_df_int = data_df_int.set_index(["event_id", "index"])
+        columns_labels = {
+            0: "event_id",
+            1: "index",
+        }
+        for i, label in enumerate(config.data.columns_integer):
+            columns_labels[i + 2] = label
+        data_df_int = data_df_int.rename(columns=columns_labels)
+        data_df_int = data_df_int.set_index(["event_id", "index"])
 
-    columns_labels = {
-        0: "event_id",
-        1: "index",
-    }
-    for i, label in enumerate(config.data.columns_float):
-        columns_labels[i + 2] = label
-    data_df_float = data_df_float.rename(columns=columns_labels)
-    data_df_float = data_df_float.set_index(["event_id", "index"])
+        data_df = data_df_int
 
-    data_df = pd.concat([data_df_int, data_df_float], axis=1)
+    if data_nonzero_float:
+        data_annotated_float = np.concatenate(
+            [
+                np.hstack([a, b])
+                for a, b in zip(data_labels, data_nonzero_float, strict=True)
+            ],
+        )
+
+        data_df_float = pd.DataFrame(data_annotated_float)
+
+        columns_labels = {
+            0: "event_id",
+            1: "index",
+        }
+        for i, label in enumerate(config.data.columns_float):
+            columns_labels[i + 2] = label
+        data_df_float = data_df_float.rename(columns=columns_labels)
+        data_df_float = data_df_float.set_index(["event_id", "index"])
+
+        data_df = data_df_float
+
+    if data_nonzero_int and data_nonzero_float:
+        data_df = pd.concat([data_df_int, data_df_float], axis=1)
 
     if "lxq" in data_df.columns:
         data_df["lxq"] /= 100
@@ -180,6 +194,9 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
     # _rich_traceback_guard = True
     setup_style()
 
+    # make sure we are in eval mode
+    model.eval()
+
     output_file = (
         config.output_path
         / f"run_{config.run_number()}"
@@ -194,36 +211,43 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
         for normalize in data.normalize:
             normalize.summary(logger)
 
-    input_full_int = []
-    input_full_float = []
-    result_full_int = []
-    result_full_float = []
+    input_full_int: list[NDArrayType] = []
+    input_full_float: list[NDArrayType] = []
+    result_full_int: list[NDArrayType] = []
+    result_full_float: list[NDArrayType] = []
     if logger:
         logger.info("Starting inference")
     time_start = time.perf_counter()
 
     for batch in data.get_dataloader(data_type):
-        batch_full_int, batch_full_float = batch[0], batch[1]
-        batch_start_int, batch_start_float = (
-            batch_full_int[:, :1],
-            batch_full_float[:, :1],
+        if config.model.type is ModelType.DiscreteTransformer:
+            batch_full_int = batch[0]
+            batch_start_int = batch_full_int[:, :1].to(model.device)
+
+            result_int, result_float = model.predict(
+                batch_start_int,
+                end_token=data.tokenize[0].dictionary.word2idx[10001],
+            )
+
+        input_full_int += list(
+            batch_full_int.cpu().numpy() if batch_full_int is not None else [],
+        )
+        result_full_int += list(
+            result_int.cpu().numpy() if result_int is not None else [],
         )
 
-        result_int, result_float = model.predict(
-            batch_start_int.to(model.device),
-            batch_start_float.to(model.device),
-            end_token=data.tokenize[0].dictionary.word2idx[10001],
-        )
-
-        input_full_int += list(batch_full_int.cpu().numpy())
-        input_full_float += list(batch_full_float.cpu().numpy())
-        result_full_int += list(result_int.cpu().numpy())
-        result_full_float += list(result_float.cpu().numpy())
-
-    input_translated_int = [data.translate_data(i) for i in input_full_int]
-    input_translated_float = [data.inverse_data(i) for i in input_full_float]
-    result_translated_int = [data.translate_data(i) for i in result_full_int]
-    result_translated_float = [data.inverse_data(i) for i in result_full_float]
+    input_translated_int: list[NDArrayType] = [
+        data.translate_data(i) for i in input_full_int
+    ]
+    input_translated_float: list[NDArrayType] = [
+        data.translate_data(i) for i in input_full_float
+    ]
+    result_translated_int: list[NDArrayType] = [
+        data.translate_data(i) for i in result_full_int
+    ]
+    result_translated_float: list[NDArrayType] = [
+        data.translate_data(i) for i in result_full_float
+    ]
 
     time_end = time.perf_counter()
 
@@ -231,7 +255,9 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
         logger.info(
             "Inference done in %.4f s (%.4f s per 10k particles)",
             time_end - time_start,
-            (time_end - time_start) / len(input_full_int) * 10000,
+            (time_end - time_start)
+            / max(len(input_full_int), len(input_full_float))
+            * 10000,
         )
 
     # non-zero results and DF conversion
@@ -249,7 +275,10 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
     assert len(input_nonzero_int) == len(result_nonzero_int)
 
     if logger:
-        logger.info("Total events processed: %d", len(result_nonzero_int))
+        logger.info(
+            "Total events processed: %d",
+            max(len(result_nonzero_int), len(result_nonzero_float)),
+        )
 
     # store data
     with pd.HDFStore(
@@ -265,8 +294,17 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
     with PDFDocument(output_file) as pdf:  # type: ignore
         labels = ["Original", "Generated"]
 
-        n_hits_input = [len(i) - 2 for i in input_nonzero_int]
-        n_hits_result = [len(i) - 2 for i in result_nonzero_int]
+        n_hits_input = [
+            len(i) - 2
+            for i in (input_nonzero_int if input_nonzero_int else input_nonzero_float)
+        ]
+        n_hits_result = [
+            len(i) - 2
+            for i in (
+                result_nonzero_int if result_nonzero_int else result_nonzero_float
+            )
+        ]
+
         fig, ax = plot_hist(
             [n_hits_input, n_hits_result],
             "Number of hits",

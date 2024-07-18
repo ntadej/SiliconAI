@@ -77,7 +77,7 @@ def plot_feature(
 def plot_hist(
     data: list[list[float] | list[int]],
     feature: str,
-    nbins: int = 50,
+    nbins: int = 100,
     logx: bool = False,
     labels: list[str] | None = None,
 ) -> tuple[Figure | None, Axes | None]:
