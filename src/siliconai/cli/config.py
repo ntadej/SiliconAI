@@ -320,7 +320,7 @@ class ModelConfiguration:
                 "type": str(),
                 "model_dim": int(),
                 "encoder_layers": int() | list(),
-                "decoder_layers": int() | list(),
+                # "decoder_layers": int() | list(),
                 "activation": str(),
                 "dropout": float(),
             }:
@@ -330,18 +330,15 @@ class ModelConfiguration:
                 raise ValueError(error)
 
         self.type: ModelType = ModelType(config["type"])
+        self.sequence_length: int = config.get("sequence_length", 0)
         self.model_dim: int = int(config["model_dim"])
         self.heads: int = int(config.get("heads", 0))
         self.feedforward_dim: int = int(config.get("feedforward_dim", 0))
         self.encoder_layers: int | list[int] | list[tuple[int, int, int, int]] = (
-            self.process_layers(
-                config["encoder_layers"],
-            )
+            self.process_layers(config.get("encoder_layers", 0))
         )
         self.decoder_layers: int | list[int] | list[tuple[int, int, int, int]] = (
-            self.process_layers(
-                config["decoder_layers"],
-            )
+            self.process_layers(config.get("decoder_layers", 0))
         )
         self.activation: str = config["activation"]
         self.activation_parameters: list[float] = config.get(
@@ -400,6 +397,7 @@ class ModelConfiguration:
         """Convert configuration to object."""
         return {
             "type": self.type.value,
+            "sequence_length": self.sequence_length,
             "model_dim": self.model_dim,
             "encoder_layers": self.encoder_layers,
             "decoder_layers": self.decoder_layers,
@@ -420,6 +418,8 @@ class ModelConfiguration:
         table = config_table()
 
         table.add_row("Type:", self.type.value)
+        if self.sequence_length:
+            table.add_row("Sequence length:", str(self.sequence_length))
         table.add_row("Latent dimension:", str(self.model_dim))
         table.add_row("Encoder layers:", str(self.encoder_layers))
         table.add_row("Decoder layers:", str(self.decoder_layers))
@@ -430,7 +430,7 @@ class ModelConfiguration:
         table.add_row("Activation function:", self.activation)
         if self.activation_parameters:
             table.add_row("Activation parameters:", str(self.activation_parameters))
-        if self.type is not ModelType.Transformer:
+        if self.type not in [ModelType.DiscreteTransformer]:
             table.add_row("Batch normalization:", str(self.batch_norm))
         table.add_row("Dropout rate:", str(self.dropout))
         table.add_row("Loss function:", self.loss)

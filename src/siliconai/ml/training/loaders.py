@@ -13,7 +13,7 @@ from siliconai.data.modules import (
     TestSequenceDataModule,
     TRKNtupleDataModule,
 )
-from siliconai.ml.models.transformer import Transformer
+from siliconai.ml.models.transformer import DiscreteTransformer
 from siliconai.ml.models.vae import BasicVAE, ConvVAE
 
 if TYPE_CHECKING:
@@ -103,8 +103,8 @@ def load_model(logger: Logger, config: Configuration) -> L.LightningModule:
         return BasicVAE(config)
     if config.model.type is ModelType.ConvVAE:
         return ConvVAE(config)
-    if config.model.type is ModelType.Transformer:
-        return Transformer(config)
+    if config.model.type is ModelType.DiscreteTransformer:
+        return DiscreteTransformer(config)
 
     error = f"Model type {config.model.type} not supported."  # type: ignore
     raise ValueError(error)
@@ -125,8 +125,8 @@ def load_model_from_checkpoint(
     if config.model.type is ModelType.ConvVAE:
         model = ConvVAE.load_from_checkpoint(checkpoint)
         return model
-    if config.model.type is ModelType.Transformer:
-        model = Transformer.load_from_checkpoint(checkpoint)
+    if config.model.type is ModelType.DiscreteTransformer:
+        model = DiscreteTransformer.load_from_checkpoint(checkpoint)
         return model
 
     error = f"Model type {config.model.type} not supported."  # type: ignore

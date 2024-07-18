@@ -31,4 +31,4 @@ class ModelType(Enum):
 
     BasicVAE = "BasicVAE"
     ConvVAE = "ConvVAE"
-    Transformer = "Transformer"
+    DiscreteTransformer = "DiscreteTransformer"

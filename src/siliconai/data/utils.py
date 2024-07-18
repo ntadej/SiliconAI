@@ -50,7 +50,7 @@ def collate_sequence(batch: list[Any]) -> list[Any]:
                 else item_int
             )
             if item_int is not None
-            else torch.Tensor()
+            else None
         )
         out_item_float = (
             (
@@ -67,7 +67,7 @@ def collate_sequence(batch: list[Any]) -> list[Any]:
                 else item_float
             )
             if item_float is not None
-            else torch.Tensor()
+            else None
         )
         # shift the prediction for one to the left and append zeros to the end
         out_item_int_shifted = (
@@ -81,7 +81,7 @@ def collate_sequence(batch: list[Any]) -> list[Any]:
                 ],
             )
             if item_int is not None
-            else torch.Tensor()
+            else None
         )
         out_item_float_shifted = (
             np.vstack(
@@ -94,17 +94,20 @@ def collate_sequence(batch: list[Any]) -> list[Any]:
                 ],
             )
             if item_float is not None
-            else torch.Tensor()
+            else None
         )
         # append to the output
-        output.append(
-            (
-                out_item_int,
-                out_item_float,
-                out_item_int_shifted,
-                out_item_float_shifted,
-            ),
-        )
+        if out_item_int is not None and out_item_float is not None:
+            output.append(
+                (
+                    out_item_int,
+                    out_item_float,
+                    out_item_int_shifted,
+                    out_item_float_shifted,
+                ),
+            )
+        elif out_item_int is not None:
+            output.append((out_item_int, out_item_int_shifted))
 
     # now with proper padding run the default collate function
     return torch.utils.data.default_collate(output)  # type: ignore
