@@ -163,5 +163,6 @@ cython_debug/
 
 # SiliconAI
 config.toml
+/archive
 /data
 /run
