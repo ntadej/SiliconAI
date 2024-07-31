@@ -60,16 +60,16 @@ def load_data_module_from_checkpoint(
 
     data_module: L.LightningDataModule
     if config.data.type is DataType.ActsChain:
-        data_module = ActsChainDataModule.load_from_checkpoint(checkpoint)
+        data_module = ActsChainDataModule.load_from_checkpoint(checkpoint)  # type: ignore
         return data_module
     if config.data.type is DataType.ActsHits:
-        data_module = ActsHitsDataModule.load_from_checkpoint(checkpoint)
+        data_module = ActsHitsDataModule.load_from_checkpoint(checkpoint)  # type: ignore
         return data_module
     if config.data.type is DataType.TRKNtuple:
-        data_module = TRKNtupleDataModule.load_from_checkpoint(checkpoint)
+        data_module = TRKNtupleDataModule.load_from_checkpoint(checkpoint)  # type: ignore
         return data_module
     if config.data.type is DataType.TestSequence:
-        data_module = TestSequenceDataModule.load_from_checkpoint(checkpoint)
+        data_module = TestSequenceDataModule.load_from_checkpoint(checkpoint)  # type: ignore
         return data_module
 
     error = f"Data type {config.data.type} not supported."
@@ -128,16 +128,16 @@ def load_model_from_checkpoint(
 
     model: L.LightningModule
     if config.model.type is ModelType.BasicVAE:
-        model = BasicVAE.load_from_checkpoint(checkpoint)
+        model = BasicVAE.load_from_checkpoint(checkpoint)  # type: ignore
         return model
     if config.model.type is ModelType.ConvVAE:
-        model = ConvVAE.load_from_checkpoint(checkpoint)
+        model = ConvVAE.load_from_checkpoint(checkpoint)  # type: ignore
         return model
     if config.model.type is ModelType.ChainTransformer:
-        model = ChainTransformer.load_from_checkpoint(checkpoint)
+        model = ChainTransformer.load_from_checkpoint(checkpoint)  # type: ignore
         return model
     if config.model.type is ModelType.DiscreteTransformer:
-        model = DiscreteTransformer.load_from_checkpoint(checkpoint)
+        model = DiscreteTransformer.load_from_checkpoint(checkpoint)  # type: ignore
         return model
 
     error = f"Model type {config.model.type} not supported."  # type: ignore

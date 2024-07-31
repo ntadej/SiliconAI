@@ -8,6 +8,8 @@ import lightning as L
 from torch import optim
 
 if TYPE_CHECKING:
+    from torch.optim import Optimizer
+
     from siliconai.cli.config import Configuration
 
 
@@ -20,10 +22,10 @@ class Module(L.LightningModule):
 
         self.config = config
 
-    def configure_optimizers(self) -> optim.Optimizer:
+    def configure_optimizers(self) -> Optimizer:
         """Configure optimizers."""
         optimizer = getattr(optim, self.config.training.optimizer)
-        instance: optim.Optimizer = optimizer(
+        instance: Optimizer = optimizer(
             self.parameters(),
             lr=self.config.training.learning_rate,
             weight_decay=self.config.training.weight_decay,

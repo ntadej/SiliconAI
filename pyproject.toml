@@ -20,15 +20,15 @@ classifiers = [
 dependencies = [
     "lightning == 2.3.*",
     "matplotlib == 3.9.*",
-    "mlflow == 2.14.*",
+    "mlflow == 2.15.*",
     "mplhep == 0.3.*",
     "numpy == 1.26.*",
     "pandas == 2.2.*",
     "scikit-learn == 1.5.*",
     "scipy == 1.14.*",
     "tables == 3.9.*",
-    "torch == 2.3.*",
-    "torchvision == 0.18.*",
+    "torch == 2.4.*",
+    "torchvision == 0.19.*",
     "typer[all] == 0.9.*",
     "tomli-w == 1.0.*",
     "uproot == 5.3.*",
@@ -38,14 +38,14 @@ dependencies = [
 dev = [
     "coverage[toml]",
     "ipykernel",
-    "mypy == 1.10.1",
+    "mypy == 1.11.1",
     "pandas-stubs == 2.2.*",
     "pre-commit-hooks == 4.6.*",
     "pre-commit",
     "pytest >= 8.0",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.5.2",
+    "ruff == 0.5.5",
     "types-pyyaml",
 ]
 
@@ -139,6 +139,7 @@ pylint = { max-args = 12 }
 plugins = "numpy.typing.mypy_plugin"
 strict = true
 pretty = true
+no_implicit_reexport = false
 show_column_numbers = true
 show_error_codes = true
 show_error_context = true
