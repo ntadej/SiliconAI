@@ -7,6 +7,7 @@ class DataType(Enum):
     """Input type."""
 
     # actual types
+    ActsChain = "ActsChain"
     ActsHits = "ActsHits"
     TRKNtuple = "TRKNtuple"
 
@@ -31,4 +32,5 @@ class ModelType(Enum):
 
     BasicVAE = "BasicVAE"
     ConvVAE = "ConvVAE"
+    ChainTransformer = "ChainTransformer"
     DiscreteTransformer = "DiscreteTransformer"

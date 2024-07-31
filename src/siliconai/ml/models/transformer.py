@@ -305,7 +305,7 @@ class TransformerBase(Module):
         # If matrix = [1,2,3,0,0,0] where pad_token=0, the result mask is
         # [False, False, False, True, True, True]
         mask = (
-            data[:, :, 0] == pad_token
+            data == pad_token if len(data.shape) == 2 else data[:, :, 0] == pad_token  # noqa: PLR2004
         )  # with multiple features just take the first one for now
         return torch.zeros_like(mask, dtype=dtype).masked_fill_(
             mask,
@@ -501,3 +501,103 @@ class DiscreteTransformer(TransformerBase):
                 break
 
         return (input_tensor, None)
+
+
+class ChainTransformer(TransformerBase):
+    """Chain transformer model."""
+
+    def __init__(self, config: Configuration) -> None:
+        """Initialize the module."""
+        super().__init__(config)
+
+        if not isinstance(config.data.input_dim, int):
+            error = "Input dimension must be an integer"
+            raise TypeError(error)
+
+        self.input_dim: int = config.data.input_dim
+
+        # setup the embedding layer
+        self.embedding = nn.Embedding(self.input_dim, config.model.model_dim)
+
+    def loss_function(
+        self,
+        x: Tensor,
+        x_hat: Tensor,
+    ) -> tuple[Tensor, Tensor | None, Tensor | None]:
+        """Calculate transformer loss."""
+        reduction = "mean"
+
+        # calculate the loss for the discrete features
+        loss = torch.nn.functional.cross_entropy(
+            x_hat.permute(0, 2, 1),
+            x,
+            reduction=reduction,
+        )
+
+        return loss, loss, None
+
+    def forward_pass(
+        self,
+        x_data: Tensor,
+        evaluate: bool = False,
+    ) -> Tensor:
+        """Process the loss of a batch."""
+        # data is shaped in the form of [batch, sequence, features]
+
+        # Embedding
+        x = self.embedding(x_data) * math.sqrt(self.model_dim)
+        x = self.positional_encoder(x)
+
+        # Masking
+        x_mask: Tensor | None = self.create_sequence_mask(x_data, self.device, evaluate)
+        x_padding_mask: Tensor = self.create_pad_mask(x_data, dtype=x.dtype)
+
+        # Transformer
+        x_transformer = self.encoder(
+            x,
+            mask=x_mask,
+            src_key_padding_mask=x_padding_mask,
+            is_causal=not evaluate,
+        )
+
+        # Output layer
+        x_hat: Tensor = self.output(x_transformer)
+        return x_hat
+
+    def process_loss(
+        self,
+        batch: Tensor,
+    ) -> tuple[Tensor, Tensor | None, Tensor | None]:
+        """Process the loss of a batch."""
+        x_data, y_data = batch
+        x_hat = self.forward_pass(x_data)
+        return self.loss_function(y_data, x_hat)
+
+    def forward(self, *args: Tensor) -> Tensor:
+        """Forward pass."""
+        x_data = args[0]
+        return self.forward_pass(x_data, evaluate=True)
+
+    @torch.no_grad()
+    def predict(self, input_sequence: Tensor, end_token: int) -> Tensor:
+        """Run predictions on the model."""
+        # _rich_traceback_guard = True
+
+        end_tensor = torch.tensor([0, end_token]).to(self.device)
+        input_tensor = input_sequence
+
+        for _ in range(self.config.model.sequence_length - input_sequence.size(1)):
+            pred = self(input_tensor)
+
+            next_item = pred[:, -1:].topk(1)[1][:, 0]
+
+            # Concatenate previous input with predicted best word
+            input_tensor = torch.cat((input_tensor, next_item), dim=1)
+
+            # Stop if model predicts end of sentence
+            if torch.all(
+                torch.isin(next_item, end_tensor),
+            ):
+                break
+
+        return input_tensor

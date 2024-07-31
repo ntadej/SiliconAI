@@ -432,7 +432,7 @@ class ModelConfiguration:
             table.add_row("Number of heads:", str(self.heads))
         if self.feedforward_dim:
             table.add_row("Feedworward dimension:", str(self.feedforward_dim))
-        if self.type in [ModelType.DiscreteTransformer]:
+        if self.type in [ModelType.ChainTransformer, ModelType.DiscreteTransformer]:
             table.add_row(
                 "Transformer residual weights:",
                 str(self.transformer_residual_weights),
@@ -440,7 +440,7 @@ class ModelConfiguration:
         table.add_row("Activation function:", self.activation)
         if self.activation_parameters:
             table.add_row("Activation parameters:", str(self.activation_parameters))
-        if self.type not in [ModelType.DiscreteTransformer]:
+        if self.type not in [ModelType.ChainTransformer, ModelType.DiscreteTransformer]:
             table.add_row("Batch normalization:", str(self.batch_norm))
         table.add_row("Dropout rate:", str(self.dropout))
         table.add_row("Loss function:", self.loss)

@@ -7,13 +7,14 @@ from typing import TYPE_CHECKING
 
 from siliconai.common.enums import DataType, ModelType
 from siliconai.data.modules import (
-    ActsDataModule,
+    ActsChainDataModule,
+    ActsHitsDataModule,
     FashionMNISTDataModule,
     MNISTDataModule,
     TestSequenceDataModule,
     TRKNtupleDataModule,
 )
-from siliconai.ml.models.transformer import DiscreteTransformer
+from siliconai.ml.models.transformer import ChainTransformer, DiscreteTransformer
 from siliconai.ml.models.vae import BasicVAE, ConvVAE
 
 if TYPE_CHECKING:
@@ -31,8 +32,10 @@ def load_data_module(
     if logger:
         logger.info("Loading data type: %s", config.data.type.value)
 
+    if config.data.type is DataType.ActsChain:
+        return ActsChainDataModule(config, logger)
     if config.data.type is DataType.ActsHits:
-        return ActsDataModule(config, logger)
+        return ActsHitsDataModule(config, logger)
     if config.data.type is DataType.TRKNtuple:
         return TRKNtupleDataModule(config)
     # test samples
@@ -56,8 +59,11 @@ def load_data_module_from_checkpoint(
     logger.info("Loading data module type: %s", config.model.type.value)
 
     data_module: L.LightningDataModule
+    if config.data.type is DataType.ActsChain:
+        data_module = ActsChainDataModule.load_from_checkpoint(checkpoint)
+        return data_module
     if config.data.type is DataType.ActsHits:
-        data_module = ActsDataModule.load_from_checkpoint(checkpoint)
+        data_module = ActsHitsDataModule.load_from_checkpoint(checkpoint)
         return data_module
     if config.data.type is DataType.TRKNtuple:
         data_module = TRKNtupleDataModule.load_from_checkpoint(checkpoint)
@@ -103,6 +109,8 @@ def load_model(logger: Logger, config: Configuration) -> L.LightningModule:
         return BasicVAE(config)
     if config.model.type is ModelType.ConvVAE:
         return ConvVAE(config)
+    if config.model.type is ModelType.ChainTransformer:
+        return ChainTransformer(config)
     if config.model.type is ModelType.DiscreteTransformer:
         return DiscreteTransformer(config)
 
@@ -124,6 +132,9 @@ def load_model_from_checkpoint(
         return model
     if config.model.type is ModelType.ConvVAE:
         model = ConvVAE.load_from_checkpoint(checkpoint)
+        return model
+    if config.model.type is ModelType.ChainTransformer:
+        model = ChainTransformer.load_from_checkpoint(checkpoint)
         return model
     if config.model.type is ModelType.DiscreteTransformer:
         model = DiscreteTransformer.load_from_checkpoint(checkpoint)

@@ -13,6 +13,7 @@ from torchvision.transforms import ToTensor  # type: ignore
 
 from siliconai.common.enums import DataLoadingType
 from siliconai.data.datasets import (
+    ActsChainDataset,
     ActsHitsDataset,
     TestSequenceDataset,
     TRKNtupleDataset,
@@ -24,7 +25,9 @@ from siliconai.data.utils import (
     NDArrayType,
     ScikitLearnTransformation,
     Tokenize,
+    TokenizeFlat,
     collate_sequence,
+    collate_sequence_chain,
 )
 
 if TYPE_CHECKING:
@@ -129,7 +132,81 @@ class FashionMNISTDataModule(MNISTDataModule):
         self.fashion = True
 
 
-class ActsDataModule(BaseDataModule):
+class ActsChainDataModule(BaseDataModule):
+    """ACTS-based silicon detector hits chain data module."""
+
+    def __init__(
+        self,
+        data_config: Configuration,
+        logger: Logger | None = None,
+    ) -> None:
+        """Initialize the data module."""
+        super().__init__(data_config, collate_sequence_chain)
+        if not data_config.data.input_file:
+            error = "ACTS data path not set."
+            raise ValueError(error)
+
+        self.logger = logger
+
+        self.data_path: Path = data_config.data.input_file
+
+        if not isinstance(data_config.data.input_dim, int):
+            error = "Input dimension must be an integer."
+            raise TypeError(error)
+
+        self.input_dim: int = data_config.data.input_dim
+        self.tokenize = TokenizeFlat(DataDictionary("token"))
+        self.preprocessing_loaded = False
+
+        self.save_hyperparameters("data_config")
+
+    def translate_data(self, data: NDArrayType) -> NDArrayType:
+        """Translate back from tokens to the original data."""
+        data, _ = self.tokenize.inverse((data, None))
+        return data
+
+    def preprocess_data(self) -> None:
+        """Prepare and tokenise the ACTS dataset."""
+        if self.logger:
+            self.logger.info(
+                "Creating dictionaries...",
+            )
+
+        dataset = ActsChainDataset(self.data_path, transforms=[self.tokenize])
+        for i in range(len(dataset)):
+            dataset[i]
+
+        if self.logger:
+            self.tokenize.summary(self.logger)
+        assert len(self.tokenize.dictionary) <= self.input_dim
+
+    def setup(self, stage: str) -> None:  # noqa: ARG002
+        """Transform and setup the ACTS dataset."""
+        if not self.preprocessing_loaded:
+            self.preprocess_data()
+
+        dataset = ActsChainDataset(self.data_path, transforms=[self.tokenize])
+
+        self.train_data, self.val_data, self.test_data = random_split(
+            dataset,
+            self.split_ratio,
+        )
+
+    def state_dict(self) -> dict[str, Any]:
+        """Track the data module state."""
+        return {
+            "word2idx": self.tokenize.dictionary.word2idx,
+            "idx2word": self.tokenize.dictionary.idx2word,
+        }
+
+    def load_state_dict(self, state_dict: dict[str, Any]) -> None:
+        """Restore the state based on what is tracked."""
+        self.preprocessing_loaded = True
+        self.tokenize.dictionary.word2idx = state_dict["word2idx"]
+        self.tokenize.dictionary.idx2word = state_dict["idx2word"]
+
+
+class ActsHitsDataModule(BaseDataModule):
     """ACTS-based silicon detector hits data module."""
 
     def __init__(
@@ -195,9 +272,9 @@ class ActsDataModule(BaseDataModule):
         data_float = np.vstack(data_float_list)
 
         for i, tokenize in enumerate(self.tokenize):
-            assert len(tokenize.dictionary) <= self.input_dim_discreet[i]
             if self.logger:
                 tokenize.summary(self.logger)
+            assert len(tokenize.dictionary) <= self.input_dim_discreet[i]
 
         for transformation in self.normalize:
             transformation.fit((data_float, None))

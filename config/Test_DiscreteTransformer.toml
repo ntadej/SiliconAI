@@ -21,7 +21,6 @@ heads = 2                    # 8
 feedforward_dim = 64         # 2048
 activation = "gelu"
 dropout = 0.1
-loss = "mse_loss"
 
 [training]
 epochs = 5

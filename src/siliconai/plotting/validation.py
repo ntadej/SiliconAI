@@ -16,7 +16,8 @@ from torchvision.utils import make_grid  # type: ignore
 
 from siliconai.common.enums import DataLoadingType, DataType, ModelType
 from siliconai.data.modules import (
-    ActsDataModule,
+    ActsChainDataModule,
+    ActsHitsDataModule,
     TestSequenceDataModule,
     TRKNtupleDataModule,
 )
@@ -43,6 +44,11 @@ def quick_validate(
     data_type: DataLoadingType,
 ) -> None:
     """Validate the model after training."""
+    if config.data.type is DataType.ActsChain:
+        logger.info("Validating ActsChain-based model output...")
+        file = quick_validate_acts_chain(config, model, data, data_type, logger=logger)
+        logger.info("Validation done and stored in %s.", file)
+
     if config.data.type is DataType.ActsHits:
         logger.info("Validating ActsHits-based model output...")
         file = quick_validate_acts_hits(config, model, data, data_type, logger=logger)
@@ -183,6 +189,165 @@ def acts_process_data(  # noqa: C901
     return data_nonzero_int, data_nonzero_float, data_df
 
 
+def quick_validate_acts_chain(  # noqa: PLR0915, C901
+    config: Configuration,
+    model: L.LightningModule,
+    data: L.LightningDataModule,
+    data_type: DataLoadingType,
+    logger: Logger | None = None,
+) -> Path:
+    """Validate ActsChain-based model output."""
+    # _rich_traceback_guard = True
+    setup_style()
+
+    # make sure we are in eval mode
+    model.eval()
+
+    output_file = (
+        config.output_path
+        / f"run_{config.run_number()}"
+        / f"validation_{data_type.value}.pdf"
+    )
+
+    data = cast(ActsChainDataModule, data)
+    data.setup(data_type.value)
+    if logger:
+        data.tokenize.summary(logger)
+
+    input_full: list[NDArrayType] = []
+    result_full: list[NDArrayType] = []
+    if logger:
+        logger.info("Starting inference")
+    time_start = time.perf_counter()
+
+    for batch in data.get_dataloader(data_type):
+        batch_full = batch[0]
+        batch_start = batch_full[:, : len(config.data.columns_integer)].to(model.device)
+
+        result = model.predict(
+            batch_start,
+            end_token=data.tokenize.dictionary.word2idx[10001],
+        )
+
+        input_full += list(batch_full.cpu().numpy())
+        result_full += list(result.cpu().numpy())
+        break
+
+    input_translated: list[NDArrayType] = [data.translate_data(i) for i in input_full]
+    result_translated: list[NDArrayType] = [data.translate_data(i) for i in result_full]
+
+    time_end = time.perf_counter()
+
+    if logger:
+        logger.info(
+            "Inference done in %.4f s (%.4f s per 10k particles)",
+            time_end - time_start,
+            (time_end - time_start) / len(input_full) * 10000,
+        )
+
+    # convert from flat to 2D
+    input_translated = [
+        np.pad(
+            i,
+            (
+                0,
+                (len(i) // len(config.data.columns_integer) + 1)
+                * len(config.data.columns_integer)
+                - len(i),
+            ),
+        ).reshape(-1, len(config.data.columns_integer))
+        for i in input_translated
+    ]
+    result_translated = [
+        np.pad(
+            i,
+            (
+                0,
+                (len(i) // len(config.data.columns_integer) + 1)
+                * len(config.data.columns_integer)
+                - len(i),
+            ),
+        ).reshape(-1, len(config.data.columns_integer))
+        for i in result_translated
+    ]
+
+    # non-zero results and DF conversion
+    input_nonzero, _, input_df = acts_process_data(config, input_translated, [])
+    result_nonzero, _, result_df = acts_process_data(config, result_translated, [])
+
+    assert len(input_nonzero) == len(result_nonzero)
+
+    if logger:
+        logger.info("Total events processed: %d", len(result_nonzero))
+
+    # store data
+    with pd.HDFStore(
+        config.output_path
+        / f"run_{config.run_number()}"
+        / f"data_{data_type.value}.h5",
+        mode="w",
+    ) as store:
+        store["reference_data"] = input_df
+        store["generated_data"] = result_df
+
+    # validation plots
+    with PDFDocument(output_file) as pdf:  # type: ignore
+        labels = ["Original", "Generated"]
+
+        n_hits_input = [len(i) - 2 for i in input_nonzero]
+        n_hits_result = [len(i) - 2 for i in result_nonzero]
+
+        fig, ax = plot_hist(
+            [n_hits_input, n_hits_result],
+            "Number of hits",
+            labels=labels,
+        )
+        if fig:
+            pdf.save(fig)
+
+        fig, ax = plot_hist(
+            [n_hits_result],
+            "Number of hits",
+            labels=labels[1:],
+        )
+        if fig:
+            pdf.save(fig)
+
+        if "lxq" in config.data.columns_integer:
+            lxq_index = config.data.columns_integer.index("lxq")
+            lxq_input = list(
+                np.concatenate([i[1:-2, lxq_index] for i in input_nonzero]),
+            )
+            lxq_result = list(
+                np.concatenate([i[1:-2, lxq_index] for i in result_nonzero]),
+            )
+            fig, ax = plot_hist(
+                [lxq_input, lxq_result],
+                "Local x position",
+                labels=labels,
+            )
+            if fig:
+                pdf.save(fig)
+
+        if "lyq" in config.data.columns_integer:
+            lyq_index = config.data.columns_integer.index("lyq")
+            lyq_input = list(
+                np.concatenate([i[1:-2, lyq_index] for i in input_nonzero]),
+            )
+            lyq_result = list(
+                np.concatenate([i[1:-2, lyq_index] for i in result_nonzero]),
+            )
+            fig, ax = plot_hist(
+                [lyq_input, lyq_result],
+                "Local y position",
+                labels=labels,
+            )
+            if fig:
+                pdf.save(fig)
+
+    return output_file
+
+
 def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
     config: Configuration,
     model: L.LightningModule,
@@ -203,7 +368,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
         / f"validation_{data_type.value}.pdf"
     )
 
-    data = cast(ActsDataModule, data)
+    data = cast(ActsHitsDataModule, data)
     data.setup(data_type.value)
     if logger:
         for tokenize in data.tokenize:
@@ -309,6 +474,14 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
             [n_hits_input, n_hits_result],
             "Number of hits",
             labels=labels,
+        )
+        if fig:
+            pdf.save(fig)
+
+        fig, ax = plot_hist(
+            [n_hits_result],
+            "Number of hits",
+            labels=labels[1:],
         )
         if fig:
             pdf.save(fig)

@@ -38,7 +38,7 @@ def setup_callbacks(config: Configuration) -> list[Callback]:
             mode="min",
             monitor="val_loss",
             save_top_k=-1,
-            every_n_epochs=50,
+            every_n_epochs=5,
         ),
     )
 

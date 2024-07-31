@@ -23,6 +23,26 @@ NDArrayType = NDArray[np.float32 | np.uint64]
 CollateFnType = Callable[[list[Any]], Any]
 
 
+def collate_sequence_chain(batch: list[Any]) -> list[Any]:
+    """Collate the ACTS chain dataset."""
+    # get max length of the sequences
+    max_len = max([len(item) for item in batch])
+
+    output: list[Any] = []
+    for item in batch:
+        # append zeros to the end of the sequence if needed
+        out_item = (
+            np.pad(item, (0, max_len - len(item))) if len(item) < max_len else item
+        )
+        # shift the prediction for one to the left and append zeros to the end
+        out_item_shifted = np.pad(item[1:], (0, max_len - len(item) + 1))
+        # append to the output
+        output.append((out_item, out_item_shifted))
+
+    # now with proper padding run the default collate function
+    return torch.utils.data.default_collate(output)  # type: ignore
+
+
 def collate_sequence(batch: list[Any]) -> list[Any]:
     """Collate the ACTS dataset."""
     # get sequence feature length
@@ -205,6 +225,46 @@ class Tokenize(NDArrayTransformation):
         features[:, self.index] = helper(features[:, self.index])
         if labels is not None:
             labels[:, self.index] = helper(labels[:, self.index])
+        return (features, labels)
+
+
+class TokenizeFlat(NDArrayTransformation):
+    """Tokenize the flat input data."""
+
+    def __init__(self, dictionary: DataDictionary) -> None:
+        """Initialize the tokenizer."""
+        self.dictionary = dictionary
+
+    def summary(self, logger: Logger) -> None:
+        """Log summary of the dictionary."""
+        logger.info(
+            'Dictionary for "%s": %d words',
+            self.dictionary.name,
+            len(self.dictionary),
+        )
+
+    def __call__(
+        self,
+        sample: tuple[NDArrayType, NDArrayType | None],
+    ) -> tuple[NDArrayType, NDArrayType | None]:
+        """Transform the sample to tensors."""
+        features, labels = sample
+        helper = np.vectorize(self.dictionary.add_word)
+        features = helper(features)
+        if labels is not None:
+            labels = helper(labels)
+        return (features, labels)
+
+    def inverse(
+        self,
+        sample: tuple[NDArrayType, NDArrayType | None],
+    ) -> tuple[NDArrayType, NDArrayType | None]:
+        """Inverse the tokenization."""
+        features, labels = sample
+        helper = np.vectorize(self.dictionary.get_word)
+        features = helper(features)
+        if labels is not None:
+            labels = helper(labels)
         return (features, labels)
 
 

@@ -30,7 +30,9 @@ class InputConverter:
 
     def load(self) -> None:
         """Load the input."""
-        if self.config.type is DataType.ActsHits:
+        if self.config.type is DataType.ActsChain:
+            self.load_acts_chain()
+        elif self.config.type is DataType.ActsHits:
             self.load_acts_hits()
         elif self.config.type is DataType.TRKNtuple:
             self.load_trkntuple()
@@ -38,10 +40,11 @@ class InputConverter:
             error = f"Unsupported input type: {self.config.type}"
             raise RuntimeError(error)
 
-    def process_acts_hist(
+    def process_acts_hits(
         self,
         data_frame: pd.DataFrame,
         column_count: int,
+        flatten: bool = False,
     ) -> list[ArrayLike]:
         """Process loaded ACTS hits data."""
         # do auto-padding
@@ -66,14 +69,73 @@ class InputConverter:
         output_nonzero = []
         for i in range(len(output_list)):
             nz = np.nonzero(output_list[i])
-            output_nonzero.append(
-                output_list[i][
-                    nz[0].min() : nz[0].max() + 1,
-                    nz[1].min() : nz[1].max() + 1,
-                ],
-            )
+            if flatten:
+                output_nonzero.append(
+                    output_list[i][
+                        nz[0].min() : nz[0].max() + 1,
+                        nz[1].min() : nz[1].max() + 1,
+                    ].flatten()[: -(column_count - 1)],
+                )
+            else:
+                output_nonzero.append(
+                    output_list[i][
+                        nz[0].min() : nz[0].max() + 1,
+                        nz[1].min() : nz[1].max() + 1,
+                    ],
+                )
 
         return output_nonzero
+
+    def load_acts_chain(self) -> None:
+        """Load the ACTS hits as chain."""
+        if not self.config.conversion_input_file or not self.config.input_file:
+            error = "Input and output files must be set"
+            raise ValueError(error)
+
+        self.logger.info(
+            "Loading ACTS hits chain input from %s",
+            self.config.conversion_input_file,
+        )
+
+        with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
+            data_frame: pd.DataFrame | None = (
+                store["hits"][self.config.columns_integer]
+                if self.config.columns_integer
+                else None
+            )
+
+        if data_frame is None:
+            error = "No data set to be converted"
+            raise ValueError(error)
+
+        # transform quantised coordinates (TODO: do it more flexibly)
+        if "lxq" in data_frame:
+            data_frame["lxq"] = data_frame["lxq"] * 100 - 1000000
+        if "lyq" in data_frame:
+            data_frame["lyq"] = data_frame["lyq"] * 100 - 1000000
+
+        # convert to correct types
+        data_frame = data_frame.astype("int64")
+
+        self.logger.info("Converting to numpy arrays")
+
+        output_nonzero = self.process_acts_hits(
+            data_frame,
+            len(self.config.columns_integer),
+            flatten=True,
+        )
+
+        self.logger.info("Writing to %s", self.config.input_file)
+
+        with self.config.input_file.open("wb") as f:
+            pickle.dump(output_nonzero, f)
+
+        self.logger.info("Testing %s", self.config.input_file)
+
+        # test loading
+        with self.config.input_file.open("rb") as f:
+            loaded_output = pickle.load(f)
+            self.logger.info("%s", loaded_output[:3])
 
     def load_acts_hits(self) -> None:
         """Load the ACTS hits input data."""
@@ -117,7 +179,7 @@ class InputConverter:
         self.logger.info("Converting to numpy arrays")
 
         output_int_nonzero = (
-            self.process_acts_hist(
+            self.process_acts_hits(
                 data_frame_int,
                 len(self.config.columns_integer),
             )
@@ -126,7 +188,7 @@ class InputConverter:
         )
 
         output_float_nonzero = (
-            self.process_acts_hist(
+            self.process_acts_hits(
                 data_frame_float,
                 len(self.config.columns_float),
             )

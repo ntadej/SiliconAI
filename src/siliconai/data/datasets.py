@@ -20,6 +20,35 @@ if TYPE_CHECKING:
     )
 
 
+class ActsChainDataset(Dataset):  # type: ignore
+    """ActsChain dataset."""
+
+    def __init__(
+        self,
+        input_file: Path,
+        transforms: list[NDArrayTransformation] | None = None,
+    ) -> None:
+        """Load the ActsHits as a dataset."""
+        self.transforms = transforms
+
+        with input_file.open("rb") as f:
+            self.data = pickle.load(f)
+
+    def __len__(self) -> int:
+        """Return the length of the dataset."""
+        return len(self.data)
+
+    def __getitem__(self, idx: int) -> NDArrayType:
+        """Return the item at the given index."""
+        sequence: NDArrayType = self.data[idx]
+
+        if self.transforms:
+            for t in self.transforms:
+                sequence, _ = t((sequence, None))
+
+        return sequence
+
+
 class ActsHitsDataset(Dataset):  # type: ignore
     """ActsHits dataset."""
 
