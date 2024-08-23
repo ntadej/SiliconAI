@@ -15,7 +15,6 @@ from siliconai.common.enums import DataLoadingType
 from siliconai.data.datasets import (
     ActsChainDataset,
     ActsHitsDataset,
-    TestSequenceDataset,
     TRKNtupleDataset,
 )
 from siliconai.data.tokenizers import DataDictionary, SequenceTokenizer, Tokenize
@@ -306,58 +305,6 @@ class TRKNtupleDataModule(BaseDataModule):
             tensor_transform=NDArrayToFloatTensor(),
         )
         self.features = dataset.column_list[:]
-
-        self.train_data, self.val_data, self.test_data = random_split(
-            dataset,
-            self.split_ratio,
-        )
-
-
-class TestSequenceDataModule(BaseDataModule):
-    """Sequence test data module."""
-
-    def __init__(self, data_config: Configuration) -> None:
-        """Initialize the data module."""
-        super().__init__(data_config)
-        self.data_path = data_config.global_config.data_path / "test_sequence.npy"
-
-        self.input_dim_discreet: list[int]
-        if isinstance(data_config.data.input_dim, int):
-            self.input_dim_discreet = [data_config.data.input_dim]
-        else:
-            self.input_dim_discreet = data_config.data.input_dim
-
-        self.tokenize = [
-            Tokenize(
-                DataDictionary(
-                    f"dict{i}",
-                    padding_token=data_config.data.padding_token,
-                ),
-                i,
-            )
-            for i in range(len(self.input_dim_discreet))
-        ]
-
-        self.save_hyperparameters()
-
-    def tokenize_data(self) -> None:
-        """Tokenize the sequence test dataset."""
-        dataset = TestSequenceDataset(
-            self.data_path,
-            transforms=[*self.tokenize],
-        )
-        for i in range(len(dataset)):
-            dataset[i]
-
-        for tokenize in self.tokenize:
-            assert len(tokenize.dictionary) > 1
-
-    def setup(self, stage: str) -> None:  # noqa: ARG002
-        """Transform and setup the sequence test dataset."""
-        dataset = TestSequenceDataset(
-            self.data_path,
-            transforms=[*self.tokenize],
-        )
 
         self.train_data, self.val_data, self.test_data = random_split(
             dataset,

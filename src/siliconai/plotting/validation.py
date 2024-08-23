@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import matplotlib
@@ -18,7 +17,6 @@ from siliconai.common.enums import ColumnType, DataLoadingType, DataType, ModelT
 from siliconai.data.modules import (
     ActsChainDataModule,
     ActsHitsDataModule,
-    TestSequenceDataModule,
     TRKNtupleDataModule,
 )
 from siliconai.ml.training.loaders import (
@@ -29,6 +27,8 @@ from siliconai.plotting.common import plot_hist, setup_style
 from siliconai.plotting.utils import PDFDocument
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import lightning as L
 
     from siliconai.cli.config import Configuration
@@ -62,11 +62,6 @@ def quick_validate(
     if config.data.type in [DataType.MNIST, DataType.FashionMNIST]:
         logger.info("Validating MNIST-based model output...")
         file = quick_validate_mnist(config, model)
-        logger.info("Validation done and stored in %s.", file)
-
-    if config.data.type is DataType.TestSequence:
-        logger.info("Validating TestSequence-based model output...")
-        file = quick_validate_test_sequence(config, model, data, logger=logger)
         logger.info("Validation done and stored in %s.", file)
 
 
@@ -638,53 +633,6 @@ def quick_validate_trkntuple(
             pdf.save(fig)
 
     return output_file
-
-
-def quick_validate_test_sequence(
-    _: Configuration,
-    model: L.LightningModule,
-    data: L.LightningDataModule,
-    logger: Logger | None = None,
-) -> Path:
-    """Validate test sequence model output."""
-    # _rich_traceback_guard = True
-    setup_style()
-
-    data = cast(TestSequenceDataModule, data)
-    data.tokenize_data()  # TODO: should not be needed
-
-    sequence = np.array([[1, 2], [5, 2], [8, 2], [5, 2]])
-    sequence_tokenized = np.copy(sequence)
-
-    for tokenize in data.tokenize:
-        sequence_tokenized = tokenize(sequence_tokenized)
-
-    if logger:
-        logger.info("Sequence: %s", sequence)
-        logger.info("Tokenized: %s", sequence_tokenized)
-
-    input_tensor = torch.tensor(
-        np.array([sequence_tokenized]),
-        dtype=torch.long,
-        device=model.device,
-    )
-
-    result = model.predict(
-        input_tensor,
-        end_token=data.tokenize[0].dictionary.word2idx[2],
-    )
-
-    if logger:
-        logger.info("Tokenized result: %s", result)
-
-    result_translated = result.cpu().numpy()[0]
-    for tokenize in data.tokenize:
-        result_translated = tokenize.inverse(result_translated)
-
-    if logger:
-        logger.info("Result: %s", result_translated)
-
-    return Path()
 
 
 def validate(

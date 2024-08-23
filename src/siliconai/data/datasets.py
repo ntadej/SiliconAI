@@ -126,34 +126,3 @@ class TRKNtupleDataset(Dataset):  # type: ignore
                     labels = t(labels)
 
         return self.tensor_transform((features, labels))
-
-
-class TestSequenceDataset(Dataset):  # type: ignore
-    """Sequence test dataset."""
-
-    def __init__(
-        self,
-        input_file: Path,
-        transforms: list[NDArrayTransformation] | None = None,
-    ) -> None:
-        """Load the test sequence as a dataset."""
-        self.data = np.load(input_file)
-        self.transforms = transforms
-
-    def __len__(self) -> int:
-        """Return the length of the dataset."""
-        return len(self.data)
-
-    def __getitem__(self, idx: int) -> tuple[NDArrayType, NDArrayType | None]:
-        """Return the item at the given index."""
-        y = self.data[idx]
-        y_input: NDArrayType = y[0]
-        y_expected: NDArrayType | None = y[1]
-
-        if self.transforms:
-            for t in self.transforms:
-                y_input = t(y_input)
-                if y_expected is not None:
-                    y_expected = t(y_expected)
-
-        return (y_input, y_expected)

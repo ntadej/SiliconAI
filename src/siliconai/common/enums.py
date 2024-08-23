@@ -15,9 +15,6 @@ class DataType(Enum):
     MNIST = "MNIST"
     FashionMNIST = "FashionMNIST"
 
-    # test types
-    TestSequence = "TestSequence"
-
 
 class DataLoadingType(str, Enum):
     """Data loading type."""

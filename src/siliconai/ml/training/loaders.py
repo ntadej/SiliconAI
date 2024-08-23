@@ -11,7 +11,6 @@ from siliconai.data.modules import (
     ActsHitsDataModule,
     FashionMNISTDataModule,
     MNISTDataModule,
-    TestSequenceDataModule,
     TRKNtupleDataModule,
 )
 from siliconai.ml.models.transformer import ChainTransformer, DiscreteTransformer
@@ -43,8 +42,6 @@ def load_data_module(
         return MNISTDataModule(config)
     if config.data.type is DataType.FashionMNIST:
         return FashionMNISTDataModule(config)
-    if config.data.type is DataType.TestSequence:
-        return TestSequenceDataModule(config)
 
     error = f"Data type {config.data.type} not supported."  # type: ignore
     raise ValueError(error)
@@ -67,9 +64,6 @@ def load_data_module_from_checkpoint(
         return data_module
     if config.data.type is DataType.TRKNtuple:
         data_module = TRKNtupleDataModule.load_from_checkpoint(checkpoint)
-        return data_module
-    if config.data.type is DataType.TestSequence:
-        data_module = TestSequenceDataModule.load_from_checkpoint(checkpoint)
         return data_module
 
     error = f"Data type {config.data.type} not supported."
