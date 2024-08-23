@@ -44,7 +44,7 @@ class ActsChainDataset(Dataset):  # type: ignore
 
         if self.transforms:
             for t in self.transforms:
-                sequence, _ = t((sequence, None))
+                sequence = t(sequence)
 
         return sequence
 
@@ -76,10 +76,10 @@ class ActsHitsDataset(Dataset):  # type: ignore
 
         if self.transforms_int:
             for t in self.transforms_int:
-                sequence_int, _ = t((sequence_int, None))
+                sequence_int = t(sequence_int)
         if self.transforms_float:
             for t in self.transforms_float:
-                sequence_float, _ = t((sequence_float, None))
+                sequence_float = t(sequence_float)
 
         return sequence_int, sequence_float
 
@@ -121,7 +121,9 @@ class TRKNtupleDataset(Dataset):  # type: ignore
 
         if self.transforms:
             for t in self.transforms:
-                features, labels = t((features, labels))
+                features = t(features)
+                if labels is not None:
+                    labels = t(labels)
 
         return self.tensor_transform((features, labels))
 
@@ -150,6 +152,8 @@ class TestSequenceDataset(Dataset):  # type: ignore
 
         if self.transforms:
             for t in self.transforms:
-                y_input, y_expected = t((y_input, y_expected))
+                y_input = t(y_input)
+                if y_expected is not None:
+                    y_expected = t(y_expected)
 
         return (y_input, y_expected)

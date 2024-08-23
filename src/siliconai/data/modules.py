@@ -18,14 +18,12 @@ from siliconai.data.datasets import (
     TestSequenceDataset,
     TRKNtupleDataset,
 )
+from siliconai.data.tokenizers import DataDictionary, SequenceTokenizer, Tokenize
 from siliconai.data.utils import (
     CollateFnType,
-    DataDictionary,
     NDArrayToFloatTensor,
     NDArrayType,
     ScikitLearnTransformation,
-    Tokenize,
-    TokenizeFlat,
     collate_sequence,
     collate_sequence_chain,
 )
@@ -150,60 +148,23 @@ class ActsChainDataModule(BaseDataModule):
 
         self.data_path: Path = data_config.data.input_file
 
-        if not isinstance(data_config.data.input_dim, int):
-            error = "Input dimension must be an integer."
-            raise TypeError(error)
-
-        self.input_dim: int = data_config.data.input_dim
-        self.tokenize = TokenizeFlat(DataDictionary("token"))
+        self.tokenize = SequenceTokenizer.load(data_config.data, logger)
         self.preprocessing_loaded = False
 
         self.save_hyperparameters("data_config")
 
     def translate_data(self, data: NDArrayType) -> NDArrayType:
         """Translate back from tokens to the original data."""
-        data, _ = self.tokenize.inverse((data, None))
-        return data
-
-    def preprocess_data(self) -> None:
-        """Prepare and tokenise the ACTS dataset."""
-        if self.logger:
-            self.logger.info(
-                "Creating dictionaries...",
-            )
-
-        dataset = ActsChainDataset(self.data_path, transforms=[self.tokenize])
-        for i in range(len(dataset)):
-            dataset[i]
-
-        if self.logger:
-            self.tokenize.summary(self.logger)
-        assert len(self.tokenize.dictionary) <= self.input_dim
+        return self.tokenize.inverse(data)
 
     def setup(self, stage: str) -> None:  # noqa: ARG002
         """Transform and setup the ACTS dataset."""
-        if not self.preprocessing_loaded:
-            self.preprocess_data()
-
         dataset = ActsChainDataset(self.data_path, transforms=[self.tokenize])
 
         self.train_data, self.val_data, self.test_data = random_split(
             dataset,
             self.split_ratio,
         )
-
-    def state_dict(self) -> dict[str, Any]:
-        """Track the data module state."""
-        return {
-            "word2idx": self.tokenize.dictionary.word2idx,
-            "idx2word": self.tokenize.dictionary.idx2word,
-        }
-
-    def load_state_dict(self, state_dict: dict[str, Any]) -> None:
-        """Restore the state based on what is tracked."""
-        self.preprocessing_loaded = True
-        self.tokenize.dictionary.word2idx = state_dict["word2idx"]
-        self.tokenize.dictionary.idx2word = state_dict["idx2word"]
 
 
 class ActsHitsDataModule(BaseDataModule):
@@ -232,7 +193,10 @@ class ActsHitsDataModule(BaseDataModule):
         self.input_dim_continuous = len(data_config.data.columns_float)
 
         self.tokenize = [
-            Tokenize(DataDictionary(label), i)
+            Tokenize(
+                DataDictionary(label, padding_token=data_config.data.padding_token),
+                i,
+            )
             for i, label in enumerate(data_config.data.columns_integer)
         ]
         self.normalize = [
@@ -247,13 +211,13 @@ class ActsHitsDataModule(BaseDataModule):
     def translate_data(self, data: NDArrayType) -> NDArrayType:
         """Translate back from tokens to the original data."""
         for tokenize in self.tokenize:
-            data, _ = tokenize.inverse((data, None))
+            data, _ = tokenize.inverse(data)
         return data
 
     def inverse_data(self, data: NDArrayType) -> NDArrayType:
         """Inverse normalization on continuous data."""
         for normalize in self.normalize:
-            data, _ = normalize.inverse((data, None))
+            data, _ = normalize.inverse(data)
         return data
 
     def preprocess_data(self) -> None:
@@ -361,7 +325,13 @@ class TestSequenceDataModule(BaseDataModule):
             self.input_dim_discreet = data_config.data.input_dim
 
         self.tokenize = [
-            Tokenize(DataDictionary(f"dict{i}"), i)
+            Tokenize(
+                DataDictionary(
+                    f"dict{i}",
+                    padding_token=data_config.data.padding_token,
+                ),
+                i,
+            )
             for i in range(len(self.input_dim_discreet))
         ]
 

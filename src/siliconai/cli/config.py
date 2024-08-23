@@ -9,7 +9,7 @@ from typing import Any, cast
 import numpy as np
 import tomli_w
 
-from siliconai.common.enums import DataType, ModelType
+from siliconai.common.enums import ColumnType, DataType, ModelType
 
 from .logging import Table, config_table, error_panel, info_panel
 
@@ -240,6 +240,9 @@ class DataConfiguration:
         self.batch_size: int = config["batch_size"]
         self.workers: int = config.get("workers", 4)
 
+        self.padding_token: int = config.get("padding_token", 0)
+        self.end_token: int = config.get("end_token", 0)
+
         self.conversion: bool = False
         self.conversion_input_file: Path | None = None
 
@@ -251,12 +254,21 @@ class DataConfiguration:
             self.input_file = global_config.data_path / config["conversion"]["output"]
             self.columns_integer = config["conversion"].get("columns_integer", [])
             self.columns_float = config["conversion"].get("columns_float", [])
+            self.columns_type = [
+                ColumnType(t) for t in config["conversion"].get("columns_type", [])
+            ]
 
         if "input_file" in config:
             self.input_file = global_config.data_path / config["input_file"]
 
         if self.columns_integer and not isinstance(self.input_dim, int):
-            assert len(self.columns_integer) == len(self.input_dim)
+            count = len(self.columns_integer)
+            if self.columns_type:
+                count = (
+                    len([t for t in self.columns_type if t == ColumnType.Categorical])
+                    + 1
+                )
+            assert count == len(self.input_dim)
 
     @property
     def flat_input_dim(self) -> int:
@@ -272,6 +284,9 @@ class DataConfiguration:
             "input_file": str(self.input_file),
             "columns_integer": self.columns_integer,
             "columns_float": self.columns_float,
+            "columns_type": [t.value for t in self.columns_type],
+            "padding_token": self.padding_token,
+            "end_token": self.end_token,
             "input_dim": self.input_dim,
             "split_ratio": self.split_ratio,
             "batch_size": self.batch_size,
@@ -289,8 +304,16 @@ class DataConfiguration:
             table.add_row("Input file:", print_path(self.input_file))
         if self.columns_integer:
             table.add_row("Integer columns:", str(self.columns_integer))
+            if self.columns_type:
+                table.add_row(
+                    "Column types:",
+                    str([t.value for t in self.columns_type]),
+                )
         if self.columns_float:
             table.add_row("Floating-point columns:", str(self.columns_float))
+        if self.padding_token != 0 and self.end_token != 0:
+            table.add_row("Padding token:", str(self.padding_token))
+            table.add_row("End token:", str(self.end_token))
         table.add_row("Input dimension:", str(self.input_dim))
         table.add_row("Split ratio:", str(self.split_ratio))
         table.add_row("Batch size:", str(self.batch_size))

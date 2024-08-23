@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
 
     from siliconai.cli.logging import Logger
 
-Word = Any
 
 NDArrayType = NDArray[np.float32 | np.uint64]
 CollateFnType = Callable[[list[Any]], Any]
@@ -137,11 +135,13 @@ class NDArrayTransformation(ABC):
     """numpy ndarray transformation base class."""
 
     @abstractmethod
-    def __call__(
-        self,
-        sample: tuple[NDArrayType, NDArrayType | None],
-    ) -> tuple[NDArrayType, NDArrayType | None]:
+    def __call__(self, sample: NDArrayType) -> NDArrayType:
         """Transform the sample."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def inverse(self, sample: NDArrayType) -> NDArrayType:
+        """Inverse the transformation."""
         raise NotImplementedError
 
 
@@ -187,87 +187,6 @@ class NDArrayToLongTensor(TensorTransformation):
         )
 
 
-class Tokenize(NDArrayTransformation):
-    """Tokenize the input data."""
-
-    def __init__(self, dictionary: DataDictionary, index: int) -> None:
-        """Initialize the tokenizer."""
-        self.dictionary = dictionary
-        self.index = index
-
-    def summary(self, logger: Logger) -> None:
-        """Log summary of the dictionary."""
-        logger.info(
-            'Dictionary for "%s": %d words',
-            self.dictionary.name,
-            len(self.dictionary),
-        )
-
-    def __call__(
-        self,
-        sample: tuple[NDArrayType, NDArrayType | None],
-    ) -> tuple[NDArrayType, NDArrayType | None]:
-        """Transform the sample to tensors."""
-        features, labels = sample
-        helper = np.vectorize(self.dictionary.add_word)
-        features[:, self.index] = helper(features[:, self.index])
-        if labels is not None:
-            labels[:, self.index] = helper(labels[:, self.index])
-        return (features, labels)
-
-    def inverse(
-        self,
-        sample: tuple[NDArrayType, NDArrayType | None],
-    ) -> tuple[NDArrayType, NDArrayType | None]:
-        """Inverse the tokenization."""
-        features, labels = sample
-        helper = np.vectorize(self.dictionary.get_word)
-        features[:, self.index] = helper(features[:, self.index])
-        if labels is not None:
-            labels[:, self.index] = helper(labels[:, self.index])
-        return (features, labels)
-
-
-class TokenizeFlat(NDArrayTransformation):
-    """Tokenize the flat input data."""
-
-    def __init__(self, dictionary: DataDictionary) -> None:
-        """Initialize the tokenizer."""
-        self.dictionary = dictionary
-
-    def summary(self, logger: Logger) -> None:
-        """Log summary of the dictionary."""
-        logger.info(
-            'Dictionary for "%s": %d words',
-            self.dictionary.name,
-            len(self.dictionary),
-        )
-
-    def __call__(
-        self,
-        sample: tuple[NDArrayType, NDArrayType | None],
-    ) -> tuple[NDArrayType, NDArrayType | None]:
-        """Transform the sample to tensors."""
-        features, labels = sample
-        helper = np.vectorize(self.dictionary.add_word)
-        features = helper(features)
-        if labels is not None:
-            labels = helper(labels)
-        return (features, labels)
-
-    def inverse(
-        self,
-        sample: tuple[NDArrayType, NDArrayType | None],
-    ) -> tuple[NDArrayType, NDArrayType | None]:
-        """Inverse the tokenization."""
-        features, labels = sample
-        helper = np.vectorize(self.dictionary.get_word)
-        features = helper(features)
-        if labels is not None:
-            labels = helper(labels)
-        return (features, labels)
-
-
 class ScikitLearnTransformation(NDArrayTransformation):
     """Normalize the input data to a gaussian function."""
 
@@ -289,73 +208,16 @@ class ScikitLearnTransformation(NDArrayTransformation):
         """Fit the transformation."""
         self.transformation.fit(data[0][:, self.index].reshape(-1, 1))
 
-    def __call__(
-        self,
-        sample: tuple[NDArrayType, NDArrayType | None],
-    ) -> tuple[NDArrayType, NDArrayType | None]:
+    def __call__(self, sample: NDArrayType) -> NDArrayType:
         """Transform the sample to tensors."""
-        features, labels = sample
-        features[:, self.index] = self.transformation.transform(
-            features[:, self.index].reshape(-1, 1),
+        sample[:, self.index] = self.transformation.transform(
+            sample[:, self.index].reshape(-1, 1),
         ).reshape(1, -1)
-        if labels is not None:
-            labels[:, self.index] = self.transformation.transform(
-                labels[:, self.index].reshape(-1, 1),
-            ).reshape(1, -1)
-        return (features, labels)
+        return sample
 
-    def inverse(
-        self,
-        sample: tuple[NDArrayType, NDArrayType | None],
-    ) -> tuple[NDArrayType, NDArrayType | None]:
+    def inverse(self, sample: NDArrayType) -> NDArrayType:
         """Inverse the tokenization."""
-        features, labels = sample
-        features[:, self.index] = self.transformation.inverse_transform(
-            features[:, self.index].reshape(-1, 1),
+        sample[:, self.index] = self.transformation.inverse_transform(
+            sample[:, self.index].reshape(-1, 1),
         ).reshape(1, -1)
-        if labels is not None:
-            labels[:, self.index] = self.transformation.inverse_transform(
-                labels[:, self.index].reshape(-1, 1),
-            ).reshape(1, -1)
-        return (features, labels)
-
-
-class DataDictionary:
-    """Tokenized data dictionary."""
-
-    def __init__(self, name: str, data_type: Type | None = None) -> None:
-        """Initialize tokenized data dictionary."""
-        self.name: str = name
-        self.data_type: DataDictionary.Type = (
-            data_type if data_type else DataDictionary.Type.Number
-        )
-
-        self.word2idx: dict[Word, int] = {}
-        self.idx2word: list[Word] = []
-
-        # add padding token
-        if self.data_type == DataDictionary.Type.Text:
-            self.add_word("<PAD>")
-        else:
-            self.add_word(0)
-
-    def add_word(self, word: Word) -> int:
-        """Add a word to the dictionary."""
-        if word not in self.word2idx:
-            self.idx2word.append(word)
-            self.word2idx[word] = len(self.idx2word) - 1
-        return self.word2idx[word]
-
-    def get_word(self, index: int) -> Word:
-        """Get the word from the index."""
-        return self.idx2word[index]
-
-    def __len__(self) -> int:
-        """Return the size of the dictionary."""
-        return len(self.idx2word)
-
-    class Type(Enum):
-        """Data type enumeration."""
-
-        Number = "number"
-        Text = "text"
+        return sample

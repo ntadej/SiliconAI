@@ -142,6 +142,28 @@ def convert_inputs(
 
 
 @application.command()
+def tokenize(
+    config_file: Annotated[
+        Path,
+        typer.Option(
+            "-c",
+            "--config",
+            envvar="SILICONAI_CONFIG",
+            help="Task configuration file.",
+        ),
+    ],
+) -> None:
+    """Prepare tokenizer for training."""
+    global_config = GlobalConfiguration.load(state)
+    config = Configuration(config_file, global_config)
+    logger = setup_logger(global_config, "tokenize")
+
+    from siliconai.data.tokenizers import SequenceTokenizer
+
+    SequenceTokenizer.train(config.data, logger)
+
+
+@application.command()
 def train(
     config_file: Annotated[
         Path,

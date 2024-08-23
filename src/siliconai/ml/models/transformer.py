@@ -9,6 +9,7 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
+from siliconai.common.enums import ColumnType
 from siliconai.ml.common.module import Module
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from typing import Any
 
     from siliconai.cli.config import Configuration
+    from siliconai.data.tokenizers import SequenceTokenizer
 
 
 class PositionalEncoding(nn.Module):
@@ -232,7 +234,7 @@ class TransformerBase(Module):
                 list,
             )
             else config.data.input_dim
-        )
+        ) + 1  # padding token
 
         # setup the transformer
         encoder_layer: nn.Module
@@ -510,11 +512,12 @@ class ChainTransformer(TransformerBase):
         """Initialize the module."""
         super().__init__(config)
 
-        if not isinstance(config.data.input_dim, int):
-            error = "Input dimension must be an integer"
-            raise TypeError(error)
-
-        self.input_dim: int = config.data.input_dim
+        if isinstance(config.data.input_dim, list):
+            dim = sum(config.data.input_dim)
+        else:
+            dim = config.data.input_dim
+        dim += 1  # add padding token
+        self.input_dim = dim
 
         # setup the embedding layer
         self.embedding = nn.Embedding(self.input_dim, config.model.model_dim)
@@ -579,24 +582,89 @@ class ChainTransformer(TransformerBase):
         return self.forward_pass(x_data, evaluate=True)
 
     @torch.no_grad()
-    def predict(self, input_sequence: Tensor, end_token: int) -> Tensor:
+    def predict(
+        self,
+        input_sequence: Tensor,
+        tokenizer: SequenceTokenizer,
+    ) -> Tensor:
         """Run predictions on the model."""
-        # _rich_traceback_guard = True
+        _rich_traceback_guard = True
 
-        end_tensor = torch.tensor([0, end_token]).to(self.device)
+        temperature: float = 1.0
+        topk: int = 0
+
+        end_tensor = torch.tensor(
+            [
+                tokenizer.dictionary.word2idx[self.config.data.padding_token],
+                tokenizer.dictionary.word2idx[self.config.data.end_token],
+            ],
+        ).to(self.device)
         input_tensor = input_sequence
 
-        for _ in range(self.config.model.sequence_length - input_sequence.size(1)):
-            pred = self(input_tensor)
+        ncolumns = len(self.config.data.columns_integer) + len(
+            [c for c in self.config.data.columns_type if c == ColumnType.Numerical],
+        )
+        column_labels = []
+        for column, column_type in zip(
+            self.config.data.columns_integer,
+            self.config.data.columns_type,
+            strict=False,
+        ):
+            if column_type is ColumnType.Numerical:
+                column_labels.append("numerical")
+                column_labels.append("numerical")
+            else:
+                column_labels.append(column)
 
-            next_item = pred[:, -1:].topk(1)[1][:, 0]
+        column_indices_dict = {}
+        for column_label in set(column_labels):
+            start_index = tokenizer.summary_dict[column_label]["start"]
+            end_index = tokenizer.summary_dict[column_label]["end"]
+            column_indices_dict[column_label] = torch.tensor(
+                [
+                    [0, *range(start_index, end_index + 1)]
+                    for i in range(len(input_tensor))
+                ],
+            ).to(self.device)
+
+        for i in range(self.config.model.sequence_length - input_sequence.size(1)):
+            column = i % ncolumns
+            column_label = column_labels[column]
+            column_indices = column_indices_dict[column_label]
+
+            pred = self(input_tensor)
+            # last item
+            pred_last = pred[:, -1, :]
+            # column filtering
+            pred_filtered = torch.gather(pred_last, 1, column_indices)
+            # log-softmax
+            log_probability = F.log_softmax(pred_filtered, dim=-1)
+            # temperature scaling
+            log_probability_scaled = log_probability.div(temperature)
+            # probability
+            probability_scaled = log_probability_scaled.exp()
+            # topk + rescale probability
+            if topk > 0:
+                probability_topk, probability_indices = probability_scaled.topk(topk)
+                probability_topk = F.normalize(probability_topk, p=1)
+                probability_indices = torch.gather(
+                    column_indices,
+                    1,
+                    probability_indices,
+                )
+            else:
+                probability_topk = probability_scaled
+                probability_indices = column_indices
+            # run multinomial sampling
+            sampled_indices = torch.multinomial(probability_topk, 1, replacement=True)
+            sampled_tokens = torch.gather(probability_indices, 1, sampled_indices)
 
             # Concatenate previous input with predicted best word
-            input_tensor = torch.cat((input_tensor, next_item), dim=1)
+            input_tensor = torch.cat((input_tensor, sampled_tokens), dim=1)
 
             # Stop if model predicts end of sentence
             if torch.all(
-                torch.isin(next_item, end_tensor),
+                torch.isin(sampled_tokens, end_tensor),
             ):
                 break
 

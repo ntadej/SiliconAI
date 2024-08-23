@@ -14,7 +14,7 @@ import pandas as pd
 import torch
 from torchvision.utils import make_grid  # type: ignore
 
-from siliconai.common.enums import DataLoadingType, DataType, ModelType
+from siliconai.common.enums import ColumnType, DataLoadingType, DataType, ModelType
 from siliconai.data.modules import (
     ActsChainDataModule,
     ActsHitsDataModule,
@@ -103,7 +103,7 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     return output_file
 
 
-def acts_process_data(  # noqa: C901
+def acts_process_data(  # noqa: C901 PLR0912
     config: Configuration,
     data_int: list[NDArrayType],
     data_float: list[NDArrayType],
@@ -113,7 +113,10 @@ def acts_process_data(  # noqa: C901
     data_nonzero_int = []
     data_nonzero_float = []
     for i in range(max(len(data_int), len(data_float))):
-        nz = np.nonzero(data_int[i][:, 0] if data_int else data_float[i][:, 0])
+        nz = np.nonzero(
+            (data_int[i][:, 0] if data_int else data_float[i][:, 0])
+            != config.data.padding_token,
+        )
         if data_int:
             data_nonzero_int.append(data_int[i][nz[0].min() : nz[0].max() + 1])
         if data_float:
@@ -136,6 +139,15 @@ def acts_process_data(  # noqa: C901
         for i, v in enumerate(data_nonzero_int if data_int else data_nonzero_float)
     ]
 
+    # restore numerical values
+    column_numerical = []
+    i = 2  # indexing offset
+    for column_type in config.data.columns_type:
+        if column_type is ColumnType.Numerical:
+            column_numerical.append((i, i + 1))
+            i += 1
+        i += 1
+
     if data_nonzero_int:
         data_annotated_int = np.concatenate(
             [
@@ -146,12 +158,24 @@ def acts_process_data(  # noqa: C901
 
         data_df_int = pd.DataFrame(data_annotated_int)
 
+        for i, j in column_numerical:
+            data_df_int[i] = data_df_int[j] + data_df_int[i] / 100
+            del data_df_int[j]
+
         columns_labels = {
             0: "event_id",
             1: "index",
         }
+        k = 2
         for i, label in enumerate(config.data.columns_integer):
-            columns_labels[i + 2] = label
+            columns_labels[k] = label
+            k += 1
+            if (
+                config.data.columns_type
+                and config.data.columns_type[i] == ColumnType.Numerical
+            ):
+                columns_labels[k] = label
+                k += 1
         data_df_int = data_df_int.rename(columns=columns_labels)
         data_df_int = data_df_int.set_index(["event_id", "index"])
 
@@ -181,15 +205,16 @@ def acts_process_data(  # noqa: C901
     if data_nonzero_int and data_nonzero_float:
         data_df = pd.concat([data_df_int, data_df_float], axis=1)
 
-    if "lxq" in data_df.columns:
-        data_df["lxq"] /= 100
-    if "lyq" in data_df.columns:
-        data_df["lyq"] /= 100
+    if not config.data.columns_type:
+        if "lxq" in data_df.columns:
+            data_df["lxq"] /= 100
+        if "lyq" in data_df.columns:
+            data_df["lyq"] /= 100
 
     return data_nonzero_int, data_nonzero_float, data_df
 
 
-def quick_validate_acts_chain(  # noqa: PLR0915, C901
+def quick_validate_acts_chain(  # noqa: PLR0915 PLR0912 C901
     config: Configuration,
     model: L.LightningModule,
     data: L.LightningDataModule,
@@ -220,14 +245,15 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
         logger.info("Starting inference")
     time_start = time.perf_counter()
 
+    ncolumns = len(config.data.columns_integer) + len(
+        [c for c in config.data.columns_type if c == ColumnType.Numerical],
+    )
+
     for batch in data.get_dataloader(data_type):
         batch_full = batch[0]
-        batch_start = batch_full[:, : len(config.data.columns_integer)].to(model.device)
+        batch_start = batch_full[:, :ncolumns].to(model.device)
 
-        result = model.predict(
-            batch_start,
-            end_token=data.tokenize.dictionary.word2idx[10001],
-        )
+        result = model.predict(batch_start, data.tokenize)
 
         input_full += list(batch_full.cpu().numpy())
         result_full += list(result.cpu().numpy())
@@ -251,11 +277,10 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
             i,
             (
                 0,
-                (len(i) // len(config.data.columns_integer) + 1)
-                * len(config.data.columns_integer)
-                - len(i),
+                (len(i) // ncolumns + 1) * ncolumns - len(i),
             ),
-        ).reshape(-1, len(config.data.columns_integer))
+            constant_values=config.data.padding_token,
+        ).reshape(-1, ncolumns)
         for i in input_translated
     ]
     result_translated = [
@@ -263,11 +288,10 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
             i,
             (
                 0,
-                (len(i) // len(config.data.columns_integer) + 1)
-                * len(config.data.columns_integer)
-                - len(i),
+                (len(i) // ncolumns + 1) * ncolumns - len(i),
             ),
-        ).reshape(-1, len(config.data.columns_integer))
+            constant_values=config.data.padding_token,
+        ).reshape(-1, ncolumns)
         for i in result_translated
     ]
 
@@ -329,8 +353,23 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
             if fig:
                 pdf.save(fig)
 
+            if config.data.columns_type:
+                lxq_input = list(
+                    np.concatenate([i[1:-2, lxq_index + 1] for i in input_nonzero]),
+                )
+                lxq_result = list(
+                    np.concatenate([i[1:-2, lxq_index + 1] for i in result_nonzero]),
+                )
+                fig, ax = plot_hist(
+                    [lxq_input, lxq_result],
+                    "Local x position",
+                    labels=labels,
+                )
+                if fig:
+                    pdf.save(fig)
+
         if "lyq" in config.data.columns_integer:
-            lyq_index = config.data.columns_integer.index("lyq")
+            lyq_index = config.data.columns_integer.index("lyq") + 1
             lyq_input = list(
                 np.concatenate([i[1:-2, lyq_index] for i in input_nonzero]),
             )
@@ -344,6 +383,21 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
             )
             if fig:
                 pdf.save(fig)
+
+            if config.data.columns_type:
+                lyq_input = list(
+                    np.concatenate([i[1:-2, lyq_index + 1] for i in input_nonzero]),
+                )
+                lyq_result = list(
+                    np.concatenate([i[1:-2, lyq_index + 1] for i in result_nonzero]),
+                )
+                fig, ax = plot_hist(
+                    [lyq_input, lyq_result],
+                    "Local y position",
+                    labels=labels,
+                )
+                if fig:
+                    pdf.save(fig)
 
     return output_file
 
@@ -391,7 +445,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
 
             result_int, result_float = model.predict(
                 batch_start_int,
-                end_token=data.tokenize[0].dictionary.word2idx[10001],
+                end_token=data.tokenize[0].dictionary.word2idx[config.data.end_token],
             )
 
         input_full_int += list(
@@ -600,15 +654,10 @@ def quick_validate_test_sequence(
     data.tokenize_data()  # TODO: should not be needed
 
     sequence = np.array([[1, 2], [5, 2], [8, 2], [5, 2]])
+    sequence_tokenized = np.copy(sequence)
 
-    sequence_tokenized_tuple: tuple[NDArrayType, NDArrayType | None] = (
-        np.copy(sequence),
-        np.copy(sequence),
-    )
     for tokenize in data.tokenize:
-        sequence_tokenized_tuple = tokenize(sequence_tokenized_tuple)
-
-    sequence_tokenized = sequence_tokenized_tuple[0]
+        sequence_tokenized = tokenize(sequence_tokenized)
 
     if logger:
         logger.info("Sequence: %s", sequence)
@@ -629,14 +678,8 @@ def quick_validate_test_sequence(
         logger.info("Tokenized result: %s", result)
 
     result_translated = result.cpu().numpy()[0]
-    result_translated_tuple: tuple[NDArrayType, NDArrayType | None] = (
-        np.copy(result_translated),
-        np.copy(result_translated),
-    )
     for tokenize in data.tokenize:
-        result_translated_tuple = tokenize.inverse(result_translated_tuple)
-
-    result_translated = result_translated_tuple[0]
+        result_translated = tokenize.inverse(result_translated)
 
     if logger:
         logger.info("Result: %s", result_translated)

@@ -2,19 +2,22 @@ name = "Test Chain Transformer"
 
 [data]
 type = "ActsChain"
-input_dim = 10762
+input_dim = [2454, 154]
 split_ratio = [0.8, 0.1, 0.1]
+padding_token = 9999
+end_token = 10001
 batch_size = 2
 workers = 12
 
 [data.conversion]
 input = "ACTS_Muon_100GeV_Barrel_hits_test.h5"
 output = "ACTS_Muon_100GeV_Barrel_hits_test_chain.pkl"
-columns_integer = ["geometry_id", "particle_type", "lxq", "lyq"]
+columns_integer = ["geometry_id", "lxq", "lyq"]
+columns_type = ["categorical", "numerical", "numerical"]
 
 [model]
 type = "ChainTransformer"
-sequence_length = 100
+sequence_length = 128
 model_dim = 16            # 512
 encoder_layers = 3        # 6
 heads = 2                 # 8

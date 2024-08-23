@@ -13,10 +13,9 @@ from siliconai.plotting.common import plot_feature, setup_style
 from siliconai.plotting.utils import PDFDocument
 
 if TYPE_CHECKING:
-    from numpy.typing import ArrayLike
-
     from siliconai.cli.config import DataConfiguration
     from siliconai.cli.logging import Logger
+    from siliconai.data.utils import NDArrayType
 
 
 class InputConverter:
@@ -26,7 +25,7 @@ class InputConverter:
         """Initialize the input converter."""
         self.logger = logger
         self.config = config
-        self.data: ArrayLike | None = None
+        self.data: NDArrayType | None = None
 
     def load(self) -> None:
         """Load the input."""
@@ -40,17 +39,19 @@ class InputConverter:
             error = f"Unsupported input type: {self.config.type}"
             raise RuntimeError(error)
 
+    @staticmethod
     def process_acts_hits(
-        self,
         data_frame: pd.DataFrame,
         column_count: int,
+        padding_token: int = 0,
+        end_token: int = 10001,
         flatten: bool = False,
-    ) -> list[ArrayLike]:
+    ) -> list[NDArrayType]:
         """Process loaded ACTS hits data."""
         # do auto-padding
         data_frame = cast(
             pd.DataFrame,
-            data_frame.unstack(fill_value=0).stack(  # noqa: PD010 PD013
+            data_frame.unstack(fill_value=padding_token).stack(  # noqa: PD010 PD013
                 future_stack=True,
             ),
         )
@@ -66,15 +67,18 @@ class InputConverter:
             data_frame.to_numpy().reshape(data_events, data_hits, column_count),
         )
 
-        output_nonzero = []
+        output_nonzero: list[NDArrayType] = []
         for i in range(len(output_list)):
-            nz = np.nonzero(output_list[i])
+            nz = np.nonzero(output_list[i] != padding_token)
             if flatten:
                 output_nonzero.append(
-                    output_list[i][
-                        nz[0].min() : nz[0].max() + 1,
-                        nz[1].min() : nz[1].max() + 1,
-                    ].flatten()[: -(column_count - 1)],
+                    np.append(
+                        output_list[i][
+                            nz[0].min() : nz[0].max() + 1,
+                            nz[1].min() : nz[1].max() + 1,
+                        ].flatten(),
+                        end_token,
+                    ),
                 )
             else:
                 output_nonzero.append(
@@ -98,21 +102,26 @@ class InputConverter:
         )
 
         with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
-            data_frame: pd.DataFrame | None = (
-                store["hits"][self.config.columns_integer]
-                if self.config.columns_integer
-                else None
-            )
+            data_frame: pd.DataFrame | None = store["hits"][
+                (store["hits"]["particle_type"] == 13)  # noqa: PLR2004
+                & (store["hits"]["geometry_id"] != 10001)  # noqa: PLR2004
+            ][self.config.columns_integer]
 
         if data_frame is None:
             error = "No data set to be converted"
             raise ValueError(error)
 
-        # transform quantised coordinates (TODO: do it more flexibly)
+        # transform numerical columns
         if "lxq" in data_frame:
-            data_frame["lxq"] = data_frame["lxq"] * 100 - 1000000
+            data_frame["lxq2"], data_frame["lxq1"] = np.modf(data_frame["lxq"])
+            data_frame["lxq1"] = data_frame["lxq1"]
+            data_frame["lxq2"] = abs(data_frame["lxq2"] * 100)
+            del data_frame["lxq"]
         if "lyq" in data_frame:
-            data_frame["lyq"] = data_frame["lyq"] * 100 - 1000000
+            data_frame["lyq2"], data_frame["lyq1"] = np.modf(data_frame["lyq"])
+            data_frame["lyq1"] = data_frame["lyq1"]
+            data_frame["lyq2"] = abs(data_frame["lyq2"] * 100)
+            del data_frame["lyq"]
 
         # convert to correct types
         data_frame = data_frame.astype("int64")
@@ -121,7 +130,9 @@ class InputConverter:
 
         output_nonzero = self.process_acts_hits(
             data_frame,
-            len(self.config.columns_integer),
+            len(self.config.columns_integer) + 2,
+            padding_token=self.config.padding_token,
+            end_token=self.config.end_token,
             flatten=True,
         )
 
@@ -182,6 +193,7 @@ class InputConverter:
             self.process_acts_hits(
                 data_frame_int,
                 len(self.config.columns_integer),
+                padding_token=self.config.padding_token,
             )
             if data_frame_int is not None
             else []
@@ -191,6 +203,7 @@ class InputConverter:
             self.process_acts_hits(
                 data_frame_float,
                 len(self.config.columns_float),
+                padding_token=self.config.padding_token,
             )
             if data_frame_float is not None
             else []
@@ -304,7 +317,7 @@ class InputConverter:
         setup_style()
 
         with PDFDocument(f"{self.output_file}.diagnostics.pdf") as pdf:  # type: ignore
-            for column in self.data.dtype.names:
+            for column in self.data.dtype.names:  # type: ignore
                 self.logger.info("Plotting %s", column)
                 fig, ax = plot_feature(self.data, column)
                 if not fig:

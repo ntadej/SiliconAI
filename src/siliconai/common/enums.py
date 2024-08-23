@@ -27,6 +27,13 @@ class DataLoadingType(str, Enum):
     test = "test"
 
 
+class ColumnType(Enum):
+    """Column type."""
+
+    Categorical = "categorical"
+    Numerical = "numerical"
+
+
 class ModelType(Enum):
     """Model type."""
 
