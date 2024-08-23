@@ -234,7 +234,9 @@ class TransformerBase(Module):
                 list,
             )
             else config.data.input_dim
-        ) + 1  # padding token
+        )
+        if config.data.columns_type:
+            self.output_dim += 1  # add padding token
 
         # setup the transformer
         encoder_layer: nn.Module

@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import lightning as L
-import numpy as np
 from sklearn.preprocessing import StandardScaler  # type: ignore
 from torch.utils.data import DataLoader, Subset, random_split
 from torchvision.datasets import MNIST, FashionMNIST  # type: ignore
@@ -17,7 +16,7 @@ from siliconai.data.datasets import (
     ActsHitsDataset,
     TRKNtupleDataset,
 )
-from siliconai.data.tokenizers import DataDictionary, SequenceTokenizer, Tokenize
+from siliconai.data.tokenizers import ColumnTokenizer, SequenceTokenizer
 from siliconai.data.utils import (
     CollateFnType,
     NDArrayToFloatTensor,
@@ -150,18 +149,17 @@ class ActsChainDataModule(BaseDataModule):
 
         self.data_path: Path = data_config.data.input_file
 
-        self.tokenize = SequenceTokenizer.load(data_config.data, logger)
-        self.preprocessing_loaded = False
+        self.tokenizer = SequenceTokenizer.load(data_config.data, logger)
 
         self.save_hyperparameters("data_config")
 
     def translate_data(self, data: NDArrayType) -> NDArrayType:
         """Translate back from tokens to the original data."""
-        return self.tokenize.inverse(data)
+        return self.tokenizer.inverse(data)
 
     def setup(self, stage: str) -> None:  # noqa: ARG002
         """Transform and setup the ACTS dataset."""
-        dataset = ActsChainDataset(self.data_path, transforms=[self.tokenize])
+        dataset = ActsChainDataset(self.data_path, transforms=[self.tokenizer])
 
         self.train_data, self.val_data, self.test_data = random_split(
             dataset,
@@ -194,67 +192,29 @@ class ActsHitsDataModule(BaseDataModule):
             self.input_dim_discreet = data_config.data.input_dim
         self.input_dim_continuous = len(data_config.data.columns_float)
 
-        self.tokenize = [
-            Tokenize(
-                DataDictionary(label, padding_token=data_config.data.padding_token),
-                i,
-            )
-            for i, label in enumerate(data_config.data.columns_integer)
-        ]
+        self.tokenizer = ColumnTokenizer.load(data_config.data, logger)
         self.normalize = [
             ScikitLearnTransformation(label, i, StandardScaler)
             for i, label in enumerate(data_config.data.columns_float)
         ]
 
-        self.preprocessing_loaded = False
-
         self.save_hyperparameters("data_config")
 
     def translate_data(self, data: NDArrayType) -> NDArrayType:
         """Translate back from tokens to the original data."""
-        for tokenize in self.tokenize:
-            data, _ = tokenize.inverse(data)
-        return data
+        return self.tokenizer.inverse(data)
 
     def inverse_data(self, data: NDArrayType) -> NDArrayType:
         """Inverse normalization on continuous data."""
         for normalize in self.normalize:
-            data, _ = normalize.inverse(data)
+            data = normalize.inverse(data)
         return data
-
-    def preprocess_data(self) -> None:
-        """Prepare and tokenise the ACTS dataset."""
-        if self.logger:
-            self.logger.info(
-                "Creating dictionaries and fitting normalization transformations...",
-            )
-
-        dataset = ActsHitsDataset(
-            self.data_path,
-            transforms_int=self.tokenize,  # type: ignore
-        )
-
-        data_float_list = [dataset[i][1] for i in range(len(dataset))]
-        data_float = np.vstack(data_float_list)
-
-        for i, tokenize in enumerate(self.tokenize):
-            if self.logger:
-                tokenize.summary(self.logger)
-            assert len(tokenize.dictionary) <= self.input_dim_discreet[i]
-
-        for transformation in self.normalize:
-            transformation.fit((data_float, None))
-            if self.logger:
-                transformation.summary(self.logger)
 
     def setup(self, stage: str) -> None:  # noqa: ARG002
         """Transform and setup the ACTS dataset."""
-        if not self.preprocessing_loaded:
-            self.preprocess_data()
-
         dataset = ActsHitsDataset(
             self.data_path,
-            transforms_int=self.tokenize,  # type: ignore
+            transforms_int=[self.tokenizer],
             transforms_float=self.normalize,  # type: ignore
         )
 
@@ -262,26 +222,6 @@ class ActsHitsDataModule(BaseDataModule):
             dataset,
             self.split_ratio,
         )
-
-    def state_dict(self) -> dict[str, Any]:
-        """Track the data module state."""
-        word2idx = {i: t.dictionary.word2idx for i, t in enumerate(self.tokenize)}
-        idx2word = {i: t.dictionary.idx2word for i, t in enumerate(self.tokenize)}
-        scalers = {i: t.transformation for i, t in enumerate(self.normalize)}
-        return {
-            "word2idx": word2idx,
-            "idx2word": idx2word,
-            "scalers": scalers,
-        }
-
-    def load_state_dict(self, state_dict: dict[str, Any]) -> None:
-        """Restore the state based on what is tracked."""
-        self.preprocessing_loaded = True
-        for i, tokenize in enumerate(self.tokenize):
-            tokenize.dictionary.word2idx = state_dict["word2idx"][i]
-            tokenize.dictionary.idx2word = state_dict["idx2word"][i]
-        for i, transformation in enumerate(self.normalize):
-            transformation.transformation = state_dict["scalers"][i]
 
 
 class TRKNtupleDataModule(BaseDataModule):

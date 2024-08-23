@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from siliconai.common.enums import ColumnType
+from siliconai.data.datasets import ActsChainDataset, ActsHitsDataset
 from siliconai.data.utils import NDArrayTransformation, NDArrayType
 
 if TYPE_CHECKING:
@@ -24,7 +25,7 @@ class DataDictionary:
     def __init__(
         self,
         name: str,
-        padding_token: int | str,
+        padding_token: int | str | None = None,
         data_type: Type | None = None,
     ) -> None:
         """Initialize tokenized data dictionary."""
@@ -37,7 +38,12 @@ class DataDictionary:
         self.idx2word: list[Word] = []
 
         # add padding token
-        self.add_word(padding_token)
+        if padding_token is not None:
+            self.add_word(padding_token)
+
+        # add vectorized versions of methods
+        self.add_word_v = np.vectorize(self.add_word)
+        self.get_word_v = np.vectorize(self.get_word)
 
     def add_word(self, word: Word) -> int:
         """Add a word to the dictionary."""
@@ -82,81 +88,150 @@ class DataDictionary:
         Text = "text"
 
 
-class Tokenize(NDArrayTransformation):
+class ColumnTokenizer(NDArrayTransformation):
     """Tokenize the input data."""
 
-    def __init__(self, dictionary: DataDictionary, index: int) -> None:
+    def __init__(self, size: int) -> None:
         """Initialize the tokenizer."""
-        self.dictionary = dictionary
-        self.index = index
+        self.size = size
+        self.dictionaries = [DataDictionary(f"dictionary_{i}") for i in range(size)]
 
     def summary(self, logger: Logger) -> None:
         """Log summary of the dictionary."""
-        logger.info(
-            'Dictionary for "%s": %d words',
-            self.dictionary.name,
-            len(self.dictionary),
-        )
+        for dictionary in self.dictionaries:
+            logger.info(
+                'Dictionary for "%s": %d words',
+                dictionary.name,
+                len(dictionary),
+            )
 
     def __call__(self, sample: NDArrayType) -> NDArrayType:
         """Transform the sample to tensors."""
-        helper = np.vectorize(self.dictionary.add_word)
-        sample[:, self.index] = helper(sample[:, self.index])
+        for i in range(self.size):
+            sample[:, i] = self.dictionaries[i].add_word_v(sample[:, i])
         return sample
 
     def inverse(self, sample: NDArrayType) -> NDArrayType:
         """Inverse the tokenization."""
-        helper = np.vectorize(self.dictionary.get_word)
-        sample[:, self.index] = helper(sample[:, self.index])
+        for i in range(self.size):
+            sample[:, i] = self.dictionaries[i].get_word_v(sample[:, i])
         return sample
 
+    @staticmethod
+    def load(
+        config: DataConfiguration,
+        logger: Logger | None = None,
+    ) -> ColumnTokenizer:
+        """Load the tokenizer from JSON."""
+        if not config.input_file:
+            error = "Invalid configuration"
+            raise RuntimeError(error)
 
-class TokenizeFlat(NDArrayTransformation):
-    """Tokenize the flat input data."""
+        tokenizer_file = config.input_file.with_suffix(".tokenizer.json")
+        if logger:
+            logger.info('Loading the tokenizer from "%s"', tokenizer_file)
+        with tokenizer_file.open("r") as f:
+            data = load(f, object_hook=DataDictionary.json_decode)
 
-    def __init__(self, dictionary: DataDictionary) -> None:
-        """Initialize the tokenizer."""
-        self.dictionary = dictionary
+        tokenizer = ColumnTokenizer(len(data["dictionaries"]))
+        keys_list = list(data["dictionaries"].keys())
+        for i in range(tokenizer.size):
+            tokenizer.dictionaries[i].name = keys_list[i]
+            tokenizer.dictionaries[i].from_dict(data["dictionaries"][keys_list[i]])
 
-    def summary(self, logger: Logger) -> None:
-        """Log summary of the dictionary."""
-        logger.info(
-            'Dictionary for "%s": %d words',
-            self.dictionary.name,
-            len(self.dictionary),
-        )
+        return tokenizer
 
-    def __call__(self, sample: NDArrayType) -> NDArrayType:
-        """Transform the sample to tensors."""
-        helper = np.vectorize(self.dictionary.add_word)
-        output: NDArrayType = helper(sample)
-        return output
+    @staticmethod
+    def train(config: DataConfiguration, logger: Logger) -> None:
+        """Train the tokenizer."""
+        if not config.input_file:
+            return
 
-    def inverse(self, sample: NDArrayType) -> NDArrayType:
-        """Inverse the tokenization."""
-        helper = np.vectorize(self.dictionary.get_word)
-        output: NDArrayType = helper(sample)
-        return output
+        ncolumns = len(config.columns_integer)
+        if ncolumns == 0:
+            return
+
+        if isinstance(config.input_dim, list):
+            dimensions = config.input_dim
+        else:
+            dimensions = [config.input_dim]
+
+        tokenizer = ColumnTokenizer(ncolumns)
+        tokenizer.dictionaries = [
+            DataDictionary(f"dictionary_{column}", config.padding_token)
+            for column in config.columns_integer
+        ]
+
+        logger.info("Tokenizing the input file with %d columns", ncolumns)
+
+        dataset = ActsHitsDataset(config.input_file)
+        for i in range(len(dataset)):
+            row = dataset[i][0]
+            tokenizer(row)
+
+        for i, (column, dim) in enumerate(
+            zip(config.columns_integer, dimensions, strict=True),
+        ):
+            logger.info("Expected dictionary size for %s: %d words", column, dim)
+            logger.info(
+                "Actual dictionary size for %s: %d words",
+                column,
+                len(tokenizer.dictionaries[i]),
+            )
+            # tokenizer.summary(logger)
+
+            assert len(tokenizer.dictionaries[i]) == dim
+
+        # build JSON representation
+        tokenizer_dict = {
+            "dictionaries": {
+                dictionary.name: dictionary.to_dict()
+                for dictionary in tokenizer.dictionaries
+            },
+        }
+
+        tokenizer_file = config.input_file.with_suffix(".tokenizer.json")
+        logger.info('Writing the tokenizer to "%s"', tokenizer_file)
+        with tokenizer_file.open("w") as f:
+            dump(tokenizer_dict, f)
+
+        logger.info("Validating file representation")
+        with tokenizer_file.open("r") as f:
+            data = load(f, object_hook=DataDictionary.json_decode)
+
+            assert data == tokenizer_dict
+
+        tokenizer_loaded = ColumnTokenizer.load(config, logger)
+        for i in range(ncolumns):
+            assert (
+                tokenizer_loaded.dictionaries[i].name == tokenizer.dictionaries[i].name
+            )
+            assert (
+                tokenizer_loaded.dictionaries[i].word2idx
+                == tokenizer.dictionaries[i].word2idx
+            )
+            assert (
+                tokenizer_loaded.dictionaries[i].idx2word
+                == tokenizer.dictionaries[i].idx2word
+            )
 
 
 class SequenceTokenizer(NDArrayTransformation):
     """Tokenize the sequence input data."""
 
-    def __init__(self, dictionary: DataDictionary) -> None:
+    def __init__(self) -> None:
         """Initialize the tokenizer."""
-        self.dictionary = dictionary
+        self.dictionary = DataDictionary("dictionary")
         self.summary_dict: dict[str, dict[str, int]] = {}
 
     def __call__(self, sample: NDArrayType) -> NDArrayType:
         """Transform the sample to tensors."""
-        helper = np.vectorize(self.dictionary.add_word)
-        output: NDArrayType = helper(sample)
+        output: NDArrayType = self.dictionary.add_word_v(sample)
         return output
 
     def inverse(self, sample: NDArrayType) -> NDArrayType:
         """Inverse the tokenization."""
-        helper = np.vectorize(self.dictionary.get_word)
-        output: NDArrayType = helper(sample)
+        output: NDArrayType = self.dictionary.get_word_v(sample)
         return output
 
     def summary(self, logger: Logger) -> None:
@@ -190,7 +265,8 @@ class SequenceTokenizer(NDArrayTransformation):
 
         dictionary = DataDictionary("dictionary", config.padding_token)
         dictionary.from_dict(data["dictionary"])
-        tokenizer = SequenceTokenizer(dictionary)
+        tokenizer = SequenceTokenizer()
+        tokenizer.dictionary = dictionary
         tokenizer.summary_dict = data["summary"]
 
         return tokenizer
@@ -198,13 +274,11 @@ class SequenceTokenizer(NDArrayTransformation):
     @staticmethod
     def train(config: DataConfiguration, logger: Logger) -> None:
         """Train the tokenizer."""
-        from siliconai.data.datasets import ActsChainDataset
-
-        dictionary = DataDictionary("dictionary", config.padding_token)
-        tokenizer = SequenceTokenizer(dictionary)
-
         if not config.input_file:
             return
+
+        tokenizer = SequenceTokenizer()
+        tokenizer.dictionary = DataDictionary("dictionary", config.padding_token)
 
         ncolumns = len(config.columns_integer) + len(
             [c for c in config.columns_type if c == ColumnType.Numerical],

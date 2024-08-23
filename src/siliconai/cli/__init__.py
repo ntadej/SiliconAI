@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 
 from siliconai import __version__
-from siliconai.common.enums import DataLoadingType
+from siliconai.common.enums import DataLoadingType, DataType
 
 from .config import Configuration, GlobalConfiguration, TyperState, config_missing
 from .logging import setup_logger
@@ -158,9 +158,15 @@ def tokenize(
     config = Configuration(config_file, global_config)
     logger = setup_logger(global_config, "tokenize")
 
-    from siliconai.data.tokenizers import SequenceTokenizer
+    if config.data.type is DataType.ActsChain:
+        from siliconai.data.tokenizers import SequenceTokenizer
 
-    SequenceTokenizer.train(config.data, logger)
+        SequenceTokenizer.train(config.data, logger)
+
+    if config.data.type is DataType.ActsHits:
+        from siliconai.data.tokenizers import ColumnTokenizer
+
+        ColumnTokenizer.train(config.data, logger)
 
 
 @application.command()

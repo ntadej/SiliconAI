@@ -29,6 +29,7 @@ def collate_sequence_chain(batch: list[Any]) -> list[Any]:
     output: list[Any] = []
     for item in batch:
         # append zeros to the end of the sequence if needed
+        # Note: here zeros are OK as this is the assummed padding token representation
         out_item = (
             np.pad(item, (0, max_len - len(item))) if len(item) < max_len else item
         )

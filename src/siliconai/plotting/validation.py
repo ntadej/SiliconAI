@@ -232,7 +232,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915 PLR0912 C901
     data = cast(ActsChainDataModule, data)
     data.setup(data_type.value)
     if logger:
-        data.tokenize.summary(logger)
+        data.tokenizer.summary(logger)
 
     input_full: list[NDArrayType] = []
     result_full: list[NDArrayType] = []
@@ -248,7 +248,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915 PLR0912 C901
         batch_full = batch[0]
         batch_start = batch_full[:, :ncolumns].to(model.device)
 
-        result = model.predict(batch_start, data.tokenize)
+        result = model.predict(batch_start, data.tokenizer)
 
         input_full += list(batch_full.cpu().numpy())
         result_full += list(result.cpu().numpy())
@@ -420,8 +420,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
     data = cast(ActsHitsDataModule, data)
     data.setup(data_type.value)
     if logger:
-        for tokenize in data.tokenize:
-            tokenize.summary(logger)
+        data.tokenizer.summary(logger)
         for normalize in data.normalize:
             normalize.summary(logger)
 
@@ -440,7 +439,9 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
 
             result_int, result_float = model.predict(
                 batch_start_int,
-                end_token=data.tokenize[0].dictionary.word2idx[config.data.end_token],
+                end_token=data.tokenizer.dictionaries[0].word2idx[
+                    config.data.end_token
+                ],
             )
 
         input_full_int += list(
