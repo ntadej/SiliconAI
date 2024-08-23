@@ -511,6 +511,19 @@ class TrainingConfiguration:
         self.weight_decay: float = float(config["weight_decay"])
         self.optimizer: str = config["optimizer"]
 
+        self.scheduler: str | None = None
+        self.scheduler_interval: str = "step"
+        self.scheduler_kwargs = {}
+
+        if "scheduler" in config:
+            self.scheduler = config["scheduler"]["type"]
+            self.scheduler_interval = config["scheduler"].get("interval", "step")
+            self.scheduler_kwargs = {
+                k: v
+                for k, v in config["scheduler"].items()
+                if k not in ["type", "interval"]
+            }
+
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
         return {
@@ -519,6 +532,9 @@ class TrainingConfiguration:
             "optimizer": self.optimizer,
             "learning_rate": self.learning_rate,
             "weight_decay": self.weight_decay,
+            "scheduler": self.scheduler,
+            "scheduler_interval": self.scheduler_interval,
+            "scheduler_kwargs": self.scheduler_kwargs,
         }
 
     def to_table(self) -> Table:
@@ -530,6 +546,13 @@ class TrainingConfiguration:
         table.add_row("Optimizer:", self.optimizer)
         table.add_row("Learning rate:", str(self.learning_rate))
         table.add_row("Weight decay:", str(self.weight_decay))
+
+        if self.scheduler:
+            table.add_row()
+            table.add_row("Scheduler:", self.scheduler)
+            table.add_row("Interval:", self.scheduler_interval)
+            for key, value in self.scheduler_kwargs.items():
+                table.add_row(f"{key}:", str(value))
 
         return table
 

@@ -27,5 +27,10 @@ epochs = 50
 early_stopping = 0
 
 optimizer = "Adam"
-learning_rate = 0.001
+learning_rate = 0.003
 weight_decay = 0.0
+
+[training.scheduler]
+type = "CosineAnnealingWarmRestarts"
+interval = "step"
+T_0 = 40
