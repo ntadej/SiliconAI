@@ -18,7 +18,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = [
-    "lightning == 2.3.*",
+    "lightning == 2.4.*",
     "matplotlib == 3.9.*",
     "mlflow == 2.15.*",
     "mplhep == 0.3.*",
@@ -26,7 +26,7 @@ dependencies = [
     "pandas == 2.2.*",
     "scikit-learn == 1.5.*",
     "scipy == 1.14.*",
-    "tables == 3.9.*",
+    "tables == 3.10.*",
     "torch == 2.4.*",
     "torchvision == 0.19.*",
     "typer[all] == 0.9.*",
@@ -45,7 +45,7 @@ dev = [
     "pytest >= 8.0",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.5.5",
+    "ruff == 0.6.2",
     "types-pyyaml",
 ]
 
