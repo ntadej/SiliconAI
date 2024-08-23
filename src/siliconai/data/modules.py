@@ -72,6 +72,7 @@ class BaseDataModule(L.LightningDataModule):
             num_workers=self.workers,
             collate_fn=self.collate_fn,
             pin_memory=True,
+            shuffle=True,
         )
 
     def val_dataloader(self) -> DataLoader[Any]:
@@ -82,6 +83,7 @@ class BaseDataModule(L.LightningDataModule):
             num_workers=self.workers,
             collate_fn=self.collate_fn,
             pin_memory=True,
+            shuffle=False,
         )
 
     def test_dataloader(self) -> DataLoader[Any]:
@@ -92,6 +94,7 @@ class BaseDataModule(L.LightningDataModule):
             num_workers=self.workers,
             collate_fn=self.collate_fn,
             pin_memory=True,
+            shuffle=False,
         )
 
 
