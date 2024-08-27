@@ -505,6 +505,7 @@ class TrainingConfiguration:
                 error = f"invalid task configuration: {config}"
                 raise ValueError(error)
 
+        self.compile: bool = config.get("compile", False)
         self.epochs: int = int(config["epochs"])
         self.early_stopping: int = int(config["early_stopping"])
         self.learning_rate: float = float(config["learning_rate"])
@@ -527,6 +528,7 @@ class TrainingConfiguration:
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
         return {
+            "compile": self.compile,
             "epochs": self.epochs,
             "early_stopping": self.early_stopping,
             "optimizer": self.optimizer,
@@ -541,6 +543,7 @@ class TrainingConfiguration:
         """Convert configuration to table."""
         table = config_table()
 
+        table.add_row("Compile:", str(self.compile))
         table.add_row("Epochs:", str(self.epochs))
         table.add_row("Early stopping patience:", str(self.early_stopping))
         table.add_row("Optimizer:", self.optimizer)

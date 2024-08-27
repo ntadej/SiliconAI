@@ -2,10 +2,20 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import lightning as L
-from torch import optim
+import torch
+from torch import Tensor, optim
+from typing_extensions import Unpack
+
+from siliconai.common.enums import ModelType
+from siliconai.ml.models.transformer import (
+    ChainTransformer,
+    DiscreteTransformer,
+    TransformerBase,
+    TransformerPredictParams,
+)
 
 if TYPE_CHECKING:
     from lightning.pytorch.utilities.types import OptimizerLRScheduler
@@ -15,7 +25,7 @@ if TYPE_CHECKING:
     from siliconai.cli.config import Configuration
 
 
-class Module(L.LightningModule):
+class ModuleBase(L.LightningModule):
     """Common lightning module."""
 
     def __init__(self, config: Configuration) -> None:
@@ -59,3 +69,73 @@ class Module(L.LightningModule):
             return
 
         self.logger.experiment.log_text(self.logger.run_id, str(self), "model.txt")  # type: ignore
+
+
+class TransformerModule(ModuleBase):
+    """Common lightning module."""
+
+    def __init__(self, config: Configuration) -> None:
+        """Initialize the module."""
+        super().__init__(config)
+
+        self.model: TransformerBase
+        if config.model.type is ModelType.ChainTransformer:
+            self.model = ChainTransformer(config)
+        elif config.model.type is ModelType.DiscreteTransformer:
+            self.model = DiscreteTransformer(config)
+
+        if config.training.compile:
+            self.model = cast(
+                TransformerBase,
+                torch.compile(self.model, fullgraph=True),
+            )
+
+        # save the hyperparameters
+        self.save_hyperparameters()
+
+    def forward(self, *args: Tensor) -> Tensor:
+        """Forward pass."""
+        x_data = args[0]
+        return self.model.forward_pass(x_data, self.device, evaluate=True)
+
+    def training_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
+        """Run training step."""
+        loss, loss_int, loss_float = self.model.process_loss(batch, self.device)
+
+        self.log("train_loss", loss, sync_dist=True)
+        if loss_int is not None:
+            self.log("train_loss_int", loss_int, sync_dist=True)
+        if loss_float is not None:
+            self.log("train_loss_float", loss_float, sync_dist=True)
+        return loss
+
+    def validation_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
+        """Run validation step."""
+        loss, loss_int, loss_float = self.model.process_loss(batch, self.device)
+
+        self.log("val_loss", loss, sync_dist=True)
+        if loss_int is not None:
+            self.log("val_loss_int", loss_int, sync_dist=True)
+        if loss_float is not None:
+            self.log("val_loss_float", loss_float, sync_dist=True)
+        return loss
+
+    def test_step(self, batch: Tensor, _batch_idx: int) -> Tensor:  # noqa: PT019
+        """Run test step."""
+        loss, loss_int, loss_float = self.model.process_loss(batch, self.device)
+
+        self.log("test_loss", loss, sync_dist=True)
+        if loss_int is not None:
+            self.log("test_loss_int", loss_int, sync_dist=True)
+        if loss_float is not None:
+            self.log("test_loss_float", loss_float, sync_dist=True)
+        return loss
+
+    @torch.no_grad()
+    def predict(
+        self,
+        input_sequence: Tensor,
+        **kwargs: Unpack[TransformerPredictParams],
+    ) -> tuple[Tensor | None, Tensor | None]:
+        """Run predictions on the model."""
+        return self.model.predict(input_sequence, self.device, **kwargs)

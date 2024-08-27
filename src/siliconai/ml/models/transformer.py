@@ -3,21 +3,27 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
+from typing_extensions import Unpack
 
 from siliconai.common.enums import ColumnType
-from siliconai.ml.common.module import Module
+from siliconai.data.tokenizers import ColumnTokenizer, SequenceTokenizer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Any
 
     from siliconai.cli.config import Configuration
-    from siliconai.data.tokenizers import SequenceTokenizer
+
+
+class TransformerPredictParams(TypedDict):
+    """Transformer predict parameters."""
+
+    tokenizer: ColumnTokenizer | SequenceTokenizer
 
 
 class PositionalEncoding(nn.Module):
@@ -196,12 +202,14 @@ class RZTXEncoderLayer(nn.Module):
         return out
 
 
-class TransformerBase(Module):
+class TransformerBase(nn.Module):
     """Transformer module base."""
 
     def __init__(self, config: Configuration) -> None:
         """Initialize the module."""
-        super().__init__(config)
+        super().__init__()
+
+        self.config = config
 
         # batch first
         self.batch_first = True
@@ -282,9 +290,6 @@ class TransformerBase(Module):
         # setup the loss function for continuous features
         self.loss_function_ref = getattr(nn.functional, config.model.loss)
 
-        # save the hyperparameters
-        self.save_hyperparameters()
-
     @staticmethod
     def create_sequence_mask(
         data: Tensor,
@@ -316,45 +321,40 @@ class TransformerBase(Module):
             float("-inf"),
         )
 
+    def forward_pass(
+        self,
+        x_data: Tensor,
+        device: torch.device,
+        evaluate: bool = False,
+    ) -> Tensor:
+        """Process the loss of a batch."""
+        raise NotImplementedError
+
+    def loss_function(
+        self,
+        x: Tensor,
+        x_hat: Tensor,
+    ) -> tuple[Tensor, Tensor | None, Tensor | None]:
+        """Calculate the loss."""
+        raise NotImplementedError
+
     def process_loss(
         self,
         batch: Tensor,
+        device: torch.device,
     ) -> tuple[Tensor, Tensor | None, Tensor | None]:
         """Process the loss of a batch."""
         raise NotImplementedError
 
-    def training_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
-        """Run training step."""
-        loss, loss_int, loss_float = self.process_loss(batch)
-
-        self.log("train_loss", loss, sync_dist=True)
-        if loss_int is not None:
-            self.log("train_loss_int", loss_int, sync_dist=True)
-        if loss_float is not None:
-            self.log("train_loss_float", loss_float, sync_dist=True)
-        return loss
-
-    def validation_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
-        """Run validation step."""
-        loss, loss_int, loss_float = self.process_loss(batch)
-
-        self.log("val_loss", loss, sync_dist=True)
-        if loss_int is not None:
-            self.log("val_loss_int", loss_int, sync_dist=True)
-        if loss_float is not None:
-            self.log("val_loss_float", loss_float, sync_dist=True)
-        return loss
-
-    def test_step(self, batch: Tensor, _batch_idx: int) -> Tensor:  # noqa: PT019
-        """Run test step."""
-        loss, loss_int, loss_float = self.process_loss(batch)
-
-        self.log("test_loss", loss, sync_dist=True)
-        if loss_int is not None:
-            self.log("test_loss_int", loss_int, sync_dist=True)
-        if loss_float is not None:
-            self.log("test_loss_float", loss_float, sync_dist=True)
-        return loss
+    @torch.no_grad()
+    def predict(
+        self,
+        input_sequence: Tensor,
+        device: torch.device,
+        **kwargs: Unpack[TransformerPredictParams],
+    ) -> tuple[Tensor | None, Tensor | None]:
+        """Run predictions on the model."""
+        raise NotImplementedError
 
 
 class DiscreteTransformer(TransformerBase):
@@ -431,6 +431,7 @@ class DiscreteTransformer(TransformerBase):
     def forward_pass(
         self,
         x_data: Tensor,
+        device: torch.device,
         evaluate: bool = False,
     ) -> Tensor:
         """Process the loss of a batch."""
@@ -441,7 +442,7 @@ class DiscreteTransformer(TransformerBase):
         x = self.positional_encoder(x)
 
         # Masking
-        x_mask: Tensor | None = self.create_sequence_mask(x_data, self.device, evaluate)
+        x_mask: Tensor | None = self.create_sequence_mask(x_data, device, evaluate)
         x_padding_mask: Tensor = self.create_pad_mask(x_data, dtype=x.dtype)
 
         # Transformer
@@ -459,31 +460,36 @@ class DiscreteTransformer(TransformerBase):
     def process_loss(
         self,
         batch: Tensor,
+        device: torch.device,
     ) -> tuple[Tensor, Tensor | None, Tensor | None]:
         """Process the loss of a batch."""
         x_data, y_data = batch
-        x_hat = self.forward_pass(x_data)
+        x_hat = self.forward_pass(x_data, device)
         return self.loss_function(y_data, x_hat)
-
-    def forward(self, *args: Tensor) -> Tensor:
-        """Forward pass."""
-        x_data = args[0]
-        return self.forward_pass(x_data, evaluate=True)
 
     @torch.no_grad()
     def predict(
         self,
         input_sequence: Tensor,
-        end_token: int,
+        device: torch.device,
+        **kwargs: Unpack[TransformerPredictParams],
     ) -> tuple[Tensor | None, Tensor | None]:
         """Run predictions on the model."""
         # _rich_traceback_guard = True
 
-        end_tensor = torch.tensor([0, end_token]).to(self.device)
+        if not isinstance(kwargs["tokenizer"], ColumnTokenizer):
+            error = "Wrong tokenizer type"
+            raise TypeError(error)
+
+        tokenizer: ColumnTokenizer = kwargs["tokenizer"]
+
+        end_token = tokenizer.dictionaries[0].word2idx[self.config.data.end_token]
+
+        end_tensor = torch.tensor([0, end_token]).to(device)
         input_tensor = input_sequence
 
         for _ in range(self.config.model.sequence_length):
-            pred = self(input_tensor)
+            pred = self.forward_pass(input_tensor, device, evaluate=True)
 
             next_items = []
             index = 0
@@ -544,6 +550,7 @@ class ChainTransformer(TransformerBase):
     def forward_pass(
         self,
         x_data: Tensor,
+        device: torch.device,
         evaluate: bool = False,
     ) -> Tensor:
         """Process the loss of a batch."""
@@ -554,7 +561,7 @@ class ChainTransformer(TransformerBase):
         x = self.positional_encoder(x)
 
         # Masking
-        x_mask: Tensor | None = self.create_sequence_mask(x_data, self.device, evaluate)
+        x_mask: Tensor | None = self.create_sequence_mask(x_data, device, evaluate)
         x_padding_mask: Tensor = self.create_pad_mask(x_data, dtype=x.dtype)
 
         # Transformer
@@ -572,25 +579,28 @@ class ChainTransformer(TransformerBase):
     def process_loss(
         self,
         batch: Tensor,
+        device: torch.device,
     ) -> tuple[Tensor, Tensor | None, Tensor | None]:
         """Process the loss of a batch."""
         x_data, y_data = batch
-        x_hat = self.forward_pass(x_data)
+        x_hat = self.forward_pass(x_data, device)
         return self.loss_function(y_data, x_hat)
-
-    def forward(self, *args: Tensor) -> Tensor:
-        """Forward pass."""
-        x_data = args[0]
-        return self.forward_pass(x_data, evaluate=True)
 
     @torch.no_grad()
     def predict(
         self,
         input_sequence: Tensor,
-        tokenizer: SequenceTokenizer,
-    ) -> Tensor:
+        device: torch.device,
+        **kwargs: Unpack[TransformerPredictParams],
+    ) -> tuple[Tensor | None, Tensor | None]:
         """Run predictions on the model."""
         _rich_traceback_guard = True
+
+        if not isinstance(kwargs["tokenizer"], SequenceTokenizer):
+            error = "Wrong tokenizer type"
+            raise TypeError(error)
+
+        tokenizer: SequenceTokenizer = kwargs["tokenizer"]
 
         temperature: float = 1.0
         topk: int = 0
@@ -600,7 +610,7 @@ class ChainTransformer(TransformerBase):
                 tokenizer.dictionary.word2idx[self.config.data.padding_token],
                 tokenizer.dictionary.word2idx[self.config.data.end_token],
             ],
-        ).to(self.device)
+        ).to(device)
         input_tensor = input_sequence
 
         ncolumns = len(self.config.data.columns_integer) + len(
@@ -627,14 +637,14 @@ class ChainTransformer(TransformerBase):
                     [0, *range(start_index, end_index + 1)]
                     for i in range(len(input_tensor))
                 ],
-            ).to(self.device)
+            ).to(device)
 
         for i in range(self.config.model.sequence_length - input_sequence.size(1)):
             column = i % ncolumns
             column_label = column_labels[column]
             column_indices = column_indices_dict[column_label]
 
-            pred = self(input_tensor)
+            pred = self.forward_pass(input_tensor, device, evaluate=True)
             # last item
             pred_last = pred[:, -1, :]
             # column filtering
@@ -670,4 +680,4 @@ class ChainTransformer(TransformerBase):
             ):
                 break
 
-        return input_tensor
+        return input_tensor, None

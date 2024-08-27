@@ -34,7 +34,7 @@ class ColumnType(Enum):
 class ModelType(Enum):
     """Model type."""
 
-    BasicVAE = "BasicVAE"
-    ConvVAE = "ConvVAE"
+    # BasicVAE = "BasicVAE"
+    # ConvVAE = "ConvVAE"
     ChainTransformer = "ChainTransformer"
     DiscreteTransformer = "DiscreteTransformer"

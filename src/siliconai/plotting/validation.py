@@ -72,13 +72,10 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
 
     output_file = config.output_path / f"run_{config.run_number()}" / "validation.pdf"
 
-    if config.model.type in [ModelType.BasicVAE, ModelType.ConvVAE]:
-        x = model.generate(
-            batch_size,
-            torch.tensor([list(range(10))] * grid_size).clone().view(-1),
-        )
-    else:
-        x = model.generate(batch_size)
+    x = model.generate(
+        batch_size,
+        torch.tensor([list(range(10))] * grid_size).clone().view(-1),
+    )
 
     if config.model.loss != "logcosh_loss":
         x = torch.sigmoid(x)
@@ -248,7 +245,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915 PLR0912 C901
         batch_full = batch[0]
         batch_start = batch_full[:, :ncolumns].to(model.device)
 
-        result = model.predict(batch_start, data.tokenizer)
+        result, _ = model.predict(batch_start, tokenizer=data.tokenizer)
 
         input_full += list(batch_full.cpu().numpy())
         result_full += list(result.cpu().numpy())
@@ -439,9 +436,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
 
             result_int, result_float = model.predict(
                 batch_start_int,
-                end_token=data.tokenizer.dictionaries[0].word2idx[
-                    config.data.end_token
-                ],
+                tokenizer=data.tokenizer,
             )
 
         input_full_int += list(

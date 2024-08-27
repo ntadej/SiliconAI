@@ -23,6 +23,8 @@ activation = "gelu"
 dropout = 0.1
 
 [training]
+compile = true
+
 epochs = 5
 early_stopping = 0
 

@@ -13,8 +13,7 @@ from siliconai.data.modules import (
     MNISTDataModule,
     TRKNtupleDataModule,
 )
-from siliconai.ml.models.transformer import ChainTransformer, DiscreteTransformer
-from siliconai.ml.models.vae import BasicVAE, ConvVAE
+from siliconai.ml.common.module import TransformerModule
 
 if TYPE_CHECKING:
     import lightning as L
@@ -99,17 +98,12 @@ def load_model(logger: Logger, config: Configuration) -> L.LightningModule:
     """Load the model based on the configuration."""
     logger.info("Loading model type: %s", config.model.type.value)
 
-    if config.model.type is ModelType.BasicVAE:
-        return BasicVAE(config)
-    if config.model.type is ModelType.ConvVAE:
-        return ConvVAE(config)
-    if config.model.type is ModelType.ChainTransformer:
-        return ChainTransformer(config)
-    if config.model.type is ModelType.DiscreteTransformer:
-        return DiscreteTransformer(config)
+    # if config.model.type is ModelType.BasicVAE:
+    #     model = BasicVAE(config)
+    # elif config.model.type is ModelType.ConvVAE:
+    #     model = ConvVAE(config)
 
-    error = f"Model type {config.model.type} not supported."  # type: ignore
-    raise ValueError(error)
+    return TransformerModule(config)
 
 
 def load_model_from_checkpoint(
@@ -121,20 +115,17 @@ def load_model_from_checkpoint(
     logger.info("Loading model type: %s", config.model.type.value)
 
     model: L.LightningModule
-    if config.model.type is ModelType.BasicVAE:
-        model = BasicVAE.load_from_checkpoint(checkpoint)
+    if config.model.type in [ModelType.ChainTransformer, ModelType.DiscreteTransformer]:
+        model = TransformerModule.load_from_checkpoint(checkpoint)
         return model
-    if config.model.type is ModelType.ConvVAE:
-        model = ConvVAE.load_from_checkpoint(checkpoint)
-        return model
-    if config.model.type is ModelType.ChainTransformer:
-        model = ChainTransformer.load_from_checkpoint(checkpoint)
-        return model
-    if config.model.type is ModelType.DiscreteTransformer:
-        model = DiscreteTransformer.load_from_checkpoint(checkpoint)
-        return model
+    # if config.model.type is ModelType.BasicVAE:
+    #     model = BasicVAE.load_from_checkpoint(checkpoint)
+    #     return model
+    # if config.model.type is ModelType.ConvVAE:
+    #     model = ConvVAE.load_from_checkpoint(checkpoint)
+    #     return model
 
-    error = f"Model type {config.model.type} not supported."  # type: ignore
+    error = f"Model type {config.model.type} not supported."
     raise ValueError(error)
 
 

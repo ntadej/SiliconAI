@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 import torch
 from torch import Tensor, nn
 
-from siliconai.ml.common.module import Module
+from siliconai.ml.common.module import ModuleBase
 from siliconai.ml.models.common import SequentialConv2d, SequentialMLP
 from siliconai.ml.models.utils import conv2d_sizes, conv2d_transpose_sizes
 
@@ -263,7 +263,7 @@ class DecoderConv2d(nn.Module):
         return o
 
 
-class BasicVAE(Module):
+class BasicVAE(ModuleBase):
     """Basic VAE model."""
 
     def __init__(self, config: Configuration) -> None:
@@ -388,7 +388,7 @@ class BasicVAE(Module):
         return res
 
 
-class ConvVAE(Module):
+class ConvVAE(ModuleBase):
     """Convolutional VAE model with conditioning."""
 
     def __init__(self, config: Configuration) -> None:
