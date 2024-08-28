@@ -434,6 +434,13 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
             batch_full_int = batch[0]
             batch_start_int = batch_full_int[:, :1].to(model.device)
 
+            if config.data.random_int:
+                batch_start_int[:, :, -1] = torch.randint(
+                    1,
+                    config.data.random_int,
+                    (len(batch[0]), 1),
+                )
+
             result_int, result_float = model.predict(
                 batch_start_int,
                 tokenizer=data.tokenizer,
@@ -514,6 +521,9 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
                 result_nonzero_int if result_nonzero_int else result_nonzero_float
             )
         ]
+        n_hits_diff = [
+            abs(i - j) for i, j in zip(n_hits_input, n_hits_result, strict=True)
+        ]
 
         fig, ax = plot_hist(
             [n_hits_input, n_hits_result],
@@ -526,6 +536,14 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
         fig, ax = plot_hist(
             [n_hits_result],
             "Number of hits",
+            labels=labels[1:],
+        )
+        if fig:
+            pdf.save(fig)
+
+        fig, ax = plot_hist(
+            [n_hits_diff],
+            "Number of hits difference",
             labels=labels[1:],
         )
         if fig:

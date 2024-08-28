@@ -243,6 +243,8 @@ class DataConfiguration:
         self.padding_token: int = config.get("padding_token", 0)
         self.end_token: int = config.get("end_token", 0)
 
+        self.random_int: int = config.get("random_int", 0)
+
         self.conversion: bool = False
         self.conversion_input_file: Path | None = None
 
@@ -269,6 +271,13 @@ class DataConfiguration:
                     + 1
                 )
             assert count == len(self.input_dim)
+
+        if self.random_int:
+            self.columns_integer.append("random_int")
+            if self.columns_type:
+                self.columns_type.append(ColumnType.Categorical)
+            if isinstance(self.input_dim, list):
+                self.input_dim.append(self.random_int)
 
     @property
     def flat_input_dim(self) -> int:

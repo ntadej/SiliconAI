@@ -46,6 +46,7 @@ class InputConverter:
         padding_token: int = 0,
         end_token: int = 10001,
         flatten: bool = False,
+        random_int: int = 0,
     ) -> list[NDArrayType]:
         """Process loaded ACTS hits data."""
         # do auto-padding
@@ -62,6 +63,13 @@ class InputConverter:
 
         data_events = len(data_frame.index.levels[0])
         data_hits = len(data_frame.index.levels[1])
+
+        if random_int:
+            event_rnd = np.random.randint(1, random_int, data_events)  # noqa: NPY002
+            all_rnd = np.array([data_hits * [i] for i in event_rnd]).flatten()
+            data_frame["random_int"] = all_rnd
+
+            column_count += 1
 
         output_list = list(
             data_frame.to_numpy().reshape(data_events, data_hits, column_count),
@@ -159,16 +167,17 @@ class InputConverter:
             self.config.conversion_input_file,
         )
 
+        columns_integer = self.config.columns_integer[:]
+        if self.config.random_int:
+            columns_integer.remove("random_int")
+        columns_float = self.config.columns_float[:]
+
         with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
             data_frame_int: pd.DataFrame | None = (
-                store["hits"][self.config.columns_integer]
-                if self.config.columns_integer
-                else None
+                store["hits"][columns_integer] if columns_integer else None
             )
             data_frame_float: pd.DataFrame | None = (
-                store["hits"][self.config.columns_float]
-                if self.config.columns_float
-                else None
+                store["hits"][columns_float] if columns_float else None
             )
 
         if data_frame_int is None and data_frame_float is None:
@@ -192,8 +201,9 @@ class InputConverter:
         output_int_nonzero = (
             self.process_acts_hits(
                 data_frame_int,
-                len(self.config.columns_integer),
+                len(columns_integer),
                 padding_token=self.config.padding_token,
+                random_int=self.config.random_int,
             )
             if data_frame_int is not None
             else []
@@ -202,7 +212,7 @@ class InputConverter:
         output_float_nonzero = (
             self.process_acts_hits(
                 data_frame_float,
-                len(self.config.columns_float),
+                len(columns_float),
                 padding_token=self.config.padding_token,
             )
             if data_frame_float is not None
