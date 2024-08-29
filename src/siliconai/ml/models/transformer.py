@@ -500,6 +500,10 @@ class DiscreteTransformer(TransformerBase):
                 index += dim
 
             next_item = torch.concat(next_items, dim=-1)
+            # after we end no longer allow non-zero hits
+            next_item.masked_fill_(torch.isin(input_tensor[:, -1:, :1], end_tensor), 0)
+            # if the first feature equals to the padding token, set also the rest
+            next_item.masked_fill_(next_item[:, :, :1] == 0, 0)
 
             # Concatenate previous input with predicted best word
             input_tensor = torch.cat((input_tensor, next_item), dim=1)
