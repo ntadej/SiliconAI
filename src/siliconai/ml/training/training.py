@@ -49,6 +49,9 @@ def train(
         logger=ml_logger,
         callbacks=callbacks,
         default_root_dir="run/training",
+        gradient_clip_val=config.training.gradient_clipping
+        if config.training.gradient_clipping > 0
+        else None,
     )
 
     # train the model

@@ -31,9 +31,10 @@ compile = true
 epochs = 2000
 early_stopping = 0
 
-optimizer = "Adam"
+optimizer = "AdamW"
 learning_rate = 0.001
-weight_decay = 0.0
+weight_decay = 0.01
+gradient_clipping = 5.0
 
 [training.scheduler]
 type = "CosineAnnealingWarmRestarts"

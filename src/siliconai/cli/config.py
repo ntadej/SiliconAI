@@ -507,7 +507,6 @@ class TrainingConfiguration:
                 "early_stopping": int(),
                 "optimizer": str(),
                 "learning_rate": float(),
-                "weight_decay": float(),
             }:
                 pass
             case _:
@@ -518,7 +517,8 @@ class TrainingConfiguration:
         self.epochs: int = int(config["epochs"])
         self.early_stopping: int = int(config["early_stopping"])
         self.learning_rate: float = float(config["learning_rate"])
-        self.weight_decay: float = float(config["weight_decay"])
+        self.weight_decay: float = float(config.get("weight_decay", 0.0))
+        self.gradient_clipping: float = float(config.get("gradient_clipping", 0.0))
         self.optimizer: str = config["optimizer"]
 
         self.scheduler: str | None = None
@@ -543,6 +543,7 @@ class TrainingConfiguration:
             "optimizer": self.optimizer,
             "learning_rate": self.learning_rate,
             "weight_decay": self.weight_decay,
+            "gradient_clipping": self.gradient_clipping,
             "scheduler": self.scheduler,
             "scheduler_interval": self.scheduler_interval,
             "scheduler_kwargs": self.scheduler_kwargs,
@@ -558,6 +559,7 @@ class TrainingConfiguration:
         table.add_row("Optimizer:", self.optimizer)
         table.add_row("Learning rate:", str(self.learning_rate))
         table.add_row("Weight decay:", str(self.weight_decay))
+        table.add_row("Gradient clipping:", str(self.gradient_clipping))
 
         if self.scheduler:
             table.add_row()
