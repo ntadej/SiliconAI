@@ -185,10 +185,10 @@ class InputConverter:
             raise ValueError(error)
 
         # scale quantised coordinates
-        if data_frame_int is not None and "lxq" in data_frame_int:
-            data_frame_int["lxq"] = data_frame_int["lxq"] * 100
-        if data_frame_int is not None and "lyq" in data_frame_int:
-            data_frame_int["lyq"] = data_frame_int["lyq"] * 100
+        columns_scale = ["lxq", "lyq", "tpxq", "tpyq", "tpzq"]
+        for column in columns_scale:
+            if data_frame_int is not None and column in data_frame_int:
+                data_frame_int[column] = data_frame_int[column] * 100
 
         # convert to correct types
         if data_frame_int is not None:

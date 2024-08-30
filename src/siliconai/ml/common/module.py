@@ -103,10 +103,15 @@ class TransformerModule(ModuleBase):
         loss, loss_int, loss_float = self.model.process_loss(batch, self.device)
 
         self.log("train_loss", loss, sync_dist=True)
-        if loss_int is not None:
-            self.log("train_loss_int", loss_int, sync_dist=True)
-        if loss_float is not None:
-            self.log("train_loss_float", loss_float, sync_dist=True)
+        if loss_int:
+            for label, loss_value in zip(
+                self.config.data.columns_integer,
+                loss_int,
+                strict=True,
+            ):
+                self.log(f"train_loss_{label}", loss_value, sync_dist=True)
+        if loss_float:
+            self.log("train_loss_float", loss_float[0], sync_dist=True)
         return loss
 
     def validation_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
@@ -114,10 +119,15 @@ class TransformerModule(ModuleBase):
         loss, loss_int, loss_float = self.model.process_loss(batch, self.device)
 
         self.log("val_loss", loss, sync_dist=True)
-        if loss_int is not None:
-            self.log("val_loss_int", loss_int, sync_dist=True)
-        if loss_float is not None:
-            self.log("val_loss_float", loss_float, sync_dist=True)
+        if loss_int:
+            for label, loss_value in zip(
+                self.config.data.columns_integer,
+                loss_int,
+                strict=True,
+            ):
+                self.log(f"val_loss_{label}", loss_value, sync_dist=True)
+        if loss_float:
+            self.log("val_loss_float", loss_float[0], sync_dist=True)
         return loss
 
     def test_step(self, batch: Tensor, _batch_idx: int) -> Tensor:  # noqa: PT019
@@ -125,10 +135,15 @@ class TransformerModule(ModuleBase):
         loss, loss_int, loss_float = self.model.process_loss(batch, self.device)
 
         self.log("test_loss", loss, sync_dist=True)
-        if loss_int is not None:
-            self.log("test_loss_int", loss_int, sync_dist=True)
-        if loss_float is not None:
-            self.log("test_loss_float", loss_float, sync_dist=True)
+        if loss_int:
+            for label, loss_value in zip(
+                self.config.data.columns_integer,
+                loss_int,
+                strict=True,
+            ):
+                self.log(f"test_loss_{label}", loss_value, sync_dist=True)
+        if loss_float:
+            self.log("test_loss_float", loss_float[0], sync_dist=True)
         return loss
 
     @torch.no_grad()

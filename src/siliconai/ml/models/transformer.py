@@ -334,7 +334,7 @@ class TransformerBase(nn.Module):
         self,
         x: Tensor,
         x_hat: Tensor,
-    ) -> tuple[Tensor, Tensor | None, Tensor | None]:
+    ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
         """Calculate the loss."""
         raise NotImplementedError
 
@@ -342,7 +342,7 @@ class TransformerBase(nn.Module):
         self,
         batch: Tensor,
         device: torch.device,
-    ) -> tuple[Tensor, Tensor | None, Tensor | None]:
+    ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
         """Process the loss of a batch."""
         raise NotImplementedError
 
@@ -383,28 +383,23 @@ class DiscreteTransformer(TransformerBase):
         self,
         x: Tensor,
         x_hat: Tensor,
-    ) -> tuple[Tensor, Tensor | None, Tensor | None]:
+    ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
         """Calculate transformer loss."""
         reduction = "mean"
         index = 0
 
         # calculate the loss for the discrete features
-        loss = torch.nn.functional.cross_entropy(
-            x_hat[:, :, : self.input_dim[0]].permute(0, 2, 1),
-            x[:, :, 0],
-            reduction=reduction,
-        )
-        index = self.input_dim[0]
-
-        for i in range(1, len(self.input_dim)):
-            loss += torch.nn.functional.cross_entropy(
+        loss_list = []
+        for i in range(len(self.input_dim)):
+            loss = torch.nn.functional.cross_entropy(
                 x_hat[:, :, index : index + self.input_dim[i]].permute(0, 2, 1),
                 x[:, :, i],
                 reduction=reduction,
             )
+            loss_list.append(loss)
             index += self.input_dim[i]
 
-        return loss, loss, None
+        return torch.stack(loss_list).sum(dim=0), loss_list, []
 
     def embedding(self, data: Tensor) -> Tensor:
         """Do the embedding."""
@@ -461,7 +456,7 @@ class DiscreteTransformer(TransformerBase):
         self,
         batch: Tensor,
         device: torch.device,
-    ) -> tuple[Tensor, Tensor | None, Tensor | None]:
+    ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
         """Process the loss of a batch."""
         x_data, y_data = batch
         x_hat = self.forward_pass(x_data, device)
@@ -538,7 +533,7 @@ class ChainTransformer(TransformerBase):
         self,
         x: Tensor,
         x_hat: Tensor,
-    ) -> tuple[Tensor, Tensor | None, Tensor | None]:
+    ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
         """Calculate transformer loss."""
         reduction = "mean"
 
@@ -549,7 +544,7 @@ class ChainTransformer(TransformerBase):
             reduction=reduction,
         )
 
-        return loss, loss, None
+        return loss, [], []
 
     def forward_pass(
         self,
@@ -584,7 +579,7 @@ class ChainTransformer(TransformerBase):
         self,
         batch: Tensor,
         device: torch.device,
-    ) -> tuple[Tensor, Tensor | None, Tensor | None]:
+    ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
         """Process the loss of a batch."""
         x_data, y_data = batch
         x_hat = self.forward_pass(x_data, device)

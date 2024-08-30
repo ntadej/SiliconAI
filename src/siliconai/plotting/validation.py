@@ -198,15 +198,15 @@ def acts_process_data(  # noqa: C901 PLR0912
         data_df = pd.concat([data_df_int, data_df_float], axis=1)
 
     if not config.data.columns_type:
-        if "lxq" in data_df.columns:
-            data_df["lxq"] /= 100
-        if "lyq" in data_df.columns:
-            data_df["lyq"] /= 100
+        columns_scale = ["lxq", "lyq", "tpxq", "tpyq", "tpzq"]
+        for column in columns_scale:
+            if column in data_df.columns:
+                data_df[column] /= 100
 
     return data_nonzero_int, data_nonzero_float, data_df
 
 
-def quick_validate_acts_chain(  # noqa: PLR0915 PLR0912 C901
+def quick_validate_acts_chain(  # noqa: PLR0915, C901
     config: Configuration,
     model: L.LightningModule,
     data: L.LightningDataModule,
@@ -308,7 +308,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915 PLR0912 C901
 
     # validation plots
     with PDFDocument(output_file) as pdf:  # type: ignore
-        labels = ["Original", "Generated"]
+        labels = ["Geant4", "Neural network"]
 
         n_hits_input = [len(i) - 2 for i in input_nonzero]
         n_hits_result = [len(i) - 2 for i in result_nonzero]
@@ -329,67 +329,49 @@ def quick_validate_acts_chain(  # noqa: PLR0915 PLR0912 C901
         if fig:
             pdf.save(fig)
 
-        if "lxq" in config.data.columns_integer:
-            lxq_index = config.data.columns_integer.index("lxq")
-            lxq_input = list(
-                np.concatenate([i[1:-2, lxq_index] for i in input_nonzero]),
-            )
-            lxq_result = list(
-                np.concatenate([i[1:-2, lxq_index] for i in result_nonzero]),
-            )
-            fig, ax = plot_hist(
-                [lxq_input, lxq_result],
-                "Local x position",
-                labels=labels,
-            )
-            if fig:
-                pdf.save(fig)
-
-            if config.data.columns_type:
-                lxq_input = list(
-                    np.concatenate([i[1:-2, lxq_index + 1] for i in input_nonzero]),
+        columns_list = ["lxq", "lyq", "tpxq", "tpyq", "tpzq"]
+        columns_labels = [
+            "Local x position",
+            "Local y position",
+            "Momentum x",
+            "Momentum y",
+            "Momentum z",
+        ]
+        for column, column_label in zip(columns_list, columns_labels, strict=True):
+            if column in config.data.columns_integer:
+                column_index = config.data.columns_integer.index(column)
+                column_input = list(
+                    np.concatenate([i[1:-2, column_index] for i in input_nonzero]),
                 )
-                lxq_result = list(
-                    np.concatenate([i[1:-2, lxq_index + 1] for i in result_nonzero]),
+                column_result = list(
+                    np.concatenate([i[1:-2, column_index] for i in result_nonzero]),
                 )
                 fig, ax = plot_hist(
-                    [lxq_input, lxq_result],
-                    "Local x position",
+                    [column_input, column_result],
+                    column_label,
                     labels=labels,
                 )
                 if fig:
                     pdf.save(fig)
 
-        if "lyq" in config.data.columns_integer:
-            lyq_index = config.data.columns_integer.index("lyq") + 1
-            lyq_input = list(
-                np.concatenate([i[1:-2, lyq_index] for i in input_nonzero]),
-            )
-            lyq_result = list(
-                np.concatenate([i[1:-2, lyq_index] for i in result_nonzero]),
-            )
-            fig, ax = plot_hist(
-                [lyq_input, lyq_result],
-                "Local y position",
-                labels=labels,
-            )
-            if fig:
-                pdf.save(fig)
-
-            if config.data.columns_type:
-                lyq_input = list(
-                    np.concatenate([i[1:-2, lyq_index + 1] for i in input_nonzero]),
-                )
-                lyq_result = list(
-                    np.concatenate([i[1:-2, lyq_index + 1] for i in result_nonzero]),
-                )
-                fig, ax = plot_hist(
-                    [lyq_input, lyq_result],
-                    "Local y position",
-                    labels=labels,
-                )
-                if fig:
-                    pdf.save(fig)
+                if config.data.columns_type:
+                    column_input = list(
+                        np.concatenate(
+                            [i[1:-2, column_index + 1] for i in input_nonzero],
+                        ),
+                    )
+                    column_result = list(
+                        np.concatenate(
+                            [i[1:-2, column_index + 1] for i in result_nonzero],
+                        ),
+                    )
+                    fig, ax = plot_hist(
+                        [column_input, column_result],
+                        "Local x position",
+                        labels=labels,
+                    )
+                    if fig:
+                        pdf.save(fig)
 
     return output_file
 
@@ -509,7 +491,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
 
     # validation plots
     with PDFDocument(output_file) as pdf:  # type: ignore
-        labels = ["Original", "Generated"]
+        labels = ["Geant4", "Neural network"]
 
         n_hits_input = [
             len(i) - 2
@@ -549,69 +531,31 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
         if fig:
             pdf.save(fig)
 
-        if "lx" in config.data.columns_float:
-            lx_index = config.data.columns_float.index("lx")
-            lx_input = list(
-                np.concatenate([i[1:-2, lx_index] for i in input_nonzero_float]),
-            )
-            lx_result = list(
-                np.concatenate([i[1:-2, lx_index] for i in result_nonzero_float]),
-            )
-            fig, ax = plot_hist(
-                [lx_input, lx_result],
-                "Local x position",
-                labels=labels,
-            )
-            if fig:
-                pdf.save(fig)
+        columns_list = ["lxq", "lyq", "tpxq", "tpyq", "tpzq"]
+        columns_labels = [
+            "Local x position",
+            "Local y position",
+            "Momentum x",
+            "Momentum y",
+            "Momentum z",
+        ]
 
-        if "ly" in config.data.columns_float:
-            ly_index = config.data.columns_float.index("ly")
-            ly_input = list(
-                np.concatenate([i[1:-2, ly_index] for i in input_nonzero_float]),
-            )
-            ly_result = list(
-                np.concatenate([i[1:-2, ly_index] for i in result_nonzero_float]),
-            )
-            fig, ax = plot_hist(
-                [ly_input, ly_result],
-                "Local y position",
-                labels=labels,
-            )
-            if fig:
-                pdf.save(fig)
-
-        if "lxq" in config.data.columns_integer:
-            lxq_index = config.data.columns_integer.index("lxq")
-            lxq_input = list(
-                np.concatenate([i[1:-2, lxq_index] for i in input_nonzero_int]),
-            )
-            lxq_result = list(
-                np.concatenate([i[1:-2, lxq_index] for i in result_nonzero_int]),
-            )
-            fig, ax = plot_hist(
-                [lxq_input, lxq_result],
-                "Local x position",
-                labels=labels,
-            )
-            if fig:
-                pdf.save(fig)
-
-        if "lyq" in config.data.columns_integer:
-            lyq_index = config.data.columns_integer.index("lyq")
-            lyq_input = list(
-                np.concatenate([i[1:-2, lyq_index] for i in input_nonzero_int]),
-            )
-            lyq_result = list(
-                np.concatenate([i[1:-2, lyq_index] for i in result_nonzero_int]),
-            )
-            fig, ax = plot_hist(
-                [lyq_input, lyq_result],
-                "Local y position",
-                labels=labels,
-            )
-            if fig:
-                pdf.save(fig)
+        for column, column_label in zip(columns_list, columns_labels, strict=True):
+            if column in config.data.columns_integer:
+                column_index = config.data.columns_integer.index(column)
+                column_input = list(
+                    np.concatenate([i[1:-2, column_index] for i in input_nonzero_int]),
+                )
+                column_result = list(
+                    np.concatenate([i[1:-2, column_index] for i in result_nonzero_int]),
+                )
+                fig, ax = plot_hist(
+                    [column_input, column_result],
+                    column_label,
+                    labels=labels,
+                )
+                if fig:
+                    pdf.save(fig)
 
     return output_file
 
