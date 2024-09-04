@@ -8,7 +8,7 @@ batch_size = 768
 workers = 12
 padding_token = 999999
 end_token = 1000001
-random_int = 1024
+random_int = 10000
 
 [data.conversion]
 input = "ACTS_Muon_100GeV_Barrel_Narrow_hits_complete.h5"
@@ -36,7 +36,7 @@ dropout = 0.1
 [training]
 compile = true
 
-epochs = 2000
+epochs = 4000
 early_stopping = 0
 
 optimizer = "AdamW"
