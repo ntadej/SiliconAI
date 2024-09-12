@@ -52,6 +52,7 @@ class BaseDataModule(L.LightningDataModule):
         self.train_data: Subset[Any]
         self.val_data: Subset[Any]
         self.test_data: Subset[Any]
+        self.predict_data: Subset[Any]
 
     def get_dataloader(self, data_type: DataLoadingType) -> DataLoader[Any]:
         """Get the DataLoader for the specified data type."""
@@ -59,8 +60,10 @@ class BaseDataModule(L.LightningDataModule):
             return self.train_dataloader()
         if data_type == DataLoadingType.validate:
             return self.val_dataloader()
-        if data_type == DataLoadingType.test:  # noqa: RET503
+        if data_type == DataLoadingType.test:
             return self.test_dataloader()
+        if data_type == DataLoadingType.predict:  # noqa: RET503
+            return self.predict_dataloader()
 
     def train_dataloader(self) -> DataLoader[Any]:
         """Return the training DataLoader."""
@@ -95,6 +98,17 @@ class BaseDataModule(L.LightningDataModule):
             shuffle=False,
         )
 
+    def predict_dataloader(self) -> DataLoader[Any]:
+        """Return the predict DataLoader."""
+        return DataLoader(
+            self.predict_data,
+            batch_size=self.batch_size,
+            num_workers=self.workers,
+            collate_fn=self.collate_fn,
+            pin_memory=True,
+            shuffle=False,
+        )
+
 
 class MNISTDataModule(BaseDataModule):
     """MNIST data module."""
@@ -120,6 +134,7 @@ class MNISTDataModule(BaseDataModule):
             loader(self.data_path, train=False, transform=ToTensor()),
             [0.5, 0.5],
         )
+        self.predict_data = loader(self.data_path, train=False, transform=ToTensor())
 
 
 class FashionMNISTDataModule(MNISTDataModule):
@@ -159,11 +174,13 @@ class ActsChainDataModule(BaseDataModule):
 
     def setup(self, stage: str) -> None:  # noqa: ARG002
         """Transform and setup the ACTS dataset."""
-        dataset = ActsChainDataset(self.data_path, transforms=[self.tokenizer])
-
         self.train_data, self.val_data, self.test_data = random_split(
-            dataset,
+            ActsChainDataset(self.data_path, transforms=[self.tokenizer]),
             self.split_ratio,
+        )
+        self.predict_data = ActsChainDataset(  # type: ignore
+            self.data_path,
+            transforms=[self.tokenizer],
         )
 
 
@@ -212,15 +229,18 @@ class ActsHitsDataModule(BaseDataModule):
 
     def setup(self, stage: str) -> None:  # noqa: ARG002
         """Transform and setup the ACTS dataset."""
-        dataset = ActsHitsDataset(
+        self.train_data, self.val_data, self.test_data = random_split(
+            ActsHitsDataset(
+                self.data_path,
+                transforms_int=[self.tokenizer],
+                transforms_float=self.normalize,  # type: ignore
+            ),
+            self.split_ratio,
+        )
+        self.predict_data = ActsHitsDataset(
             self.data_path,
             transforms_int=[self.tokenizer],
             transforms_float=self.normalize,  # type: ignore
-        )
-
-        self.train_data, self.val_data, self.test_data = random_split(
-            dataset,
-            self.split_ratio,
         )
 
 

@@ -22,6 +22,7 @@ class DataLoadingType(str, Enum):
     fit = "fit"
     validate = "validate"
     test = "test"
+    predict = "predict"
 
 
 class ColumnType(Enum):
