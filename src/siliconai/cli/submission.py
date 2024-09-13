@@ -17,13 +17,13 @@ def create_slurm_submission_script(
     n_node: int,
 ) -> Path:
     """Create Slurm submission script."""
-    output_dir = config.output_path / f"run_{config.run_number()}"
+    output_dir = config.output_path / f"run_{config.run_number}"
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
 
-    job_name = f"SiliconAI_{config.output_name}_{config.run_number()}"
-    output_file = config.output_path / f"run_{config.run_number()}" / "submit.sh"
-    output_log = config.output_path / f"run_{config.run_number()}" / "slurm.log"
+    job_name = f"SiliconAI_{config.output_name}_{config.run_number}"
+    output_file = config.output_path / f"run_{config.run_number}" / "submit.sh"
+    output_log = config.output_path / f"run_{config.run_number}" / "slurm.log"
     duration = 23  # TODO: make configurable
 
     with output_file.open("w") as file:
@@ -60,7 +60,7 @@ def submit(logger: Logger, config: Configuration, n_gpu: int, n_node: int) -> No
     logger.info("Submitting %s", config.name)
 
     # setup run number
-    logger.info("Run number %d", config.run_number(training=True))
+    logger.info("Run number %d", config.run_number)
 
     # make the submission script
     script = create_slurm_submission_script(config, n_gpu, n_node)

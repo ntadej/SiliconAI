@@ -119,7 +119,12 @@ class GlobalConfiguration:
 class Configuration:
     """Task configuration."""
 
-    def __init__(self, location: Path, global_config: GlobalConfiguration) -> None:
+    def __init__(
+        self,
+        location: Path,
+        global_config: GlobalConfiguration,
+        run_number: int = 0,
+    ) -> None:
         """Initialize task configuration."""
         self.location: Path = location
 
@@ -153,7 +158,25 @@ class Configuration:
             global_config,
         )
 
-        self._run_number: int = 0
+        # setup run number defaults
+        self.run_number: int
+        if not self.output_path.exists():
+            self.output_path.mkdir(parents=True)
+
+        run_path = self.output_path / "run"
+        if not run_path.exists():
+            with run_path.open("w") as f:
+                f.write("1")
+            self.run_number = 1
+        else:
+            with run_path.open("r") as f:
+                self.run_number = int(f.read())
+
+        if run_number > 0:
+            if run_number > self.run_number:
+                with run_path.open("w") as f:
+                    f.write(str(run_number))
+            self.run_number = run_number
 
         info_panel(self.to_table(), title="Task Configuration")
         info_panel(self.data.to_table(), title="Data Configuration")
@@ -168,30 +191,6 @@ class Configuration:
     def output_name(self) -> str:
         """Return the sanitized output name."""
         return self.name.replace(" ", "_")
-
-    def run_number(self, training: bool = False) -> int:
-        """Return the run number."""
-        if self._run_number:
-            return self._run_number
-
-        if not self.output_path.exists():
-            self.output_path.mkdir(parents=True)
-
-        run_path = self.output_path / "run"
-        if not run_path.exists():
-            with run_path.open("w") as f:
-                f.write("1")
-            self._run_number = 1
-        elif training:
-            with run_path.open("r") as f:
-                self._run_number = int(f.read()) + 1
-            with run_path.open("w") as f:
-                f.write(str(self._run_number))
-        else:
-            with run_path.open("r") as f:
-                self._run_number = int(f.read())
-
-        return self._run_number
 
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
@@ -515,6 +514,7 @@ class TrainingConfiguration:
 
         self.compile: bool = config.get("compile", False)
         self.epochs: int = int(config["epochs"])
+        self.checkpoint_interval: int = int(config.get("checkpoint_interval", 25))
         self.early_stopping: int = int(config["early_stopping"])
         self.learning_rate: float = float(config["learning_rate"])
         self.weight_decay: float = float(config.get("weight_decay", 0.0))
@@ -539,6 +539,7 @@ class TrainingConfiguration:
         return {
             "compile": self.compile,
             "epochs": self.epochs,
+            "checkpoint_interval": self.checkpoint_interval,
             "early_stopping": self.early_stopping,
             "optimizer": self.optimizer,
             "learning_rate": self.learning_rate,
@@ -555,6 +556,7 @@ class TrainingConfiguration:
 
         table.add_row("Compile:", str(self.compile))
         table.add_row("Epochs:", str(self.epochs))
+        table.add_row("Checkpoint interval:", str(self.checkpoint_interval))
         table.add_row("Early stopping patience:", str(self.early_stopping))
         table.add_row("Optimizer:", self.optimizer)
         table.add_row("Learning rate:", str(self.learning_rate))

@@ -70,7 +70,7 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     batch_size = 100
     grid_size = int(math.sqrt(batch_size))
 
-    output_file = config.output_path / f"run_{config.run_number()}" / "validation.pdf"
+    output_file = config.output_path / f"run_{config.run_number}" / "validation.pdf"
 
     x = model.generate(
         batch_size,
@@ -263,7 +263,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
 
     output_file = (
         config.output_path
-        / f"run_{config.run_number()}"
+        / f"run_{config.run_number}"
         / f"validation_{data_type.value}.pdf"
     )
 
@@ -339,9 +339,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
 
     # store data
     with pd.HDFStore(
-        config.output_path
-        / f"run_{config.run_number()}"
-        / f"data_{data_type.value}.h5",
+        config.output_path / f"run_{config.run_number}" / f"data_{data_type.value}.h5",
         mode="w",
     ) as store:
         store["reference_data"] = input_df
@@ -433,7 +431,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
 
     output_file = (
         config.output_path
-        / f"run_{config.run_number()}"
+        / f"run_{config.run_number}"
         / f"validation_{data_type.value}.pdf"
     )
 
@@ -522,9 +520,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
 
     # store data
     with pd.HDFStore(
-        config.output_path
-        / f"run_{config.run_number()}"
-        / f"data_{data_type.value}.h5",
+        config.output_path / f"run_{config.run_number}" / f"data_{data_type.value}.h5",
         mode="w",
     ) as store:
         store["reference_data"] = input_df
@@ -610,7 +606,7 @@ def quick_validate_trkntuple(
     setup_style()
 
     batch_size = 1000
-    output_file = config.output_path / f"run_{config.run_number()}" / "validation.pdf"
+    output_file = config.output_path / f"run_{config.run_number}" / "validation.pdf"
 
     data = cast(TRKNtupleDataModule, data)
     data.prepare_data()
@@ -644,7 +640,7 @@ def validate(
     checkpoint_path = (
         config.global_config.output_path
         / config.output_name
-        / f"run_{config.run_number()}"
+        / f"run_{config.run_number}"
         / "checkpoints"
     )
     data = load_data_module_from_latest_checkpoint(

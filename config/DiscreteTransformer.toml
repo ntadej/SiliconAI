@@ -36,7 +36,8 @@ dropout = 0.1
 [training]
 compile = true
 
-epochs = 1000
+epochs = 6000
+checkpoint_interval = 100
 early_stopping = 0
 
 optimizer = "AdamW"

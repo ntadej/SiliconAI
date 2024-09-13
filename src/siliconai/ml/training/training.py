@@ -22,7 +22,7 @@ def train(
     common_setup()
 
     # setup run number
-    logger.info("Run number %d", config.run_number(training=not batch))
+    logger.info("Run number %d", config.run_number)
 
     # load data
     data = load_data_module(logger, config)
@@ -55,7 +55,7 @@ def train(
     )
 
     # train the model
-    trainer.fit(model, datamodule=data)
+    trainer.fit(model, datamodule=data, ckpt_path="last")
 
     # test the model
     trainer.test(model, datamodule=data)

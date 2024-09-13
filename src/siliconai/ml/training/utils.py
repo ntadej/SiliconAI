@@ -33,12 +33,13 @@ def setup_callbacks(config: Configuration) -> list[Callback]:
 
     callbacks.append(
         ModelCheckpoint(
-            dirpath=f"{config.output_path}/run_{config.run_number()}/checkpoints",
-            save_weights_only=True,
+            dirpath=f"{config.output_path}/run_{config.run_number}/checkpoints",
+            save_weights_only=False,
             mode="min",
             monitor="val_loss",
             save_top_k=-1,
-            every_n_epochs=25,
+            save_last=True,
+            every_n_epochs=config.training.checkpoint_interval,
         ),
     )
 
@@ -47,9 +48,22 @@ def setup_callbacks(config: Configuration) -> list[Callback]:
 
 def setup_logging(config: Configuration) -> Logger:
     """Prepare common training logging."""
-    return MLFlowLogger(
+    mlflow_run_path = config.output_path / f"run_{config.run_number}" / "mlflow_run"
+    run_id = None
+    if mlflow_run_path.exists():
+        with mlflow_run_path.open("r") as f:
+            run_id = f.read().strip()
+
+    logger = MLFlowLogger(
         experiment_name=config.name,
-        run_name=f"Run #{config.run_number()}",
+        run_name=f"Run #{config.run_number}",
+        run_id=run_id,
         save_dir=str(config.global_config.output_path / "mlruns"),
         log_model=True,
     )
+
+    if not mlflow_run_path.exists():
+        with mlflow_run_path.open("w") as f:
+            f.write(str(logger.run_id))
+
+    return logger

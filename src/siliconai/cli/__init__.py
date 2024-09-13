@@ -180,6 +180,15 @@ def train(
             help="Task configuration file.",
         ),
     ],
+    run_number: Annotated[
+        int,
+        typer.Option(
+            "-r",
+            "--run",
+            envvar="SILICONAI_RUN",
+            help="Run number",
+        ),
+    ] = 0,
     diagnostics: Annotated[
         bool,
         typer.Option(
@@ -206,7 +215,7 @@ def train(
 ) -> None:
     """Train the model."""
     global_config = GlobalConfiguration.load(state)
-    config = Configuration(config_file, global_config)
+    config = Configuration(config_file, global_config, run_number)
     logger = setup_logger(global_config, "train")
 
     from siliconai.ml.training.training import train
@@ -225,6 +234,15 @@ def validate(
             help="Task configuration file.",
         ),
     ],
+    run_number: Annotated[
+        int,
+        typer.Option(
+            "-r",
+            "--run",
+            envvar="SILICONAI_RUN",
+            help="Run number",
+        ),
+    ] = 0,
     data_type: Annotated[
         DataLoadingType,
         typer.Option(
@@ -240,7 +258,7 @@ def validate(
 ) -> None:
     """Validate the model."""
     global_config = GlobalConfiguration.load(state)
-    config = Configuration(config_file, global_config)
+    config = Configuration(config_file, global_config, run_number)
     logger = setup_logger(global_config, "validate")
 
     from siliconai.ml.training.utils import common_setup
@@ -261,6 +279,15 @@ def submit(
             help="Task configuration file.",
         ),
     ],
+    run_number: Annotated[
+        int,
+        typer.Option(
+            "-r",
+            "--run",
+            envvar="SILICONAI_RUN",
+            help="Run number",
+        ),
+    ] = 0,
     n_gpu: Annotated[
         int,
         typer.Option("--ngpu", help="Number of GPUs to use."),
@@ -272,7 +299,7 @@ def submit(
 ) -> None:
     """Submit training to a batch system."""
     global_config = GlobalConfiguration.load(state)
-    config = Configuration(config_file, global_config)
+    config = Configuration(config_file, global_config, run_number)
     logger = setup_logger(global_config, "submit")
 
     from siliconai.cli.submission import submit
