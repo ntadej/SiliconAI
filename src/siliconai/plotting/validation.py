@@ -95,7 +95,7 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     return output_file
 
 
-def acts_process_data(  # noqa: C901 PLR0912
+def acts_process_data(  # noqa: C901 PLR0912 PLR0915
     config: Configuration,
     data_int: list[NDArrayType],
     data_float: list[NDArrayType],
@@ -104,15 +104,40 @@ def acts_process_data(  # noqa: C901 PLR0912
     # non-zero results
     data_nonzero_int = []
     data_nonzero_float = []
+
+    delta_min_index = (
+        config.data.columns_integer.index("tpxq")
+        if "tpxq" in config.data.columns_integer
+        else 0
+    )
+    delta_max_index = (
+        config.data.columns_integer.index("tpzq")
+        if "tpzq" in config.data.columns_integer
+        else 0
+    )
+    delta_calculation = delta_min_index > 0 and delta_max_index > 0
+
     for i in range(max(len(data_int), len(data_float))):
         nz = np.nonzero(
             (data_int[i][:, 0] if data_int else data_float[i][:, 0])
             != config.data.padding_token,
         )
         if data_int:
-            data_nonzero_int.append(data_int[i][nz[0].min() : nz[0].max() + 1])
+            data = data_int[i][nz[0].min() : nz[0].max() + 1]
+            if delta_calculation:
+                data_diff = np.diff(
+                    data[:, delta_min_index : delta_max_index + 1],
+                    axis=0,
+                )
+                data_diff = np.vstack((np.zeros(3, dtype=np.int64), data_diff))
+                data = np.hstack((data, data_diff))
+
+            data = data[1:-1]
+            data_nonzero_int.append(data)
         if data_float:
-            data_nonzero_float.append(data_float[i][nz[0].min() : nz[0].max() + 1])
+            data = data_float[i][nz[0].min() : nz[0].max() + 1]
+            data = data[1:-1]
+            data_nonzero_float.append(data)
 
     # data frame
     data_labels = [
@@ -158,6 +183,13 @@ def acts_process_data(  # noqa: C901 PLR0912
             0: "event_id",
             1: "index",
         }
+        if delta_calculation:
+            delta_offset = len(config.data.columns_integer) + 2
+            columns_labels = columns_labels | {
+                delta_offset: "deltapxq",
+                delta_offset + 1: "deltapyq",
+                delta_offset + 2: "deltapzq",
+            }
         k = 2
         for i, label in enumerate(config.data.columns_integer):
             columns_labels[k] = label
@@ -198,7 +230,16 @@ def acts_process_data(  # noqa: C901 PLR0912
         data_df = pd.concat([data_df_int, data_df_float], axis=1)
 
     if not config.data.columns_type:
-        columns_scale = ["lxq", "lyq", "tpxq", "tpyq", "tpzq"]
+        columns_scale = [
+            "lxq",
+            "lyq",
+            "tpxq",
+            "tpyq",
+            "tpzq",
+            "deltapxq",
+            "deltapyq",
+            "deltapzq",
+        ]
         for column in columns_scale:
             if column in data_df.columns:
                 data_df[column] /= 100
@@ -341,10 +382,10 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
             if column in config.data.columns_integer:
                 column_index = config.data.columns_integer.index(column)
                 column_input = list(
-                    np.concatenate([i[1:-2, column_index] for i in input_nonzero]),
+                    np.concatenate([i[:, column_index] for i in input_nonzero]),
                 )
                 column_result = list(
-                    np.concatenate([i[1:-2, column_index] for i in result_nonzero]),
+                    np.concatenate([i[:, column_index] for i in result_nonzero]),
                 )
                 fig, ax = plot_hist(
                     [column_input, column_result],
@@ -357,12 +398,12 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
                 if config.data.columns_type:
                     column_input = list(
                         np.concatenate(
-                            [i[1:-2, column_index + 1] for i in input_nonzero],
+                            [i[:, column_index + 1] for i in input_nonzero],
                         ),
                     )
                     column_result = list(
                         np.concatenate(
-                            [i[1:-2, column_index + 1] for i in result_nonzero],
+                            [i[:, column_index + 1] for i in result_nonzero],
                         ),
                     )
                     fig, ax = plot_hist(
@@ -544,10 +585,10 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
             if column in config.data.columns_integer:
                 column_index = config.data.columns_integer.index(column)
                 column_input = list(
-                    np.concatenate([i[1:-2, column_index] for i in input_nonzero_int]),
+                    np.concatenate([i[:, column_index] for i in input_nonzero_int]),
                 )
                 column_result = list(
-                    np.concatenate([i[1:-2, column_index] for i in result_nonzero_int]),
+                    np.concatenate([i[:, column_index] for i in result_nonzero_int]),
                 )
                 fig, ax = plot_hist(
                     [column_input, column_result],
