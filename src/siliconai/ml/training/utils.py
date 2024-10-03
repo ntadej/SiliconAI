@@ -48,7 +48,8 @@ def setup_callbacks(config: Configuration) -> list[Callback]:
 
 def setup_logging(config: Configuration) -> Logger:
     """Prepare common training logging."""
-    mlflow_run_path = config.output_path / f"run_{config.run_number}" / "mlflow_run"
+    mlflow_run_folder = config.output_path / f"run_{config.run_number}"
+    mlflow_run_path = mlflow_run_folder / "mlflow_run"
     run_id = None
     if mlflow_run_path.exists():
         with mlflow_run_path.open("r") as f:
@@ -63,6 +64,8 @@ def setup_logging(config: Configuration) -> Logger:
     )
 
     if not mlflow_run_path.exists():
+        if not mlflow_run_folder.exists():
+            mlflow_run_folder.mkdir()
         with mlflow_run_path.open("w") as f:
             f.write(str(logger.run_id))
 
