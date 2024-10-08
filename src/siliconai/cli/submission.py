@@ -24,7 +24,7 @@ def create_slurm_submission_script(
     job_name = f"SiliconAI_{config.output_name}_{config.run_number}"
     output_file = config.output_path / f"run_{config.run_number}" / "submit.sh"
     output_log = config.output_path / f"run_{config.run_number}" / "slurm.log"
-    duration = 23  # TODO: make configurable
+    # duration = 23  # TODO: make configurable
 
     with output_file.open("w") as file:
         file.write(
@@ -37,7 +37,7 @@ def create_slurm_submission_script(
             f"#SBATCH --ntasks-per-node={n_gpu}\n"
             "#SBATCH --cpus-per-task=32\n"
             f"#SBATCH --mem={32*n_gpu}GB\n"
-            f"#SBATCH --time=0-{duration}:00:00\n"
+            f"#SBATCH --time=2-00:00:00\n"
             f"#SBATCH --output={output_log}\n"
             "#SBATCH --signal=INT@60\n"
             "\n"
