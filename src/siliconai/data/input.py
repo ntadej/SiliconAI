@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 import pandas as pd
 
-from siliconai.common.enums import DataType
+from siliconai.common.enums import ColumnType, DataType
 from siliconai.plotting.common import plot_feature, setup_style
 from siliconai.plotting.utils import PDFDocument
 
@@ -112,7 +112,7 @@ class InputConverter:
         with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
             data_frame: pd.DataFrame | None = store["hits"][
                 (store["hits"]["particle_type"] == 13)  # noqa: PLR2004
-                & (store["hits"]["geometry_id"] != 10001)  # noqa: PLR2004
+                & (store["hits"]["geometry_id"] != self.config.end_token)
             ][self.config.columns_integer]
 
         if data_frame is None:
@@ -120,25 +120,28 @@ class InputConverter:
             raise ValueError(error)
 
         # transform numerical columns
-        if "lxq" in data_frame:
-            data_frame["lxq2"], data_frame["lxq1"] = np.modf(data_frame["lxq"])
-            data_frame["lxq1"] = data_frame["lxq1"]
-            data_frame["lxq2"] = abs(data_frame["lxq2"] * 100)
-            del data_frame["lxq"]
-        if "lyq" in data_frame:
-            data_frame["lyq2"], data_frame["lyq1"] = np.modf(data_frame["lyq"])
-            data_frame["lyq1"] = data_frame["lyq1"]
-            data_frame["lyq2"] = abs(data_frame["lyq2"] * 100)
-            del data_frame["lyq"]
+        numerical_columns = ["lxq", "lyq", "tpxq", "tpyq", "tpzq"]
+        for column in numerical_columns:
+            if column in data_frame:
+                data_frame[f"{column}2"], data_frame[f"{column}1"] = np.modf(
+                    data_frame[column],
+                )
+                data_frame[f"{column}1"] = data_frame[f"{column}1"]
+                data_frame[f"{column}2"] = abs(data_frame[f"{column}2"] * 100)
+                del data_frame[column]
 
         # convert to correct types
         data_frame = data_frame.astype("int64")
 
         self.logger.info("Converting to numpy arrays")
 
+        ncolumns = len(self.config.columns_integer) + len(
+            [c for c in self.config.columns_type if c == ColumnType.Numerical],
+        )
+
         output_nonzero = self.process_acts_hits(
             data_frame,
-            len(self.config.columns_integer) + 2,
+            ncolumns,
             padding_token=self.config.padding_token,
             end_token=self.config.end_token,
             flatten=True,
