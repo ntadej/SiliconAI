@@ -296,11 +296,10 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
         batch_full = batch[0]
         batch_start = batch_full[:, :ncolumns].to(model.device)
 
-        result, _ = model.predict(batch_start, tokenizer=data.tokenizer)
+        result, _ = model.predict((batch_start,), tokenizer=data.tokenizer)
 
         input_full += list(batch_full.cpu().numpy())
         result_full += list(result.cpu().numpy())
-        break
 
     input_translated: list[NDArrayType] = [data.translate_data(i) for i in input_full]
     result_translated: list[NDArrayType] = [data.translate_data(i) for i in result_full]
@@ -457,8 +456,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
     data.setup(data_type.value)
     if logger:
         data.tokenizer.summary(logger)
-        for normalize in data.normalize:
-            normalize.summary(logger)
+        data.transformation.summary(logger)
 
     input_full_int: list[NDArrayType] = []
     input_full_float: list[NDArrayType] = []
@@ -487,7 +485,20 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
                 )
 
             result_int, result_float = model.predict(
-                batch_start_int,
+                (batch_start_int,),
+                tokenizer=data.tokenizer,
+            )
+        elif config.model.type is ModelType.HybridTransformer:
+            batch_full_int = batch[0]
+            batch_start_int = batch_full_int[:, :1].to(model.device)
+            batch_full_float = batch[1]
+            batch_start_float = batch_full_float[:, :1].to(model.device)
+
+            if config.data.random_float:
+                batch_start_float[:, :, -1] = torch.normal(0, 1, (len(batch[0]), 1))
+
+            result_int, result_float = model.predict(
+                (batch_start_int, batch_start_float),
                 tokenizer=data.tokenizer,
             )
 
@@ -498,6 +509,13 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
             result_int.cpu().numpy() if result_int is not None else [],
         )
 
+        input_full_float += list(
+            batch_full_float.cpu().numpy() if batch_full_float is not None else [],
+        )
+        result_full_float += list(
+            result_float.cpu().numpy() if result_float is not None else [],
+        )
+
         if random:
             break
 
@@ -505,13 +523,13 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
         data.translate_data(i) for i in input_full_int
     ]
     input_translated_float: list[NDArrayType] = [
-        data.translate_data(i) for i in input_full_float
+        data.inverse_data(i) for i in input_full_float
     ]
     result_translated_int: list[NDArrayType] = [
         data.translate_data(i) for i in result_full_int
     ]
     result_translated_float: list[NDArrayType] = [
-        data.translate_data(i) for i in result_full_float
+        data.inverse_data(i) for i in result_full_float
     ]
 
     time_end = time.perf_counter()
@@ -614,6 +632,32 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
                 )
                 column_result = list(
                     np.concatenate([i[:, column_index] for i in result_nonzero_int]),
+                )
+                fig, ax = plot_hist(
+                    [column_input, column_result],
+                    column_label,
+                    labels=labels,
+                )
+                if fig:
+                    pdf.save(fig)
+
+        columns_list = ["lx", "ly", "tpx", "tpy", "tpz"]
+        columns_labels = [
+            "Local x position",
+            "Local y position",
+            "Momentum x",
+            "Momentum y",
+            "Momentum z",
+        ]
+
+        for column, column_label in zip(columns_list, columns_labels, strict=True):
+            if column in config.data.columns_float:
+                column_index = config.data.columns_float.index(column)
+                column_input = list(
+                    np.concatenate([i[:, column_index] for i in input_nonzero_float]),
+                )
+                column_result = list(
+                    np.concatenate([i[:, column_index] for i in result_nonzero_float]),
                 )
                 fig, ax = plot_hist(
                     [column_input, column_result],

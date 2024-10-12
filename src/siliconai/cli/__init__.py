@@ -168,6 +168,11 @@ def tokenize(
 
         ColumnTokenizer.train(config.data, logger)
 
+        if config.data.columns_float:
+            from siliconai.data.transformations import ScikitLearnTransformation
+
+            ScikitLearnTransformation.train(config.data, logger)
+
 
 @application.command()
 def train(

@@ -39,3 +39,12 @@ class ModelType(Enum):
     # ConvVAE = "ConvVAE"
     ChainTransformer = "ChainTransformer"
     DiscreteTransformer = "DiscreteTransformer"
+    HybridTransformer = "HybridTransformer"
+
+    def is_transformer(self) -> bool:
+        """Return true if the model is a transformer."""
+        return self in [
+            ModelType.ChainTransformer,
+            ModelType.DiscreteTransformer,
+            ModelType.HybridTransformer,
+        ]

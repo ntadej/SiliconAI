@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from siliconai.common.enums import DataType, ModelType
+from siliconai.common.enums import DataType
 from siliconai.data.modules import (
     ActsChainDataModule,
     ActsHitsDataModule,
@@ -115,7 +115,7 @@ def load_model_from_checkpoint(
     logger.info("Loading model type: %s", config.model.type.value)
 
     model: L.LightningModule
-    if config.model.type in [ModelType.ChainTransformer, ModelType.DiscreteTransformer]:
+    if config.model.type.is_transformer():
         model = TransformerModule.load_from_checkpoint(checkpoint)
         return model
     # if config.model.type is ModelType.BasicVAE:

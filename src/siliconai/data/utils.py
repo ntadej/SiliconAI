@@ -11,10 +11,7 @@ import torch
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
-    from sklearn import BaseEstimator  # type: ignore
     from torch import Tensor
-
-    from siliconai.cli.logging import Logger
 
 
 NDArrayType = NDArray[np.float32 | np.uint64]
@@ -53,6 +50,9 @@ def collate_sequence(batch: list[Any]) -> list[Any]:
     output: list[Any] = []
     for item in batch:
         item_int, item_float = item
+        if item_int is not None and item_float is not None:
+            assert len(item_int) == len(item_float)
+
         # append zeros to the end of the sequence if needed
         out_item_int = (
             (
@@ -186,39 +186,3 @@ class NDArrayToLongTensor(TensorTransformation):
             torch.from_numpy(features).long(),
             torch.from_numpy(labels).long() if labels is not None else None,
         )
-
-
-class ScikitLearnTransformation(NDArrayTransformation):
-    """Normalize the input data to a gaussian function."""
-
-    def __init__(self, name: str, index: int, transformation: BaseEstimator) -> None:
-        """Initialize the tokenizer."""
-        self.name = name
-        self.transformation = transformation()
-        self.index = index
-
-    def summary(self, logger: Logger) -> None:
-        """Log summary of the transformation."""
-        logger.info(
-            'Scale for "%s": %f',
-            self.name,
-            self.transformation.scale_[0],
-        )
-
-    def fit(self, data: tuple[NDArrayType, NDArrayType | None]) -> None:
-        """Fit the transformation."""
-        self.transformation.fit(data[0][:, self.index].reshape(-1, 1))
-
-    def __call__(self, sample: NDArrayType) -> NDArrayType:
-        """Transform the sample to tensors."""
-        sample[:, self.index] = self.transformation.transform(
-            sample[:, self.index].reshape(-1, 1),
-        ).reshape(1, -1)
-        return sample
-
-    def inverse(self, sample: NDArrayType) -> NDArrayType:
-        """Inverse the tokenization."""
-        sample[:, self.index] = self.transformation.inverse_transform(
-            sample[:, self.index].reshape(-1, 1),
-        ).reshape(1, -1)
-        return sample

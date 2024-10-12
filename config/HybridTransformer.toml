@@ -1,0 +1,45 @@
+name = "Hybrid Transformer"
+
+[data]
+type = "ActsHits"
+input_dim = [4350, 3, 5]
+split_ratio = [0.5, 0.25, 0.25]
+batch_size = 4000
+workers = 12
+padding_token = 999999
+end_token = 1000001
+random_float = true
+
+[data.conversion]
+input = "ACTS_Muon_pt70-90_eta005-025.h5"
+output = "ACTS_Muon_pt70-90_eta005-025_hybrid.pkl"
+columns_integer = ["geometry_id", "particle_type"]
+columns_float = ["lx", "ly", "tpx", "tpy", "tpz"]
+
+[model]
+type = "HybridTransformer"
+sequence_length = 45
+model_dim = 128            # 512
+encoder_layers = 3         # 6
+heads = 4                  # 8
+feedforward_dim = 512      # 2048
+activation = "gelu"
+dropout = 0.1
+loss = "mse_loss"
+
+[training]
+compile = true
+
+epochs = 5000
+checkpoint_interval = 100
+early_stopping = 0
+
+optimizer = "AdamW"
+learning_rate = 0.0001
+weight_decay = 0.01
+gradient_clipping = 5.0
+
+[training.scheduler]
+type = "CosineAnnealingWarmRestarts"
+interval = "step"
+T_0 = 40

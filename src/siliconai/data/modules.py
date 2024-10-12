@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import lightning as L
-from sklearn.preprocessing import StandardScaler  # type: ignore
 from torch.utils.data import DataLoader, Subset, random_split
 from torchvision.datasets import MNIST, FashionMNIST  # type: ignore
 from torchvision.transforms import ToTensor  # type: ignore
@@ -17,11 +16,11 @@ from siliconai.data.datasets import (
     TRKNtupleDataset,
 )
 from siliconai.data.tokenizers import ColumnTokenizer, SequenceTokenizer
+from siliconai.data.transformations import ScikitLearnTransformation
 from siliconai.data.utils import (
     CollateFnType,
     NDArrayToFloatTensor,
     NDArrayType,
-    ScikitLearnTransformation,
     collate_sequence,
     collate_sequence_chain,
 )
@@ -206,14 +205,11 @@ class ActsHitsDataModule(BaseDataModule):
         if isinstance(data_config.data.input_dim, int):
             self.input_dim_discreet = [data_config.data.input_dim]
         else:
-            self.input_dim_discreet = data_config.data.input_dim
+            self.input_dim_discreet = data_config.data.input_dim[:]
         self.input_dim_continuous = len(data_config.data.columns_float)
 
         self.tokenizer = ColumnTokenizer.load(data_config.data, logger)
-        self.normalize = [
-            ScikitLearnTransformation(label, i, StandardScaler)
-            for i, label in enumerate(data_config.data.columns_float)
-        ]
+        self.transformation = ScikitLearnTransformation.load(data_config.data, logger)
 
         self.save_hyperparameters("data_config")
 
@@ -223,9 +219,7 @@ class ActsHitsDataModule(BaseDataModule):
 
     def inverse_data(self, data: NDArrayType) -> NDArrayType:
         """Inverse normalization on continuous data."""
-        for normalize in self.normalize:
-            data = normalize.inverse(data)
-        return data
+        return self.transformation.inverse(data)
 
     def setup(self, stage: str) -> None:  # noqa: ARG002
         """Transform and setup the ACTS dataset."""
@@ -233,14 +227,14 @@ class ActsHitsDataModule(BaseDataModule):
             ActsHitsDataset(
                 self.data_path,
                 transforms_int=[self.tokenizer],
-                transforms_float=self.normalize,  # type: ignore
+                transforms_float=[self.transformation],
             ),
             self.split_ratio,
         )
-        self.predict_data = ActsHitsDataset(
+        self.predict_data = ActsHitsDataset(  # type: ignore
             self.data_path,
             transforms_int=[self.tokenizer],
-            transforms_float=self.normalize,  # type: ignore
+            transforms_float=[self.transformation],
         )
 
 

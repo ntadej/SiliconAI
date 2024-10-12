@@ -47,8 +47,17 @@ class InputConverter:
         end_token: int = 10001,
         flatten: bool = False,
         random_int: int = 0,
+        random_float: bool = False,
     ) -> list[NDArrayType]:
         """Process loaded ACTS hits data."""
+        if not isinstance(data_frame.index, pd.MultiIndex):
+            error = "Index must be a MultiIndex"
+            raise TypeError(error)
+
+        data_events = len(data_frame.index.levels[0])
+        data_hits = len(data_frame.index.levels[1])
+        data_hits_exact = data_frame.reset_index().groupby("event_id").count()["index"]
+
         # do auto-padding
         data_frame = cast(
             pd.DataFrame,
@@ -57,17 +66,32 @@ class InputConverter:
             ),
         )
 
-        if not isinstance(data_frame.index, pd.MultiIndex):
-            error = "Index must be a MultiIndex"
-            raise TypeError(error)
-
-        data_events = len(data_frame.index.levels[0])
-        data_hits = len(data_frame.index.levels[1])
-
         if random_int:
-            event_rnd = np.random.randint(1, random_int, data_events)  # noqa: NPY002
-            all_rnd = np.array([data_hits * [i] for i in event_rnd]).flatten()
+            event_rnd_int = np.random.randint(1, random_int, data_events)  # noqa: NPY002
+            all_rnd = np.array(
+                [
+                    data_hits_exact[i] * [rnd] + (data_hits - data_hits_exact[i]) * [0]
+                    for i, rnd in enumerate(event_rnd_int)
+                ],
+            ).flatten()
             data_frame["random_int"] = all_rnd
+
+            column_count += 1
+
+        if random_float:
+            event_rnd_float = np.random.normal(0.0, 1.0, data_events)  # noqa: NPY002
+            all_rnd = (
+                np.array(
+                    [
+                        data_hits_exact[i] * [rnd]
+                        + (data_hits - data_hits_exact[i]) * [0]
+                        for i, rnd in enumerate(event_rnd_float)
+                    ],
+                )
+                .flatten()
+                .astype("float32")
+            )
+            data_frame["random_float"] = all_rnd
 
             column_count += 1
 
@@ -77,23 +101,16 @@ class InputConverter:
 
         output_nonzero: list[NDArrayType] = []
         for i in range(len(output_list)):
-            nz = np.nonzero(output_list[i] != padding_token)
             if flatten:
                 output_nonzero.append(
                     np.append(
-                        output_list[i][
-                            nz[0].min() : nz[0].max() + 1,
-                            nz[1].min() : nz[1].max() + 1,
-                        ].flatten(),
+                        output_list[i][: data_hits_exact[i], :].flatten(),
                         end_token,
                     ),
                 )
             else:
                 output_nonzero.append(
-                    output_list[i][
-                        nz[0].min() : nz[0].max() + 1,
-                        nz[1].min() : nz[1].max() + 1,
-                    ],
+                    output_list[i][: data_hits_exact[i], :],
                 )
 
         return output_nonzero
@@ -174,6 +191,8 @@ class InputConverter:
         if self.config.random_int:
             columns_integer.remove("random_int")
         columns_float = self.config.columns_float[:]
+        if self.config.random_float:
+            columns_float.remove("random_float")
 
         with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
             data_frame_int: pd.DataFrame | None = (
@@ -217,6 +236,7 @@ class InputConverter:
                 data_frame_float,
                 len(columns_float),
                 padding_token=self.config.padding_token,
+                random_float=self.config.random_float,
             )
             if data_frame_float is not None
             else []

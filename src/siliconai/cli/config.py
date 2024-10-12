@@ -215,7 +215,7 @@ class Configuration:
 class DataConfiguration:
     """Data configuration."""
 
-    def __init__(
+    def __init__(  # noqa: C901
         self,
         config: dict[str, Any],
         global_config: GlobalConfiguration,
@@ -243,6 +243,7 @@ class DataConfiguration:
         self.end_token: int = config.get("end_token", 0)
 
         self.random_int: int = config.get("random_int", 0)
+        self.random_float: bool = config.get("random_float", False)
 
         self.conversion: bool = False
         self.conversion_input_file: Path | None = None
@@ -269,6 +270,8 @@ class DataConfiguration:
                     len([t for t in self.columns_type if t == ColumnType.Categorical])
                     + 1
                 )
+            if self.columns_float:
+                count += 1
             assert count == len(self.input_dim)
 
         if self.random_int:
@@ -277,6 +280,11 @@ class DataConfiguration:
                 self.columns_type.append(ColumnType.Categorical)
             if isinstance(self.input_dim, list):
                 self.input_dim.append(self.random_int)
+
+        if self.random_float:
+            self.columns_float.append("random_float")
+            if isinstance(self.input_dim, list):
+                self.input_dim[-1] += 1
 
     @property
     def flat_input_dim(self) -> int:
@@ -463,7 +471,7 @@ class ModelConfiguration:
             table.add_row("Number of heads:", str(self.heads))
         if self.feedforward_dim:
             table.add_row("Feedworward dimension:", str(self.feedforward_dim))
-        if self.type in [ModelType.ChainTransformer, ModelType.DiscreteTransformer]:
+        if self.type.is_transformer():
             table.add_row(
                 "Transformer residual weights:",
                 str(self.transformer_residual_weights),
@@ -471,7 +479,7 @@ class ModelConfiguration:
         table.add_row("Activation function:", self.activation)
         if self.activation_parameters:
             table.add_row("Activation parameters:", str(self.activation_parameters))
-        if self.type not in [ModelType.ChainTransformer, ModelType.DiscreteTransformer]:
+        if not self.type.is_transformer():
             table.add_row("Batch normalization:", str(self.batch_norm))
         table.add_row("Dropout rate:", str(self.dropout))
         table.add_row("Loss function:", self.loss)

@@ -13,6 +13,7 @@ from siliconai.common.enums import ModelType
 from siliconai.ml.models.transformer import (
     ChainTransformer,
     DiscreteTransformer,
+    HybridTransformer,
     TransformerBase,
     TransformerPredictParams,
 )
@@ -83,6 +84,8 @@ class TransformerModule(ModuleBase):
             self.model = ChainTransformer(config)
         elif config.model.type is ModelType.DiscreteTransformer:
             self.model = DiscreteTransformer(config)
+        elif config.model.type is ModelType.HybridTransformer:
+            self.model = HybridTransformer(config)
 
         if config.training.compile:
             self.model = cast(
@@ -95,8 +98,7 @@ class TransformerModule(ModuleBase):
 
     def forward(self, *args: Tensor) -> Tensor:
         """Forward pass."""
-        x_data = args[0]
-        return self.model.forward_pass(x_data, self.device, evaluate=True)
+        return self.model.forward_pass(args, self.device, evaluate=True)
 
     def training_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
         """Run training step."""
@@ -149,8 +151,8 @@ class TransformerModule(ModuleBase):
     @torch.no_grad()
     def predict(
         self,
-        input_sequence: Tensor,
+        batch: tuple[Tensor, ...],
         **kwargs: Unpack[TransformerPredictParams],
     ) -> tuple[Tensor | None, Tensor | None]:
         """Run predictions on the model."""
-        return self.model.predict(input_sequence, self.device, **kwargs)
+        return self.model.predict(batch, self.device, **kwargs)

@@ -152,9 +152,11 @@ class ColumnTokenizer(NDArrayTransformation):
             return
 
         if isinstance(config.input_dim, list):
-            dimensions = config.input_dim
+            dimensions = config.input_dim[:]
         else:
             dimensions = [config.input_dim]
+        if config.columns_float:
+            dimensions.pop()
 
         tokenizer = ColumnTokenizer(ncolumns)
         tokenizer.dictionaries = [
@@ -162,7 +164,7 @@ class ColumnTokenizer(NDArrayTransformation):
             for column in config.columns_integer
         ]
 
-        logger.info("Tokenizing the input file with %d columns", ncolumns)
+        logger.info("Tokenizing the input file with %d discrete columns", ncolumns)
 
         dataset = ActsHitsDataset(config.input_file)
         for i in range(len(dataset)):
