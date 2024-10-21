@@ -1,4 +1,4 @@
-name = "Discrete Transformer"
+name = "Discrete Transformer Deep"
 
 [data]
 type = "ActsHits"
@@ -27,7 +27,7 @@ columns_integer = [
 type = "DiscreteTransformer"
 sequence_length = 45
 model_dim = 128              # 512
-encoder_layers = 3           # 6
+encoder_layers = 6           # 6
 heads = 4                    # 8
 feedforward_dim = 512        # 2048
 activation = "gelu"

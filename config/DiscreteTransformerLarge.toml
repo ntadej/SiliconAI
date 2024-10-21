@@ -1,4 +1,4 @@
-name = "Discrete Transformer"
+name = "Discrete Transformer Large"
 
 [data]
 type = "ActsHits"
@@ -26,22 +26,22 @@ columns_integer = [
 [model]
 type = "DiscreteTransformer"
 sequence_length = 45
-model_dim = 128              # 512
-encoder_layers = 3           # 6
-heads = 4                    # 8
-feedforward_dim = 512        # 2048
+model_dim = 256              # 512
+encoder_layers = 6           # 6
+heads = 8                    # 8
+feedforward_dim = 1025       # 2048
 activation = "gelu"
 dropout = 0.1
 
 [training]
 compile = true
 
-epochs = 4000
+epochs = 10000
 checkpoint_interval = 200
 early_stopping = 0
 
 optimizer = "AdamW"
-learning_rate = 0.001
+learning_rate = 0.0003
 weight_decay = 0.01
 gradient_clipping = 5.0
 
