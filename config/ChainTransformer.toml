@@ -2,22 +2,29 @@ name = "Chain Transformer"
 
 [data]
 type = "ActsChain"
-input_dim = [3619, 154]
+input_dim = [4232, 190]
 split_ratio = [0.5, 0.25, 0.25]
-padding_token = 9999
-end_token = 10001
-batch_size = 1400
+batch_size = 256
 workers = 12
+padding_token = 999999
+end_token = 1000001
 
 [data.conversion]
-input = "ACTS_Muon_100GeV_Barrel_hits.h5"
-output = "ACTS_Muon_100GeV_Barrel_hits_chain.pkl"
-columns_integer = ["geometry_id", "lxq", "lyq"]
-columns_type = ["categorical", "numerical", "numerical"]
+input = "ACTS_Muon_pt70-90_eta005-025.h5"
+output = "ACTS_Muon_pt70-90_eta005-025_chain.h5"
+columns_integer = ["geometry_id", "lxq", "lyq", "tpxq", "tpyq", "tpzq"]
+columns_type = [
+    "categorical",
+    "numerical",
+    "numerical",
+    "numerical",
+    "numerical",
+    "numerical",
+]
 
 [model]
 type = "ChainTransformer"
-sequence_length = 128
+sequence_length = 512
 model_dim = 128           # 512
 encoder_layers = 8        # 6
 heads = 8                 # 8
@@ -26,9 +33,18 @@ activation = "gelu"
 dropout = 0.1
 
 [training]
-epochs = 2000
+compile = true
+
+epochs = 10000
+checkpoint_interval = 100
 early_stopping = 0
 
-optimizer = "Adam"
+optimizer = "AdamW"
 learning_rate = 0.0001
-weight_decay = 0.0
+weight_decay = 0.01
+gradient_clipping = 5.0
+
+[training.scheduler]
+type = "CosineAnnealingWarmRestarts"
+interval = "step"
+T_0 = 79

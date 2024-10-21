@@ -1,0 +1,31 @@
+name = "Chain Transformer Large"
+
+[data]
+type = "ActsChain"
+input_dim = 12224
+split_ratio = [0.5, 0.25, 0.25]
+batch_size = 512
+workers = 12
+
+[data.conversion]
+input = "ACTS_Muon_100GeV_Barrel_hits.h5"
+output = "ACTS_Muon_100GeV_Barrel_hits_chain.pkl"
+columns_integer = ["geometry_id", "particle_type", "lxq", "lyq"]
+
+[model]
+type = "ChainTransformer"
+sequence_length = 100
+model_dim = 512           # 512
+encoder_layers = 12       # 6
+heads = 16                # 8
+feedforward_dim = 2048    # 2048
+activation = "gelu"
+dropout = 0.1
+
+[training]
+epochs = 2000
+early_stopping = 0
+
+optimizer = "Adam"
+learning_rate = 0.0001
+weight_decay = 0.0
