@@ -60,7 +60,7 @@ def setup_logging(config: Configuration) -> Logger:
         run_name=f"Run #{config.run_number}",
         run_id=run_id,
         save_dir=str(config.global_config.output_path / "mlruns"),
-        log_model=True,
+        log_model=False,
     )
 
     if not mlflow_run_path.exists():
