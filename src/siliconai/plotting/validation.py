@@ -42,6 +42,8 @@ def quick_validate(
     model: L.LightningModule,
     data: L.LightningDataModule,
     data_type: DataLoadingType,
+    random: bool = False,
+    no_random: bool = False,
 ) -> None:
     """Validate the model after training."""
     if config.data.type is DataType.ActsChain:
@@ -51,7 +53,15 @@ def quick_validate(
 
     if config.data.type is DataType.ActsHits:
         logger.info("Validating ActsHits-based model output...")
-        file = quick_validate_acts_hits(config, model, data, data_type, logger=logger)
+        file = quick_validate_acts_hits(
+            config,
+            model,
+            data,
+            data_type,
+            random,
+            no_random,
+            logger=logger,
+        )
         logger.info("Validation done and stored in %s.", file)
 
     if config.data.type is DataType.TRKNtuple:
@@ -420,6 +430,8 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
     model: L.LightningModule,
     data: L.LightningDataModule,
     data_type: DataLoadingType,
+    random: bool = False,
+    no_random: bool = False,
     logger: Logger | None = None,
 ) -> Path:
     """Validate ActsHits-based model output."""
@@ -429,10 +441,16 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
     # make sure we are in eval mode
     model.eval()
 
+    suffix = ""
+    if random:
+        suffix = "_random_test"
+    if no_random:
+        suffix = "_no_random"
+
     output_file = (
         config.output_path
         / f"run_{config.run_number}"
-        / f"validation_{data_type.value}.pdf"
+        / f"validation_{data_type.value}{suffix}.pdf"
     )
 
     data = cast(ActsHitsDataModule, data)
@@ -453,9 +471,15 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
     for batch in data.get_dataloader(data_type):
         if config.model.type is ModelType.DiscreteTransformer:
             batch_full_int = batch[0]
+            if random:
+                batch_full_int = batch_full_int[0, :, :].repeat(
+                    len(batch_full_int),
+                    1,
+                    1,
+                )
             batch_start_int = batch_full_int[:, :1].to(model.device)
 
-            if config.data.random_int:
+            if config.data.random_int and not no_random:
                 batch_start_int[:, :, -1] = torch.randint(
                     1,
                     config.data.random_int,
@@ -473,6 +497,9 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
         result_full_int += list(
             result_int.cpu().numpy() if result_int is not None else [],
         )
+
+        if random:
+            break
 
     input_translated_int: list[NDArrayType] = [
         data.translate_data(i) for i in input_full_int
@@ -520,7 +547,9 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
 
     # store data
     with pd.HDFStore(
-        config.output_path / f"run_{config.run_number}" / f"data_{data_type.value}.h5",
+        config.output_path
+        / f"run_{config.run_number}"
+        / f"data_{data_type.value}{suffix}.h5",
         mode="w",
     ) as store:
         store["reference_data"] = input_df
@@ -635,6 +664,8 @@ def validate(
     config: Configuration,
     data_type: DataLoadingType,
     checkpoint: int,
+    random: bool = False,
+    no_random: bool = False,
 ) -> None:
     """Validate the model after training."""
     checkpoint_path = (
@@ -655,4 +686,4 @@ def validate(
         checkpoint_path,
         checkpoint,
     )
-    quick_validate(logger, config, model, data, data_type)
+    quick_validate(logger, config, model, data, data_type, random, no_random)

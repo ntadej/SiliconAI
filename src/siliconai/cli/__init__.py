@@ -255,6 +255,14 @@ def validate(
         int,
         typer.Option("-n", "--checkpoint", help="Checkpoint to use."),
     ] = -1,
+    random: Annotated[
+        bool,
+        typer.Option("--random", help="Test random number effect."),
+    ] = False,
+    no_random: Annotated[
+        bool,
+        typer.Option("--no-random", help="Disable random number effect."),
+    ] = False,
 ) -> None:
     """Validate the model."""
     global_config = GlobalConfiguration.load(state)
@@ -264,8 +272,12 @@ def validate(
     from siliconai.ml.training.utils import common_setup
     from siliconai.plotting.validation import validate
 
+    if random and no_random:
+        error = "Cannot use both --random and --no-random."
+        raise ValueError(error)
+
     common_setup()
-    validate(logger, config, data_type, checkpoint)
+    validate(logger, config, data_type, checkpoint, random, no_random)
 
 
 @application.command()
