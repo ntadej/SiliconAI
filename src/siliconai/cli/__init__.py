@@ -1,4 +1,4 @@
-"""Vremenar Utils CLI."""
+"""SiliconAI CLI."""
 
 import sys
 from pathlib import Path
@@ -31,7 +31,7 @@ state = TyperState()
 def version_callback(value: bool) -> None:
     """Version callback."""
     if value:
-        typer.echo(f"Vremenar Utils, version {__version__}")
+        typer.echo(f"SiliconAI, version {__version__}")
         raise typer.Exit()
 
 
@@ -66,7 +66,7 @@ def main(
         ),
     ] = False,
 ) -> None:
-    """Vremenar Utilities CLI app."""
+    """SiliconAI CLI app."""
     if ctx.invoked_subcommand != "config" and not config.exists():  # pragma: no cover
         if "--help" in argv:
             return
