@@ -20,32 +20,32 @@ classifiers = [
 dependencies = [
     "lightning == 2.4.*",
     "matplotlib == 3.9.*",
-    "mlflow == 2.15.*",
+    "mlflow == 2.18.*",
     "mplhep == 0.3.*",
     "numpy == 1.26.*",
     "pandas == 2.2.*",
     "scikit-learn == 1.5.*",
     "scipy == 1.14.*",
     "tables == 3.10.*",
-    "torch == 2.4.*",
-    "torchvision == 0.19.*",
+    "torch == 2.5.*",
+    "torchvision == 0.20.*",
     "typer[all] == 0.9.*",
-    "tomli-w == 1.0.*",
-    "uproot == 5.3.*",
+    "tomli-w == 1.1.*",
+    "uproot == 5.5.*",
 ]
 
 [tool.pdm.dev-dependencies]
 dev = [
     "coverage[toml]",
     "ipykernel",
-    "mypy == 1.11.1",
+    "mypy == 1.13.0",
     "pandas-stubs == 2.2.*",
-    "pre-commit-hooks == 4.6.*",
+    "pre-commit-hooks == 5.0.*",
     "pre-commit",
     "pytest >= 8.0",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.6.2",
+    "ruff == 0.8.0",
     "types-pyyaml",
 ]
 
@@ -93,6 +93,8 @@ select = [
     "UP",   # pyupgrade
     "YTT",  # flake8-2020
     "ANN",  # flake8-annotations
+    "S",    # flakey-bandit
+    "BLE",  # flake8-blind-except
     "FBT",  # flake8-boolean-trap
     "B",    # flake8-bugbear
     "A",    # flake8-builtins
@@ -103,6 +105,8 @@ select = [
     "EXE",  # flake8-executable
     "FA",   # flake8-future-annotations
     "ISC",  # flake8-implicit-str-concat
+    "ICN",  # flake8-import-conventions
+    "LOG",  # flake8-logging
     "G",    # flake8-logging-format
     "PIE",  # flake8-pie
     "T20",  # flake8-print
@@ -112,7 +116,7 @@ select = [
     "SLF",  # flake8-self
     "SIM",  # flake8-simplify
     "TID",  # flake8-tidy-imports
-    "TCH",  # flake8-type-checking
+    "TC",   # flake8-type-checking
     "INT",  # flake8-gettext
     "ARG",  # flake8-unused-arguments
     "PTH",  # flake8-use-pathlib
@@ -122,7 +126,9 @@ select = [
     "FLY",  # flynt
     "NPY",  # numpy
     "PERF", # perflint
-    "RUF",  # ruff
+    "FURB", # refurb
+    # "DOC",   # pydoclint
+    "RUF", # ruff
 ]
 ignore = [
     "D203",   # one-blank-line-before-class (conflicting with no-blank-line-before-class)
@@ -130,8 +136,8 @@ ignore = [
     "FBT001", # boolean-positional-arg-in-function-definition (not wanted)
     "FBT002", # boolean-default-value-in-function-definition (not wanted)
     "N812",   # lowercase-imported-as-non-lowercase (not wanted)
-    "ANN101", # missing-type-self (deprecated)
-    "ANN102", # missing-type-class (deprecated)
+    "S101",   # assert (TODO)
+    "S301",   # suspicious-pickle-usage (TODO)
 ]
 pylint = { max-args = 12 }
 

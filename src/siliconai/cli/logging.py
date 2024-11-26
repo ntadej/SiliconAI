@@ -6,7 +6,7 @@ from logging import DEBUG, INFO, Formatter, Logger, getLogger
 from logging.handlers import RotatingFileHandler
 from typing import TYPE_CHECKING, Any
 
-from rich import print
+from rich import print  # noqa: A004
 from rich.color import Color
 from rich.logging import RichHandler
 from rich.panel import Panel

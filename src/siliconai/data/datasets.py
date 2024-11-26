@@ -62,6 +62,9 @@ class ActsHitsDataset(Dataset):  # type: ignore
         self.transforms_int = transforms_int
         self.transforms_float = transforms_float
 
+        self.data_int: list[NDArrayType]
+        self.data_float: list[NDArrayType]
+
         with input_file.open("rb") as f:
             self.data_int, self.data_float = pickle.load(f)
 
@@ -71,8 +74,12 @@ class ActsHitsDataset(Dataset):  # type: ignore
 
     def __getitem__(self, idx: int) -> tuple[NDArrayType, NDArrayType]:
         """Return the item at the given index."""
-        sequence_int: NDArrayType = self.data_int[idx] if self.data_int else None
-        sequence_float: NDArrayType = self.data_float[idx] if self.data_float else None
+        sequence_int: NDArrayType = (
+            self.data_int[idx] if self.data_int else np.empty(0, dtype=np.float32)
+        )
+        sequence_float: NDArrayType = (
+            self.data_float[idx] if self.data_float else np.empty(0, dtype=np.float32)
+        )
 
         if self.transforms_int:
             for t in self.transforms_int:
