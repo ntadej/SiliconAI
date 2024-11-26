@@ -1,16 +1,23 @@
 # GitLab Continuous Integration configuration for the repository.
 
+variables:
+  UV_VERSION: 0.5
+  UV_CACHE_DIR: .uv-cache
+  PYTHON_VERSION: 3.11
+  BASE_LAYER: bookworm-slim
+
 stages:
   - test
 
 # Run pre-commit hooks
 pre-commit:
   stage: test
-  image: python:3.11
-  script:
+  image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
+  before_script:
     - export PATH=/root/.local/bin:$PATH
-    - pip install pipx
-    - pipx install pre-commit
+    - apt-get update && apt-get install git -y
+  script:
+    - uv tool install pre-commit
     - pre-commit run --all-files
 
 # Run code quality checks
@@ -28,20 +35,19 @@ pre-commit:
 pytest:
   stage: test
   coverage: '/COVERAGE: (\d+\.\d+\%)/'
-  image: python:3.11
+  image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
   cache:
     - key:
         files:
-          - pdm.lock
+          - uv.lock
       paths:
-        - .venv
+        - $UV_CACHE_DIR
   before_script:
     - export PATH=/root/.local/bin:$PATH
-    - curl -sSL https://pdm-project.org/install-pdm.py | python -
   script:
-    - pdm sync
-    - pdm run test --junitxml=report.xml
-    - export COVERAGE=$(pdm run coverage report --format=total)
+    - uv sync
+    - uv run pytest -W error --junitxml=report.xml
+    - export COVERAGE=$(uv run coverage report --format=total)
     - "echo COVERAGE: ${COVERAGE}%"
   artifacts:
     paths:

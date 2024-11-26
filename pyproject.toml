@@ -1,9 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "siliconai"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Deep generative models for fast silicon tracking detector simulation"
 authors = [{ name = "Tadej Novak", email = "tadej.novak@cern.ch" }]
-requires-python = ">=3.11"
+requires-python = ">= 3.11"
 readme = "README.md"
 license = { text = "MPL-2.0" }
 classifiers = [
@@ -34,7 +38,7 @@ dependencies = [
     "uproot == 5.5.*",
 ]
 
-[tool.pdm.dev-dependencies]
+[dependency-groups]
 dev = [
     "coverage[toml]",
     "ipykernel",
@@ -49,15 +53,11 @@ dev = [
     "types-pyyaml",
 ]
 
-[tool.pdm.scripts]
-test = "pytest -W error"
-
 [project.scripts]
 siliconai = "siliconai.cli:application"
 
-[build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+[tool.hatch.version]
+path = "src/siliconai/__init__.py"
 
 [tool.coverage.run]
 branch = true
