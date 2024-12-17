@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     import lightning as L
 
     from siliconai.cli.config import Configuration
-    from siliconai.cli.logging import Logger
+    from siliconai.cli.logger import Logger
 
 
 def load_data_module(

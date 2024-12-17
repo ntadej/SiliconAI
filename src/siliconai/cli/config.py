@@ -11,7 +11,7 @@ import tomli_w
 
 from siliconai.common.enums import ColumnType, DataType, ModelType
 
-from .logging import Table, config_table, error_panel, info_panel
+from .logger import Table, config_table, error_panel, info_panel
 
 
 class TyperState:
@@ -142,7 +142,7 @@ class Configuration:
             }:
                 pass
             case _:
-                error = f"invalid task configuration: {config}"
+                error = f"Invalid task configuration: {config}"
                 raise ValueError(error)
 
         self.name: str = config["name"]
@@ -215,7 +215,7 @@ class Configuration:
 class DataConfiguration:
     """Data configuration."""
 
-    def __init__(  # noqa: C901
+    def __init__(  # noqa: PLR0912, C901
         self,
         config: dict[str, Any],
         global_config: GlobalConfiguration,
@@ -229,7 +229,7 @@ class DataConfiguration:
             }:
                 pass
             case _:
-                error = f"invalid task configuration: {config}"
+                error = f"Invalid task configuration: {config}"
                 raise ValueError(error)
 
         self.type: DataType = DataType(config["type"])
@@ -272,7 +272,9 @@ class DataConfiguration:
                 )
             if self.columns_float:
                 count += 1
-            assert count == len(self.input_dim)
+            if count != len(self.input_dim):
+                error = "Incompatible dimensions"
+                raise ValueError(error)
 
         if self.random_int:
             self.columns_integer.append("random_int")
@@ -365,7 +367,7 @@ class ModelConfiguration:
             }:
                 pass
             case _:
-                error = f"invalid task configuration: {config}"
+                error = f"Invalid task configuration: {config}"
                 raise ValueError(error)
 
         self.type: ModelType = ModelType(config["type"])
@@ -517,7 +519,7 @@ class TrainingConfiguration:
             }:
                 pass
             case _:
-                error = f"invalid task configuration: {config}"
+                error = f"Invalid task configuration: {config}"
                 raise ValueError(error)
 
         self.compile: bool = config.get("compile", False)

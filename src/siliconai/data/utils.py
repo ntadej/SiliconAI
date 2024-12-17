@@ -50,8 +50,13 @@ def collate_sequence(batch: list[Any]) -> list[Any]:
     output: list[Any] = []
     for item in batch:
         item_int, item_float = item
-        if item_int is not None and item_float is not None:
-            assert len(item_int) == len(item_float)
+        if (
+            item_int is not None
+            and item_float is not None
+            and len(item_int) != len(item_float)
+        ):
+            error = "Integer and floating-point parts do not match in size"
+            raise ValueError(error)
 
         # append zeros to the end of the sequence if needed
         out_item_int = (

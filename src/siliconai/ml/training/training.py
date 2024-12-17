@@ -3,7 +3,7 @@
 import lightning as L
 
 from siliconai.cli.config import Configuration
-from siliconai.cli.logging import Logger
+from siliconai.cli.logger import Logger
 from siliconai.common.enums import DataLoadingType
 from siliconai.ml.training.loaders import load_data_module, load_model
 from siliconai.ml.training.utils import common_setup, setup_callbacks, setup_logging

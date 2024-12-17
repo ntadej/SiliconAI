@@ -6,7 +6,7 @@ from logging import DEBUG, INFO, Formatter, Logger, getLogger
 from logging.handlers import RotatingFileHandler
 from typing import TYPE_CHECKING, Any
 
-from rich import print  # noqa: A004
+from rich import print as rprint
 from rich.color import Color
 from rich.logging import RichHandler
 from rich.panel import Panel
@@ -33,7 +33,7 @@ def config_table() -> Table:
 
 def info_panel(message: str | Table, title: str = "Information") -> None:
     """Print info message in a panel."""
-    print(
+    rprint(
         Panel(
             message,
             title=title,
@@ -45,7 +45,7 @@ def info_panel(message: str | Table, title: str = "Information") -> None:
 
 def error_panel(message: str) -> Exit:
     """Print error message in a panel."""
-    print(
+    rprint(
         Panel(
             message,
             title="Error",

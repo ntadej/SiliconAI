@@ -22,19 +22,19 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
 ]
 dependencies = [
-    "lightning == 2.4.*",
-    "matplotlib == 3.9.*",
-    "mlflow == 2.18.*",
+    "lightning == 2.5.*",
+    "matplotlib == 3.10.*",
+    "mlflow == 2.19.*",
     "mplhep == 0.3.*",
-    "numpy == 1.26.*",
+    "numpy == 2.2.*",
     "pandas == 2.2.*",
-    "scikit-learn == 1.5.*",
-    "scipy == 1.14.*",
+    "scikit-learn == 1.6.*",
+    "scipy == 1.15.*",
     "tables == 3.10.*",
     "torch == 2.5.*",
     "torchvision == 0.20.*",
-    "typer[all] == 0.9.*",
-    "tomli-w == 1.1.*",
+    "typer-slim[standard] == 0.15.*",
+    "tomli-w == 1.2.*",
     "uproot == 5.5.*",
 ]
 
@@ -42,14 +42,14 @@ dependencies = [
 dev = [
     "coverage[toml]",
     "ipykernel",
-    "mypy == 1.13.0",
+    "mypy == 1.14.1",
     "pandas-stubs == 2.2.*",
     "pre-commit-hooks == 5.0.*",
     "pre-commit",
     "pytest >= 8.0",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.8.0",
+    "ruff == 0.9.2",
     "types-pyyaml",
 ]
 
@@ -127,8 +127,8 @@ select = [
     "NPY",  # numpy
     "PERF", # perflint
     "FURB", # refurb
-    # "DOC",   # pydoclint
-    "RUF", # ruff
+    "DOC",  # pydoclint
+    "RUF",  # ruff
 ]
 ignore = [
     "D203",   # one-blank-line-before-class (conflicting with no-blank-line-before-class)
@@ -136,10 +136,12 @@ ignore = [
     "FBT001", # boolean-positional-arg-in-function-definition (not wanted)
     "FBT002", # boolean-default-value-in-function-definition (not wanted)
     "N812",   # lowercase-imported-as-non-lowercase (not wanted)
-    "S101",   # assert (TODO)
-    "S301",   # suspicious-pickle-usage (TODO)
+    "S301",   # suspicious-pickle-usage (not wanted)
 ]
 pylint = { max-args = 12 }
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["S101"]
 
 [tool.mypy]
 plugins = "numpy.typing.mypy_plugin"

@@ -14,7 +14,7 @@ from siliconai.data.utils import NDArrayTransformation, NDArrayType
 
 if TYPE_CHECKING:
     from siliconai.cli.config import DataConfiguration
-    from siliconai.cli.logging import Logger
+    from siliconai.cli.logger import Logger
 
 Word = Any
 
@@ -142,7 +142,7 @@ class ColumnTokenizer(NDArrayTransformation):
         return tokenizer
 
     @staticmethod
-    def train(config: DataConfiguration, logger: Logger) -> None:
+    def train(config: DataConfiguration, logger: Logger) -> None:  # noqa: C901
         """Train the tokenizer."""
         if not config.input_file:
             return
@@ -182,7 +182,9 @@ class ColumnTokenizer(NDArrayTransformation):
             )
             # tokenizer.summary(logger)
 
-            assert len(tokenizer.dictionaries[i]) == dim
+            if len(tokenizer.dictionaries[i]) != dim:
+                error = "Dictionary sizes do not match"
+                raise ValueError(error)
 
         # build JSON representation
         tokenizer_dict = {
@@ -201,21 +203,21 @@ class ColumnTokenizer(NDArrayTransformation):
         with tokenizer_file.open("r") as f:
             data = load(f, object_hook=DataDictionary.json_decode)
 
-            assert data == tokenizer_dict
+            if data != tokenizer_dict:
+                error = "Loaded data is not the same as the original dictionary"
+                raise ValueError(error)
 
         tokenizer_loaded = ColumnTokenizer.load(config, logger)
         for i in range(ncolumns):
-            assert (
-                tokenizer_loaded.dictionaries[i].name == tokenizer.dictionaries[i].name
-            )
-            assert (
-                tokenizer_loaded.dictionaries[i].word2idx
-                == tokenizer.dictionaries[i].word2idx
-            )
-            assert (
-                tokenizer_loaded.dictionaries[i].idx2word
-                == tokenizer.dictionaries[i].idx2word
-            )
+            if (
+                tokenizer_loaded.dictionaries[i].name != tokenizer.dictionaries[i].name
+                or tokenizer_loaded.dictionaries[i].word2idx
+                != tokenizer.dictionaries[i].word2idx
+                or tokenizer_loaded.dictionaries[i].idx2word
+                != tokenizer.dictionaries[i].idx2word
+            ):
+                error = "Column tokenizer data does not match"
+                raise ValueError(error)
 
 
 class SequenceTokenizer(NDArrayTransformation):
@@ -341,7 +343,9 @@ class SequenceTokenizer(NDArrayTransformation):
         logger.info("Expected dictionary size: %d words", dim)
         tokenizer.summary(logger)
 
-        assert len(tokenizer.dictionary) == dim
+        if len(tokenizer.dictionary) != dim:
+            error = "Dictionary sizes do not match"
+            raise ValueError(error)
 
         # build JSON representation
         tokenizer_dict = {
@@ -358,9 +362,15 @@ class SequenceTokenizer(NDArrayTransformation):
         with tokenizer_file.open("r") as f:
             data = load(f, object_hook=DataDictionary.json_decode)
 
-            assert data == tokenizer_dict
+            if data != tokenizer_dict:
+                error = "Loaded data is not the same as the original dictionary"
+                raise ValueError(error)
 
         tokenizer_loaded = SequenceTokenizer.load(config, logger)
-        assert tokenizer_loaded.dictionary.word2idx == tokenizer.dictionary.word2idx
-        assert tokenizer_loaded.dictionary.idx2word == tokenizer.dictionary.idx2word
-        assert tokenizer_loaded.summary_dict == tokenizer.summary_dict
+        if (
+            tokenizer_loaded.dictionary.word2idx != tokenizer.dictionary.word2idx
+            or tokenizer_loaded.dictionary.idx2word != tokenizer.dictionary.idx2word
+            or tokenizer_loaded.summary_dict != tokenizer.summary_dict
+        ):
+            error = "Sequence tokenizer data does not match"
+            raise ValueError(error)

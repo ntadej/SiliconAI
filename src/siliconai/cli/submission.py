@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from siliconai.cli.config import Configuration
-    from siliconai.cli.logging import Logger
+    from siliconai.cli.logger import Logger
 
 
 def create_slurm_submission_script(
@@ -36,7 +36,7 @@ def create_slurm_submission_script(
             f"#SBATCH --gres=gpu:{n_gpu}\n"
             f"#SBATCH --ntasks-per-node={n_gpu}\n"
             "#SBATCH --cpus-per-task=32\n"
-            f"#SBATCH --mem={32*n_gpu}GB\n"
+            f"#SBATCH --mem={32 * n_gpu}GB\n"
             f"#SBATCH --time=2-00:00:00\n"
             f"#SBATCH --output={output_log}\n"
             "#SBATCH --signal=INT@60\n"

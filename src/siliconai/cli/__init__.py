@@ -11,7 +11,7 @@ from siliconai import __version__
 from siliconai.common.enums import DataLoadingType, DataType
 
 from .config import Configuration, GlobalConfiguration, TyperState, config_missing
-from .logging import setup_logger
+from .logger import setup_logger
 
 if not sys.warnoptions:  # pragma: no cover
     import warnings

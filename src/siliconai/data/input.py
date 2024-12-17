@@ -14,7 +14,7 @@ from siliconai.plotting.utils import PDFDocument
 
 if TYPE_CHECKING:
     from siliconai.cli.config import DataConfiguration
-    from siliconai.cli.logging import Logger
+    from siliconai.cli.logger import Logger
     from siliconai.data.utils import NDArrayType
 
 
@@ -68,19 +68,19 @@ class InputConverter:
 
         if random_int:
             event_rnd_int = np.random.randint(1, random_int, data_events)  # noqa: NPY002
-            all_rnd = np.array(
+            all_rnd_int = np.array(
                 [
                     data_hits_exact[i] * [rnd] + (data_hits - data_hits_exact[i]) * [0]
                     for i, rnd in enumerate(event_rnd_int)
                 ],
             ).flatten()
-            data_frame["random_int"] = all_rnd
+            data_frame["random_int"] = all_rnd_int
 
             column_count += 1
 
         if random_float:
             event_rnd_float = np.random.normal(0.0, 1.0, data_events)  # noqa: NPY002
-            all_rnd = (
+            all_rnd_float = (
                 np.array(
                     [
                         data_hits_exact[i] * [rnd]
@@ -91,7 +91,7 @@ class InputConverter:
                 .flatten()
                 .astype("float32")
             )
-            data_frame["random_float"] = all_rnd
+            data_frame["random_float"] = all_rnd_float
 
             column_count += 1
 

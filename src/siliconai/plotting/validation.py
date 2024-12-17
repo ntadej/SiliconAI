@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     import lightning as L
 
     from siliconai.cli.config import Configuration
-    from siliconai.cli.logging import Logger
+    from siliconai.cli.logger import Logger
     from siliconai.data.utils import NDArrayType
 
 
@@ -105,7 +105,7 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
     return output_file
 
 
-def acts_process_data(  # noqa: C901 PLR0912 PLR0915
+def acts_process_data(  # noqa: PLR0912, PLR0915, C901
     config: Configuration,
     data_int: list[NDArrayType],
     data_float: list[NDArrayType],
@@ -257,7 +257,7 @@ def acts_process_data(  # noqa: C901 PLR0912 PLR0915
     return data_nonzero_int, data_nonzero_float, data_df
 
 
-def quick_validate_acts_chain(  # noqa: PLR0915, C901
+def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     config: Configuration,
     model: L.LightningModule,
     data: L.LightningDataModule,
@@ -341,7 +341,9 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
     input_nonzero, _, input_df = acts_process_data(config, input_translated, [])
     result_nonzero, _, result_df = acts_process_data(config, result_translated, [])
 
-    assert len(input_nonzero) == len(result_nonzero)
+    if len(input_nonzero) != len(result_nonzero):
+        error = "Input and result sizes do not match"
+        raise ValueError(error)
 
     if logger:
         logger.info("Total events processed: %d", len(result_nonzero))
@@ -355,7 +357,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
         store["generated_data"] = result_df
 
     # validation plots
-    with PDFDocument(output_file) as pdf:  # type: ignore
+    with PDFDocument(output_file) as pdf:
         labels = ["Geant4", "Neural network"]
 
         n_hits_input = [len(i) - 2 for i in input_nonzero]
@@ -424,7 +426,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
     return output_file
 
 
-def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
+def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
     config: Configuration,
     model: L.LightningModule,
     data: L.LightningDataModule,
@@ -555,7 +557,9 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
         result_translated_float,
     )
 
-    assert len(input_nonzero_int) == len(result_nonzero_int)
+    if len(input_nonzero_int) != len(result_nonzero_int):
+        error = "Input and result sizes do not match"
+        raise ValueError(error)
 
     if logger:
         logger.info(
@@ -574,7 +578,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912 PLR0915 C901
         store["generated_data"] = result_df
 
     # validation plots
-    with PDFDocument(output_file) as pdf:  # type: ignore
+    with PDFDocument(output_file) as pdf:
         labels = ["Geant4", "Neural network"]
 
         n_hits_input = [
@@ -689,7 +693,7 @@ def quick_validate_trkntuple(
     orig = val_data[0].cpu().numpy()
     gen = model.generate(batch_size, val_data[1]).cpu().numpy()
 
-    with PDFDocument(output_file) as pdf:  # type: ignore
+    with PDFDocument(output_file) as pdf:
         for i, feature in enumerate(data.features):
             fig, ax = plot_hist(
                 [gen[:, i], orig[:, i]],

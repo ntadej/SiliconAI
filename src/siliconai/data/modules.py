@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from siliconai.cli.config import Configuration
-    from siliconai.cli.logging import Logger
+    from siliconai.cli.logger import Logger
 
 
 class BaseDataModule(L.LightningDataModule):

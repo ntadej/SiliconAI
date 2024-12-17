@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from sklearn import BaseEstimator  # type: ignore
 
     from siliconai.cli.config import DataConfiguration
-    from siliconai.cli.logging import Logger
+    from siliconai.cli.logger import Logger
 
 MIN_MAX = False
 
@@ -152,25 +152,34 @@ class ScikitLearnTransformation(NDArrayTransformation):
         with transformation_file.open("r") as f:
             data = load(f)
 
-            assert data == transformation_dict
+            if data != transformation_dict:
+                error = "Loaded data is not the same as the original dictionary"
+                raise ValueError(error)
 
         transformation_loaded = ScikitLearnTransformation.load(config, logger)
         for i in range(ncolumns):
+            valid = (
+                transformation_loaded.transformations[i].scale_
+                == transformation.transformations[i].scale_
+            )
             if MIN_MAX:
-                assert (
+                valid |= (
                     transformation_loaded.transformations[i].min_
                     == transformation.transformations[i].min_
                 )
             else:
-                assert (
+                valid |= (
                     transformation_loaded.transformations[i].mean_
                     == transformation.transformations[i].mean_
                 )
-                assert (
+                valid |= (
                     transformation_loaded.transformations[i].var_
                     == transformation.transformations[i].var_
                 )
-            assert (
-                transformation_loaded.transformations[i].scale_
-                == transformation.transformations[i].scale_
-            )
+
+            if not valid:
+                error = (
+                    "ScikitLearnTransformation saved representation"
+                    " does not match the original one"
+                )
+                raise ValueError(error)
