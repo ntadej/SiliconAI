@@ -183,7 +183,10 @@ class ColumnTokenizer(NDArrayTransformation):
             # tokenizer.summary(logger)
 
             if len(tokenizer.dictionaries[i]) != dim:
-                error = "Dictionary sizes do not match"
+                error = (
+                    "Dictionary sizes do not match"
+                    f" ({len(tokenizer.dictionaries[i])} vs {dim})"
+                )
                 raise ValueError(error)
 
         # build JSON representation
@@ -344,7 +347,9 @@ class SequenceTokenizer(NDArrayTransformation):
         tokenizer.summary(logger)
 
         if len(tokenizer.dictionary) != dim:
-            error = "Dictionary sizes do not match"
+            error = (
+                f"Dictionary sizes do not match ({len(tokenizer.dictionary)} vs {dim})"
+            )
             raise ValueError(error)
 
         # build JSON representation

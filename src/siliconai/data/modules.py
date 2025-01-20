@@ -61,8 +61,9 @@ class BaseDataModule(L.LightningDataModule):
             return self.val_dataloader()
         if data_type == DataLoadingType.test:
             return self.test_dataloader()
-        if data_type == DataLoadingType.predict:  # noqa: RET503
+        if data_type == DataLoadingType.predict:
             return self.predict_dataloader()
+        raise RuntimeError
 
     def train_dataloader(self) -> DataLoader[Any]:
         """Return the training DataLoader."""
@@ -209,7 +210,14 @@ class ActsHitsDataModule(BaseDataModule):
         self.input_dim_continuous = len(data_config.data.columns_float)
 
         self.tokenizer = ColumnTokenizer.load(data_config.data, logger)
-        self.transformation = ScikitLearnTransformation.load(data_config.data, logger)
+        self.transformation: ScikitLearnTransformation | None
+        if data_config.data.columns_float:
+            self.transformation = ScikitLearnTransformation.load(
+                data_config.data,
+                logger,
+            )
+        else:
+            self.transformation = None
 
         self.save_hyperparameters("data_config")
 
@@ -219,6 +227,8 @@ class ActsHitsDataModule(BaseDataModule):
 
     def inverse_data(self, data: NDArrayType) -> NDArrayType:
         """Inverse normalization on continuous data."""
+        if not self.transformation:
+            raise RuntimeError
         return self.transformation.inverse(data)
 
     def setup(self, stage: str) -> None:  # noqa: ARG002
@@ -227,14 +237,14 @@ class ActsHitsDataModule(BaseDataModule):
             ActsHitsDataset(
                 self.data_path,
                 transforms_int=[self.tokenizer],
-                transforms_float=[self.transformation],
+                transforms_float=[self.transformation] if self.transformation else None,
             ),
             self.split_ratio,
         )
         self.predict_data = ActsHitsDataset(  # type: ignore
             self.data_path,
             transforms_int=[self.tokenizer],
-            transforms_float=[self.transformation],
+            transforms_float=[self.transformation] if self.transformation else None,
         )
 
 

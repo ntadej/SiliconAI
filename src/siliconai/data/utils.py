@@ -42,14 +42,19 @@ def collate_sequence_chain(batch: list[Any]) -> list[Any]:
 def collate_sequence(batch: list[Any]) -> list[Any]:
     """Collate the ACTS dataset."""
     # get sequence feature length
-    feature_len_int = len(batch[0][0][0]) if batch[0][0] is not None else 0
-    feature_len_float = len(batch[0][1][0]) if batch[0][1] is not None else 0
+    feature_len_int = len(batch[0][0][0]) if batch[0][0].size > 0 else 0
+    feature_len_float = len(batch[0][1][0]) if batch[0][1].size > 0 else 0
     # get max length of the sequences
     max_len = max([len(item[0] if item[0] is not None else item[1]) for item in batch])
 
     output: list[Any] = []
     for item in batch:
         item_int, item_float = item
+        if item_int.size == 0:
+            item_int = None
+        if item_float.size == 0:
+            item_float = None
+
         if (
             item_int is not None
             and item_float is not None

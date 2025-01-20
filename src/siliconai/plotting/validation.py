@@ -457,8 +457,10 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
     data = cast(ActsHitsDataModule, data)
     data.setup(data_type.value)
     if logger:
-        data.tokenizer.summary(logger)
-        data.transformation.summary(logger)
+        if data.tokenizer:
+            data.tokenizer.summary(logger)
+        if data.transformation:
+            data.transformation.summary(logger)
 
     input_full_int: list[NDArrayType] = []
     input_full_float: list[NDArrayType] = []
@@ -477,6 +479,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
                     1,
                     1,
                 )
+            batch_full_float = None
             batch_start_int = batch_full_int[:, :1].to(model.device)
 
             if config.data.random_int and not no_random:
@@ -490,7 +493,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
                 (batch_start_int,),
                 tokenizer=data.tokenizer,
             )
-        elif config.model.type is ModelType.HybridTransformer:
+        if config.model.type is ModelType.HybridTransformer:
             batch_full_int = batch[0]
             batch_start_int = batch_full_int[:, :1].to(model.device)
             batch_full_float = batch[1]
@@ -511,12 +514,13 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
             result_int.cpu().numpy() if result_int is not None else [],
         )
 
-        input_full_float += list(
-            batch_full_float.cpu().numpy() if batch_full_float is not None else [],
-        )
-        result_full_float += list(
-            result_float.cpu().numpy() if result_float is not None else [],
-        )
+        if batch_full_float is not None:
+            input_full_float += list(
+                batch_full_float.cpu().numpy() if batch_full_float is not None else [],
+            )
+            result_full_float += list(
+                result_float.cpu().numpy() if result_float is not None else [],
+            )
 
         if random:
             break
