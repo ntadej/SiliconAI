@@ -1,5 +1,8 @@
 {
   "editor.formatOnSave": true,
+  "editor.rulers": [
+    88,
+  ],
   "editor.tabSize": 4,
   "python.defaultInterpreterPath": ".venv/bin/python",
   "mypy-type-checker.args": [
