@@ -161,3 +161,6 @@ ignore_missing_imports = true
 minversion = "6.0"
 addopts = "--ignore=src/siliconai/tests/ --cov=siliconai --cov-report=term-missing:skip-covered --cov-report xml --cov-report html:coverage"
 testpaths = ["tests"]
+
+[tool.uv]
+python-preference = "managed"
