@@ -30,5 +30,10 @@ checkpoint_interval = 2
 early_stopping = 0
 
 optimizer = "Adam"
-learning_rate = 0.0001
+learning_rate = 0.03
 weight_decay = 0.0
+
+[training.scheduler]
+type = "AttentionWarmupScheduler"
+interval = "step"
+warmup_steps = 1000

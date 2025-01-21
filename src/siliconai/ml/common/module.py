@@ -17,6 +17,7 @@ from siliconai.ml.models.transformer import (
     TransformerBase,
     TransformerPredictParams,
 )
+from siliconai.ml.training import schedulers
 
 if TYPE_CHECKING:
     from lightning.pytorch.utilities.types import OptimizerLRScheduler
@@ -46,7 +47,10 @@ class ModuleBase(L.LightningModule):
 
         config: OptimizerLRScheduler
         if self.config.training.scheduler:
-            scheduler = getattr(optim.lr_scheduler, self.config.training.scheduler)
+            if hasattr(schedulers, self.config.training.scheduler):
+                scheduler = getattr(schedulers, self.config.training.scheduler)
+            else:
+                scheduler = getattr(optim.lr_scheduler, self.config.training.scheduler)
             scheduler_instance: LRScheduler = scheduler(
                 optimizer_instance,
                 **self.config.training.scheduler_kwargs,
