@@ -44,7 +44,6 @@ class InputConverter:
         data_frame: pd.DataFrame,
         column_count: int,
         padding_token: int = 0,
-        end_token: int = 10001,
         flatten: bool = False,
         random_int: int = 0,
         random_float: bool = False,
@@ -60,7 +59,7 @@ class InputConverter:
 
         # do auto-padding
         data_frame = cast(
-            pd.DataFrame,
+            "pd.DataFrame",
             data_frame.unstack(fill_value=padding_token).stack(  # noqa: PD010 PD013
                 future_stack=True,
             ),
@@ -103,10 +102,7 @@ class InputConverter:
         for i in range(len(output_list)):
             if flatten:
                 output_nonzero.append(
-                    np.append(
-                        output_list[i][: data_hits_exact[i], :].flatten(),
-                        end_token,
-                    ),
+                    np.trim_zeros(output_list[i][: data_hits_exact[i], :].flatten()),
                 )
             else:
                 output_nonzero.append(
@@ -127,10 +123,7 @@ class InputConverter:
         )
 
         with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
-            data_frame: pd.DataFrame | None = store["hits"][
-                (store["hits"]["particle_type"] == 13)  # noqa: PLR2004
-                & (store["hits"]["geometry_id"] != self.config.end_token)
-            ][self.config.columns_integer]
+            data_frame: pd.DataFrame | None = store["hits"][self.config.columns_integer]
 
         if data_frame is None:
             error = "No data set to be converted"
@@ -160,7 +153,6 @@ class InputConverter:
             data_frame,
             ncolumns,
             padding_token=self.config.padding_token,
-            end_token=self.config.end_token,
             flatten=True,
         )
 

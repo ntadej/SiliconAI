@@ -302,7 +302,7 @@ class TransformerBase(nn.Module):
     @staticmethod
     def create_sequence_mask(
         data: Tensor,
-        device: torch.device,
+        device: torch.device | None = None,
         evaluate: bool = False,
     ) -> Tensor | None:
         """Create a sequence mask."""
@@ -333,7 +333,7 @@ class TransformerBase(nn.Module):
     def forward_pass(
         self,
         batch: tuple[Tensor, ...],
-        device: torch.device,
+        device: torch.device | None = None,
         evaluate: bool = False,
     ) -> Tensor:
         """Process the loss of a batch."""
@@ -342,7 +342,7 @@ class TransformerBase(nn.Module):
     def process_loss(
         self,
         batch: Tensor,
-        device: torch.device,
+        device: torch.device | None = None,
     ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
         """Process the loss of a batch."""
         raise NotImplementedError
@@ -351,7 +351,7 @@ class TransformerBase(nn.Module):
     def predict(
         self,
         batch: tuple[Tensor, ...],
-        device: torch.device,
+        device: torch.device | None = None,
         **kwargs: Unpack[TransformerPredictParams],
     ) -> tuple[Tensor | None, Tensor | None]:
         """Run predictions on the model."""
@@ -373,6 +373,7 @@ class DiscreteTransformer(TransformerBase):
             self.input_dim = config.data.input_dim[:]
 
         # setup embedding layers
+        self.embedding_0: nn.Embedding
         for i, input_dim in enumerate(self.input_dim):
             setattr(
                 self,
@@ -427,7 +428,7 @@ class DiscreteTransformer(TransformerBase):
     def forward_pass(
         self,
         batch: tuple[Tensor, ...],
-        device: torch.device,
+        device: torch.device | None = None,
         evaluate: bool = False,
     ) -> Tensor:
         """Process the loss of a batch."""
@@ -457,7 +458,7 @@ class DiscreteTransformer(TransformerBase):
     def process_loss(
         self,
         batch: Tensor,
-        device: torch.device,
+        device: torch.device | None = None,
     ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
         """Process the loss of a batch."""
         x_data, y_data = batch
@@ -468,7 +469,7 @@ class DiscreteTransformer(TransformerBase):
     def predict(
         self,
         batch: tuple[Tensor, ...],
-        device: torch.device,
+        device: torch.device | None = None,
         **kwargs: Unpack[TransformerPredictParams],
     ) -> tuple[Tensor | None, Tensor | None]:
         """Run predictions on the model."""
@@ -533,6 +534,7 @@ class HybridTransformer(TransformerBase):
             self.input_dim_discrete.pop()
 
         # setup embedding layers
+        self.embedding_0: nn.Embedding
         for i, input_dim in enumerate(self.input_dim_discrete):
             setattr(
                 self,
@@ -607,7 +609,7 @@ class HybridTransformer(TransformerBase):
     def forward_pass(
         self,
         batch: tuple[Tensor, ...],
-        device: torch.device,
+        device: torch.device | None = None,
         evaluate: bool = False,
     ) -> Tensor:
         """Process the loss of a batch."""
@@ -638,7 +640,7 @@ class HybridTransformer(TransformerBase):
     def process_loss(
         self,
         batch: Tensor,
-        device: torch.device,
+        device: torch.device | None = None,
     ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
         """Process the loss of a batch."""
         x_data_int, x_data_float, y_data_int, y_data_float = batch
@@ -649,7 +651,7 @@ class HybridTransformer(TransformerBase):
     def predict(
         self,
         batch: tuple[Tensor, ...],
-        device: torch.device,
+        device: torch.device | None = None,
         **kwargs: Unpack[TransformerPredictParams],
     ) -> tuple[Tensor | None, Tensor | None]:
         """Run predictions on the model."""
@@ -747,7 +749,7 @@ class ChainTransformer(TransformerBase):
     def forward_pass(
         self,
         batch: tuple[Tensor, ...],
-        device: torch.device,
+        device: torch.device | None = None,
         evaluate: bool = False,
     ) -> Tensor:
         """Process the loss of a batch."""
@@ -777,7 +779,7 @@ class ChainTransformer(TransformerBase):
     def process_loss(
         self,
         batch: Tensor,
-        device: torch.device,
+        device: torch.device | None = None,
     ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
         """Process the loss of a batch."""
         x_data, y_data = batch
@@ -788,7 +790,7 @@ class ChainTransformer(TransformerBase):
     def predict(
         self,
         batch: tuple[Tensor, ...],
-        device: torch.device,
+        device: torch.device | None = None,
         **kwargs: Unpack[TransformerPredictParams],
     ) -> tuple[Tensor | None, Tensor | None]:
         """Run predictions on the model."""

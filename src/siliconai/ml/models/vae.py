@@ -34,7 +34,7 @@ class Encoder(nn.Module):
             raise TypeError(error)
 
         input_dim = config.data.flat_input_dim
-        encoder_layers = cast(list[int], config.model.encoder_layers)
+        encoder_layers = cast("list[int]", config.model.encoder_layers)
 
         self.model_main = SequentialMLP(
             [input_dim, *config.model.encoder_layers],
@@ -135,7 +135,7 @@ class EncoderConv2d(nn.Module):
             raise TypeError(error)
 
         encoder_layers = cast(
-            list[tuple[int, int, int, int]],
+            "list[tuple[int, int, int, int]]",
             config.model.encoder_layers,
         )
 
@@ -201,11 +201,11 @@ class DecoderConv2d(nn.Module):
             raise TypeError(error)
 
         encoder_layers = cast(
-            list[tuple[int, int, int, int]],
+            "list[tuple[int, int, int, int]]",
             config.model.encoder_layers,
         )
         decoder_layers = cast(
-            list[tuple[int, int, int, int]],
+            "list[tuple[int, int, int, int]]",
             config.model.decoder_layers[:],
         )
 
@@ -485,7 +485,7 @@ class ConvVAE(ModuleBase):
     def forward(self, *args: Tensor) -> Tensor:
         """Forward pass."""
         x, y = args[0], args[1]
-        x = x.view(x.size(0), *cast(list[int], self.input_dim))
+        x = x.view(x.size(0), *cast("list[int]", self.input_dim))
         y = self.conditioning(y)
         mu, log_var = self.encoder(x)
         z = self.encoder.reparameterization(mu, log_var)

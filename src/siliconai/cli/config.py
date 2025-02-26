@@ -430,7 +430,7 @@ class ModelConfiguration:
                 if len(layer) != tuple_size:
                     error = "Invalid layer configuration."
                     raise ValueError(error)
-                tuple_layers.append(cast(tuple[int, int, int, int], tuple(layer)))
+                tuple_layers.append(cast("tuple[int, int, int, int]", tuple(layer)))
 
         if int_layers and tuple_layers:
             error = "Invalid layer configuration."

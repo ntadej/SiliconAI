@@ -14,11 +14,6 @@ import torch
 from torchvision.utils import make_grid  # type: ignore
 
 from siliconai.common.enums import ColumnType, DataLoadingType, DataType, ModelType
-from siliconai.data.modules import (
-    ActsChainDataModule,
-    ActsHitsDataModule,
-    TRKNtupleDataModule,
-)
 from siliconai.ml.training.loaders import (
     load_data_module_from_latest_checkpoint,
     load_model_from_latest_checkpoint,
@@ -33,7 +28,13 @@ if TYPE_CHECKING:
 
     from siliconai.cli.config import Configuration
     from siliconai.cli.logger import Logger
+    from siliconai.data.modules import (
+        ActsChainDataModule,
+        ActsHitsDataModule,
+        TRKNtupleDataModule,
+    )
     from siliconai.data.utils import NDArrayType
+    from siliconai.ml.models.transformer import TransformerBase
 
 
 def quick_validate(
@@ -48,14 +49,20 @@ def quick_validate(
     """Validate the model after training."""
     if config.data.type is DataType.ActsChain:
         logger.info("Validating ActsChain-based model output...")
-        file = quick_validate_acts_chain(config, model, data, data_type, logger=logger)
+        file = quick_validate_acts_chain(
+            config,
+            cast("TransformerBase", model),
+            data,
+            data_type,
+            logger=logger,
+        )
         logger.info("Validation done and stored in %s.", file)
 
     if config.data.type is DataType.ActsHits:
         logger.info("Validating ActsHits-based model output...")
         file = quick_validate_acts_hits(
             config,
-            model,
+            cast("TransformerBase", model),
             data,
             data_type,
             random,
@@ -82,7 +89,7 @@ def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Pat
 
     output_file = config.output_path / f"run_{config.run_number}" / "validation.pdf"
 
-    x = model.generate(
+    x = model.generate(  # type: ignore
         batch_size,
         torch.tensor([list(range(10))] * grid_size).clone().view(-1),
     )
@@ -259,7 +266,7 @@ def acts_process_data(  # noqa: PLR0912, PLR0915, C901
 
 def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     config: Configuration,
-    model: L.LightningModule,
+    model: TransformerBase,
     data: L.LightningDataModule,
     data_type: DataLoadingType,
     logger: Logger | None = None,
@@ -277,7 +284,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
         / f"validation_{data_type.value}.pdf"
     )
 
-    data = cast(ActsChainDataModule, data)
+    data = cast("ActsChainDataModule", data)
     data.setup(data_type.value)
     if logger:
         data.tokenizer.summary(logger)
@@ -297,6 +304,9 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
         batch_start = batch_full[:, :ncolumns].to(model.device)
 
         result, _ = model.predict((batch_start,), tokenizer=data.tokenizer)
+
+        if result is None:
+            raise RuntimeError
 
         input_full += list(batch_full.cpu().numpy())
         result_full += list(result.cpu().numpy())
@@ -428,7 +438,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
 
 def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
     config: Configuration,
-    model: L.LightningModule,
+    model: TransformerBase,
     data: L.LightningDataModule,
     data_type: DataLoadingType,
     random: bool = False,
@@ -454,7 +464,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
         / f"validation_{data_type.value}{suffix}.pdf"
     )
 
-    data = cast(ActsHitsDataModule, data)
+    data = cast("ActsHitsDataModule", data)
     data.setup(data_type.value)
     if logger:
         if data.tokenizer:
@@ -689,13 +699,13 @@ def quick_validate_trkntuple(
     batch_size = 1000
     output_file = config.output_path / f"run_{config.run_number}" / "validation.pdf"
 
-    data = cast(TRKNtupleDataModule, data)
+    data = cast("TRKNtupleDataModule", data)
     data.prepare_data()
     data.setup("test")
 
     val_data = data.test_data[:batch_size]
     orig = val_data[0].cpu().numpy()
-    gen = model.generate(batch_size, val_data[1]).cpu().numpy()
+    gen = model.generate(batch_size, val_data[1]).cpu().numpy()  # type: ignore
 
     with PDFDocument(output_file) as pdf:
         for i, feature in enumerate(data.features):

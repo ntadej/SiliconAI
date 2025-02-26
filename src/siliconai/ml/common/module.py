@@ -93,7 +93,7 @@ class TransformerModule(ModuleBase):
 
         if config.training.compile:
             self.model = cast(
-                TransformerBase,
+                "TransformerBase",
                 torch.compile(self.model, fullgraph=True),
             )
 

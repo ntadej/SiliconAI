@@ -24,32 +24,32 @@ classifiers = [
 dependencies = [
     "lightning == 2.5.*",
     "matplotlib == 3.10.*",
-    "mlflow == 2.19.*",
+    "mlflow == 2.21.*",
     "mplhep == 0.3.*",
     "numpy == 2.2.*",
     "pandas == 2.2.*",
     "scikit-learn == 1.6.*",
     "scipy == 1.15.*",
     "tables == 3.10.*",
-    "torch == 2.5.*",
-    "torchvision == 0.20.*",
+    "torch == 2.6.*",
+    "torchvision == 0.21.*",
     "typer-slim[standard] == 0.15.*",
     "tomli-w == 1.2.*",
-    "uproot == 5.5.*",
+    "uproot == 5.6.*",
 ]
 
 [dependency-groups]
 dev = [
     "coverage[toml]",
     "ipykernel",
-    "mypy == 1.14.1",
+    "mypy == 1.15.0",
     "pandas-stubs == 2.2.*",
     "pre-commit-hooks == 5.0.*",
     "pre-commit",
     "pytest >= 8.0",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.9.2",
+    "ruff == 0.11.2",
     "types-pyyaml",
 ]
 
