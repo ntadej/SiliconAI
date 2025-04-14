@@ -114,14 +114,6 @@ def convert_inputs(
             help="Task configuration file.",
         ),
     ],
-    diagnostics: Annotated[
-        bool,
-        typer.Option(
-            "-d",
-            "--diagnostics",
-            help="Prepare diagnostics plots.",
-        ),
-    ] = False,
 ) -> None:
     """Prepare inputs for training."""
     global_config = GlobalConfiguration.load(state)
@@ -136,9 +128,6 @@ def convert_inputs(
 
     loader = InputConverter(logger, config.data)
     loader.load()
-
-    if diagnostics:
-        loader.diagnostics()
 
 
 @application.command()

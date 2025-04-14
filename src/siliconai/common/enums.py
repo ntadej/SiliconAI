@@ -6,14 +6,8 @@ from enum import Enum
 class DataType(Enum):
     """Input type."""
 
-    # actual types
     ActsChain = "ActsChain"
     ActsHits = "ActsHits"
-    TRKNtuple = "TRKNtuple"
-
-    # data types
-    MNIST = "MNIST"
-    FashionMNIST = "FashionMNIST"
 
 
 class DataLoadingType(str, Enum):
@@ -35,8 +29,6 @@ class ColumnType(Enum):
 class ModelType(Enum):
     """Model type."""
 
-    # BasicVAE = "BasicVAE"
-    # ConvVAE = "ConvVAE"
     ChainTransformer = "ChainTransformer"
     DiscreteTransformer = "DiscreteTransformer"
     HybridTransformer = "HybridTransformer"

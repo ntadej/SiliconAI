@@ -11,12 +11,9 @@ from torch.utils.data import Dataset
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from torch import Tensor
-
     from siliconai.data.utils import (
         NDArrayTransformation,
         NDArrayType,
-        TensorTransformation,
     )
 
 
@@ -89,47 +86,3 @@ class ActsHitsDataset(Dataset):  # type: ignore
                 sequence_float = t(sequence_float)
 
         return sequence_int, sequence_float
-
-
-class TRKNtupleDataset(Dataset):  # type: ignore
-    """TRKNtuple dataset."""
-
-    def __init__(
-        self,
-        input_file: Path,
-        tensor_transform: TensorTransformation,
-        transforms: list[NDArrayTransformation] | None = None,
-    ) -> None:
-        """Load the processed TRKNtuple as a dataset."""
-        self.column_list = [
-            "track_d0",
-            "track_z0",
-            "track_phi",
-            "track_theta",
-            "track_qOverP",
-        ]
-        self.label_list = ["truth_pt", "truth_eta", "truth_phi", "truth_charge"]
-
-        self.data = np.load(input_file)
-        self.features = np.array(self.data[self.column_list].tolist())
-        self.labels = np.array(self.data[self.label_list].tolist())
-
-        self.transforms = transforms
-        self.tensor_transform = tensor_transform
-
-    def __len__(self) -> int:
-        """Return the length of the dataset."""
-        return len(self.data)
-
-    def __getitem__(self, idx: int) -> tuple[Tensor, Tensor | None]:
-        """Return the item at the given index."""
-        features: NDArrayType = self.features[idx]
-        labels: NDArrayType | None = self.labels[idx]
-
-        if self.transforms:
-            for t in self.transforms:
-                features = t(features)
-                if labels is not None:
-                    labels = t(labels)
-
-        return self.tensor_transform((features, labels))

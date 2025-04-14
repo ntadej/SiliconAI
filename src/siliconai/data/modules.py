@@ -6,20 +6,16 @@ from typing import TYPE_CHECKING, Any
 
 import lightning as L
 from torch.utils.data import DataLoader, Subset, random_split
-from torchvision.datasets import MNIST, FashionMNIST  # type: ignore
-from torchvision.transforms import ToTensor  # type: ignore
 
 from siliconai.common.enums import DataLoadingType
 from siliconai.data.datasets import (
     ActsChainDataset,
     ActsHitsDataset,
-    TRKNtupleDataset,
 )
 from siliconai.data.tokenizers import ColumnTokenizer, SequenceTokenizer
 from siliconai.data.transformations import ScikitLearnTransformation
 from siliconai.data.utils import (
     CollateFnType,
-    NDArrayToFloatTensor,
     NDArrayType,
     collate_sequence,
     collate_sequence_chain,
@@ -108,42 +104,6 @@ class BaseDataModule(L.LightningDataModule):
             pin_memory=True,
             shuffle=False,
         )
-
-
-class MNISTDataModule(BaseDataModule):
-    """MNIST data module."""
-
-    def __init__(self, config: Configuration) -> None:
-        """Initialize the data module."""
-        super().__init__(config)
-        self.data_path = config.global_config.data_path / "common_datasets"
-        self.fashion = False
-        self.save_hyperparameters(ignore=["config"])
-
-    def prepare_data(self) -> None:
-        """Download and prepare the MNIST dataset."""
-        loader = FashionMNIST if self.fashion else MNIST
-        loader(self.data_path, train=True, download=True)
-        loader(self.data_path, train=False, download=True)
-
-    def setup(self, stage: str) -> None:  # noqa: ARG002
-        """Transform and setup the MNIST dataset."""
-        loader = FashionMNIST if self.fashion else MNIST
-        self.train_data = loader(self.data_path, train=True, transform=ToTensor())
-        self.val_data, self.test_data = random_split(
-            loader(self.data_path, train=False, transform=ToTensor()),
-            [0.5, 0.5],
-        )
-        self.predict_data = loader(self.data_path, train=False, transform=ToTensor())
-
-
-class FashionMNISTDataModule(MNISTDataModule):
-    """FashionMNIST data module."""
-
-    def __init__(self, config: Configuration) -> None:
-        """Initialize the data module."""
-        super().__init__(config)
-        self.fashion = True
 
 
 class ActsChainDataModule(BaseDataModule):
@@ -245,32 +205,4 @@ class ActsHitsDataModule(BaseDataModule):
             self.data_path,
             transforms_int=[self.tokenizer],
             transforms_float=[self.transformation] if self.transformation else None,
-        )
-
-
-class TRKNtupleDataModule(BaseDataModule):
-    """TRKNtuple data module."""
-
-    def __init__(self, config: Configuration) -> None:
-        """Initialize the data module."""
-        super().__init__(config)
-        self.data_path = config.data.input_file
-
-        self.save_hyperparameters(ignore=["config"])
-
-    def setup(self, stage: str) -> None:  # noqa: ARG002
-        """Transform and setup the TRKNtuple dataset."""
-        if self.data_path is None:
-            error = "TRKNtuple data path not set."
-            raise ValueError(error)
-
-        dataset = TRKNtupleDataset(
-            self.data_path,
-            tensor_transform=NDArrayToFloatTensor(),
-        )
-        self.features = dataset.column_list[:]
-
-        self.train_data, self.val_data, self.test_data = random_split(
-            dataset,
-            self.split_ratio,
         )

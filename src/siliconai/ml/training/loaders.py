@@ -9,9 +9,6 @@ from siliconai.common.enums import DataType
 from siliconai.data.modules import (
     ActsChainDataModule,
     ActsHitsDataModule,
-    FashionMNISTDataModule,
-    MNISTDataModule,
-    TRKNtupleDataModule,
 )
 from siliconai.ml.common.module import TransformerModule
 
@@ -34,16 +31,7 @@ def load_data_module(
         return ActsChainDataModule(config, logger)
     if config.data.type is DataType.ActsHits:
         return ActsHitsDataModule(config, logger)
-    if config.data.type is DataType.TRKNtuple:
-        return TRKNtupleDataModule(config)
-    # test samples
-    if config.data.type is DataType.MNIST:
-        return MNISTDataModule(config)
-    if config.data.type is DataType.FashionMNIST:
-        return FashionMNISTDataModule(config)
-
-    error = f"Data type {config.data.type} not supported."  # type: ignore
-    raise ValueError(error)
+    raise RuntimeError
 
 
 def load_data_module_from_checkpoint(
@@ -61,12 +49,7 @@ def load_data_module_from_checkpoint(
     if config.data.type is DataType.ActsHits:
         data_module = ActsHitsDataModule.load_from_checkpoint(checkpoint)
         return data_module
-    if config.data.type is DataType.TRKNtuple:
-        data_module = TRKNtupleDataModule.load_from_checkpoint(checkpoint)
-        return data_module
-
-    error = f"Data type {config.data.type} not supported."
-    raise ValueError(error)
+    raise RuntimeError
 
 
 def load_data_module_from_latest_checkpoint(
@@ -97,12 +80,6 @@ def load_data_module_from_latest_checkpoint(
 def load_model(logger: Logger, config: Configuration) -> L.LightningModule:
     """Load the model based on the configuration."""
     logger.info("Loading model type: %s", config.model.type.value)
-
-    # if config.model.type is ModelType.BasicVAE:
-    #     model = BasicVAE(config)
-    # elif config.model.type is ModelType.ConvVAE:
-    #     model = ConvVAE(config)
-
     return TransformerModule(config)
 
 
@@ -118,12 +95,6 @@ def load_model_from_checkpoint(
     if config.model.type.is_transformer():
         model = TransformerModule.load_from_checkpoint(checkpoint)
         return model
-    # if config.model.type is ModelType.BasicVAE:
-    #     model = BasicVAE.load_from_checkpoint(checkpoint)
-    #     return model
-    # if config.model.type is ModelType.ConvVAE:
-    #     model = ConvVAE.load_from_checkpoint(checkpoint)
-    #     return model
 
     error = f"Model type {config.model.type} not supported."
     raise ValueError(error)

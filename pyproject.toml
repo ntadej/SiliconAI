@@ -32,7 +32,6 @@ dependencies = [
     "scipy == 1.15.*",
     "tables == 3.10.*",
     "torch == 2.6.*",
-    "torchvision == 0.21.*",
     "typer-slim[standard] == 0.15.*",
     "tomli-w == 1.2.*",
     "uproot == 5.6.*",

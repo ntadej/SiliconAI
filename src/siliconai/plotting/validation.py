@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import math
 import time
 from typing import TYPE_CHECKING, cast
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-from torchvision.utils import make_grid  # type: ignore
 
 from siliconai.common.enums import ColumnType, DataLoadingType, DataType, ModelType
 from siliconai.ml.training.loaders import (
@@ -31,7 +27,6 @@ if TYPE_CHECKING:
     from siliconai.data.modules import (
         ActsChainDataModule,
         ActsHitsDataModule,
-        TRKNtupleDataModule,
     )
     from siliconai.data.utils import NDArrayType
     from siliconai.ml.models.transformer import TransformerBase
@@ -70,46 +65,6 @@ def quick_validate(
             logger=logger,
         )
         logger.info("Validation done and stored in %s.", file)
-
-    if config.data.type is DataType.TRKNtuple:
-        logger.info("Validating TRKNtuple-based model output...")
-        file = quick_validate_trkntuple(config, model, data)
-        logger.info("Validation done and stored in %s.", file)
-
-    if config.data.type in [DataType.MNIST, DataType.FashionMNIST]:
-        logger.info("Validating MNIST-based model output...")
-        file = quick_validate_mnist(config, model)
-        logger.info("Validation done and stored in %s.", file)
-
-
-def quick_validate_mnist(config: Configuration, model: L.LightningModule) -> Path:
-    """Validate MNIST-based model output."""
-    batch_size = 100
-    grid_size = int(math.sqrt(batch_size))
-
-    output_file = config.output_path / f"run_{config.run_number}" / "validation.pdf"
-
-    x = model.generate(  # type: ignore
-        batch_size,
-        torch.tensor([list(range(10))] * grid_size).clone().view(-1),
-    )
-
-    if config.model.loss != "logcosh_loss":
-        x = torch.sigmoid(x)
-
-    image_size = 3
-    if (
-        isinstance(config.data.input_dim, list)
-        and len(config.data.input_dim) == image_size
-    ):
-        grid = make_grid(x.view(batch_size, *config.data.input_dim), nrow=grid_size)
-    else:
-        grid = make_grid(x.view(batch_size, 1, *config.data.input_dim), nrow=grid_size)
-    plt.axis("off")
-    plt.imshow(grid.permute(1, 2, 0).cpu().numpy(), cmap=mpl.cm.gray)  # type: ignore
-    plt.savefig(output_file)
-
-    return output_file
 
 
 def acts_process_data(  # noqa: PLR0912, PLR0915, C901
@@ -675,39 +630,6 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
                 )
                 if fig:
                     pdf.save(fig)
-
-    return output_file
-
-
-def quick_validate_trkntuple(
-    config: Configuration,
-    model: L.LightningModule,
-    data: L.LightningDataModule,
-) -> Path:
-    """Validate TRKNtuple-based model output."""
-    setup_style()
-
-    batch_size = 1000
-    output_file = config.output_path / f"run_{config.run_number}" / "validation.pdf"
-
-    data = cast("TRKNtupleDataModule", data)
-    data.prepare_data()
-    data.setup("test")
-
-    val_data = data.test_data[:batch_size]
-    orig = val_data[0].cpu().numpy()
-    gen = model.generate(batch_size, val_data[1]).cpu().numpy()  # type: ignore
-
-    with PDFDocument(output_file) as pdf:
-        for i, feature in enumerate(data.features):
-            fig, ax = plot_hist(
-                [gen[:, i], orig[:, i]],
-                feature,
-                labels=["Generated", "Original"],
-            )
-            if not fig:
-                continue
-            pdf.save(fig)
 
     return output_file
 
