@@ -139,6 +139,10 @@ def acts_process_data(  # noqa: PLR0912, PLR0915, C901
             (data_int[i][:, 0] if data_int else data_float[i][:, 0])
             != config.data.padding_token,
         )
+        end_token = np.nonzero(
+            (data_int[i][:, 0] if data_int else data_float[i][:, 0])
+            == config.data.end_token,
+        )
         if data_int:
             data = data_int[i][nz[0].min() : nz[0].max() + 1]
             if delta_calculation:
@@ -149,10 +153,14 @@ def acts_process_data(  # noqa: PLR0912, PLR0915, C901
                 data_diff = np.vstack((np.zeros(3, dtype=np.int64), data_diff))
                 data = np.hstack((data, data_diff))
 
+            if end_token[0].size > 0:
+                data = data[: end_token[0].min() + 1]
             data = data[1:-1]
             data_nonzero_int.append(data)
         if data_float:
             data = data_float[i][nz[0].min() : nz[0].max() + 1]
+            if end_token[0].size > 0:
+                data = data[: end_token[0].min() + 1]
             data = data[1:-1]
             data_nonzero_float.append(data)
 
@@ -193,7 +201,14 @@ def acts_process_data(  # noqa: PLR0912, PLR0915, C901
         data_df_int = pd.DataFrame(data_annotated_int)
 
         for i, j in column_numerical:
-            data_df_int[i] = data_df_int[j] + data_df_int[i] / 100
+            data_df_int[i] = (
+                data_df_int[j]
+                + (np.sign(data_df_int[j]) + (data_df_int[j] == 0))
+                * data_df_int[i]
+                / 100
+            )
+
+        for _, j in column_numerical:
             del data_df_int[j]
 
         columns_labels = {
@@ -264,7 +279,7 @@ def acts_process_data(  # noqa: PLR0912, PLR0915, C901
     return data_nonzero_int, data_nonzero_float, data_df
 
 
-def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
+def quick_validate_acts_chain(  # noqa: PLR0915, C901
     config: Configuration,
     model: TransformerBase,
     data: L.LightningDataModule,
@@ -320,7 +335,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
         logger.info(
             "Inference done in %.4f s (%.4f s per 10k particles)",
             time_end - time_start,
-            (time_end - time_start) / len(input_full) * 10000,
+            (time_end - time_start) / len(input_translated) * 10000,
         )
 
     # convert from flat to 2D
@@ -329,7 +344,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
             i,
             (
                 0,
-                (len(i) // ncolumns + 1) * ncolumns - len(i),
+                (len(i) // ncolumns) * ncolumns - len(i),
             ),
             constant_values=config.data.padding_token,
         ).reshape(-1, ncolumns)
@@ -340,7 +355,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
             i,
             (
                 0,
-                (len(i) // ncolumns + 1) * ncolumns - len(i),
+                (len(i) // ncolumns) * ncolumns - len(i),
             ),
             constant_values=config.data.padding_token,
         ).reshape(-1, ncolumns)
@@ -370,8 +385,8 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     with PDFDocument(output_file) as pdf:
         labels = ["Geant4", "Neural network"]
 
-        n_hits_input = [len(i) - 2 for i in input_nonzero]
-        n_hits_result = [len(i) - 2 for i in result_nonzero]
+        n_hits_input = [len(i) for i in input_nonzero]
+        n_hits_result = [len(i) for i in result_nonzero]
 
         fig, ax = plot_hist(
             [n_hits_input, n_hits_result],
@@ -399,13 +414,8 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
         ]
         for column, column_label in zip(columns_list, columns_labels, strict=True):
             if column in config.data.columns_integer:
-                column_index = config.data.columns_integer.index(column)
-                column_input = list(
-                    np.concatenate([i[:, column_index] for i in input_nonzero]),
-                )
-                column_result = list(
-                    np.concatenate([i[:, column_index] for i in result_nonzero]),
-                )
+                column_input = list(input_df[column].to_numpy())
+                column_result = list(result_df[column].to_numpy())
                 fig, ax = plot_hist(
                     [column_input, column_result],
                     column_label,
@@ -413,25 +423,6 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
                 )
                 if fig:
                     pdf.save(fig)
-
-                if config.data.columns_type:
-                    column_input = list(
-                        np.concatenate(
-                            [i[:, column_index + 1] for i in input_nonzero],
-                        ),
-                    )
-                    column_result = list(
-                        np.concatenate(
-                            [i[:, column_index + 1] for i in result_nonzero],
-                        ),
-                    )
-                    fig, ax = plot_hist(
-                        [column_input, column_result],
-                        "Local x position",
-                        labels=labels,
-                    )
-                    if fig:
-                        pdf.save(fig)
 
     return output_file
 

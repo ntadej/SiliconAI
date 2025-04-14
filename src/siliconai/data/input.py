@@ -137,7 +137,7 @@ class InputConverter:
                     data_frame[column],
                 )
                 data_frame[f"{column}1"] = data_frame[f"{column}1"]
-                data_frame[f"{column}2"] = abs(data_frame[f"{column}2"] * 100)
+                data_frame[f"{column}2"] = abs(round(data_frame[f"{column}2"] * 100))
                 del data_frame[column]
 
         # convert to correct types
