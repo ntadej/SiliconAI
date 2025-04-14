@@ -7,7 +7,7 @@ name = "siliconai"
 dynamic = ["version"]
 description = "Deep generative models for fast silicon tracking detector simulation"
 authors = [{ name = "Tadej Novak", email = "tadej.novak@cern.ch" }]
-requires-python = ">= 3.11"
+requires-python = ">= 3.13"
 readme = "README.md"
 license = { text = "MPL-2.0" }
 classifiers = [
@@ -17,7 +17,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Physics",
 ]
@@ -48,7 +48,7 @@ dev = [
     "pytest >= 8.0",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.11.2",
+    "ruff == 0.11.5",
     "types-pyyaml",
 ]
 
@@ -77,19 +77,11 @@ ignore_errors = true
 
 [tool.ruff]
 src = ["src"]
-target-version = "py311"
+target-version = "py313"
 line-length = 88
 
 [tool.ruff.lint]
 select = [
-    "F",    # pyflakes
-    "E",    # pycodestyle
-    "W",    # pycodestyle
-    "C90",  # mccabe (complexity)
-    "I",    # isort
-    "N",    # pep8-naming
-    "D",    # pydocstyle
-    "UP",   # pyupgrade
     "YTT",  # flake8-2020
     "ANN",  # flake8-annotations
     "S",    # flakey-bandit
@@ -111,23 +103,32 @@ select = [
     "T20",  # flake8-print
     "PT",   # flake8-pytest-style
     "Q",    # flake8-quotes
+    "RSE",  # flake8-raise
     "RET",  # flake8-return
     "SLF",  # flake8-self
     "SIM",  # flake8-simplify
     "TID",  # flake8-tidy-imports
     "TC",   # flake8-type-checking
-    "INT",  # flake8-gettext
     "ARG",  # flake8-unused-arguments
     "PTH",  # flake8-use-pathlib
-    "PD",   # pandas-vet
-    "PL",   # pylint
-    "TRY",  # tryceratops
     "FLY",  # flynt
+    "I",    # isort
+    "C90",  # mccabe (complexity)
     "NPY",  # numpy
+    "PD",   # pandas-vet
+    "N",    # pep8-naming
     "PERF", # perflint
-    "FURB", # refurb
+    "E",    # pycodestyle
+    "W",    # pycodestyle
     "DOC",  # pydoclint
+    "D",    # pydocstyle
+    "F",    # pyflakes
+    "PGH",  # pygrep-hooks
+    "PL",   # pylint
+    "UP",   # pyupgrade
+    "FURB", # refurb
     "RUF",  # ruff
+    "TRY",  # tryceratops
 ]
 ignore = [
     "D203",   # one-blank-line-before-class (conflicting with no-blank-line-before-class)

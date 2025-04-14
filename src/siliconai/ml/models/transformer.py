@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, TypedDict, Unpack
 
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
-from typing_extensions import Unpack
 
 from siliconai.common.enums import ColumnType
 from siliconai.data.tokenizers import ColumnTokenizer, SequenceTokenizer
@@ -143,7 +142,7 @@ class RZTXEncoderLayer(nn.Module):
         """Set state."""
         if "activation" not in state:
             state["activation"] = F.relu
-        super().__setstate__(state)  # type: ignore
+        super().__setstate__(state)  # type: ignore[no-untyped-call]
 
     def forward(
         self,
@@ -278,7 +277,7 @@ class TransformerBase(nn.Module):
             )
             encoder_norm = nn.LayerNorm(self.model_dim)
         self.encoder = nn.TransformerEncoder(
-            encoder_layer,  # type: ignore
+            encoder_layer,  # type: ignore[arg-type]
             config.model.encoder_layers,
             encoder_norm,
             enable_nested_tensor=not config.model.transformer_residual_weights,

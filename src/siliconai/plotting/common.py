@@ -70,7 +70,7 @@ def plot_feature(
     if not data:
         return None, None
 
-    feature_data = cast("list[float]", data[feature].tolist())  # type: ignore
+    feature_data = cast("list[float]", data[feature].tolist())  # type: ignore[index,union-attr]
     return plot_hist([feature_data], feature, nbins, logx)
 
 

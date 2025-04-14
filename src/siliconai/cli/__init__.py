@@ -32,7 +32,7 @@ def version_callback(value: bool) -> None:
     """Version callback."""
     if value:
         typer.echo(f"SiliconAI, version {__version__}")
-        raise typer.Exit()
+        raise typer.Exit
 
 
 @application.callback()

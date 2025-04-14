@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Unpack, cast
 
 import lightning as L
 import torch
 from torch import Tensor, optim
-from typing_extensions import Unpack
 
 from siliconai.common.enums import ModelType
 from siliconai.ml.models.transformer import (
@@ -73,7 +72,7 @@ class ModuleBase(L.LightningModule):
         if not self.logger:
             return
 
-        self.logger.experiment.log_text(self.logger.run_id, str(self), "model.txt")  # type: ignore
+        self.logger.experiment.log_text(self.logger.run_id, str(self), "model.txt")  # type: ignore[attr-defined]
 
 
 class TransformerModule(ModuleBase):

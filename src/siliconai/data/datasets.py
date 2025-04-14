@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     )
 
 
-class ActsChainDataset(Dataset):  # type: ignore
+class ActsChainDataset(Dataset):  # type: ignore[type-arg]
     """ActsChain dataset."""
 
     def __init__(
@@ -46,7 +46,7 @@ class ActsChainDataset(Dataset):  # type: ignore
         return sequence
 
 
-class ActsHitsDataset(Dataset):  # type: ignore
+class ActsHitsDataset(Dataset):  # type: ignore[type-arg]
     """ActsHits dataset."""
 
     def __init__(

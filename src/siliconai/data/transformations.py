@@ -6,13 +6,16 @@ from json import dump, load
 from typing import TYPE_CHECKING
 
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler, StandardScaler  # type: ignore
+from sklearn.preprocessing import (  # type: ignore[import-untyped]
+    MinMaxScaler,
+    StandardScaler,
+)
 
 from siliconai.data.datasets import ActsHitsDataset
 from siliconai.data.utils import NDArrayTransformation, NDArrayType
 
 if TYPE_CHECKING:
-    from sklearn import BaseEstimator  # type: ignore
+    from sklearn import BaseEstimator  # type: ignore[import-untyped]
 
     from siliconai.cli.config import DataConfiguration
     from siliconai.cli.logger import Logger

@@ -13,12 +13,12 @@ stages:
 .parallel-matrix:
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.11", "3.12"]
+      - PYTHON_VERSION: ["3.13"]
 
 # Run pre-commit hooks
 pre-commit:
   stage: pre-commit
-  image: ghcr.io/astral-sh/uv:$UV_VERSION-python3.11-$BASE_LAYER
+  image: ghcr.io/astral-sh/uv:$UV_VERSION-python3.13-$BASE_LAYER
   before_script:
     - export PATH=/root/.local/bin:$PATH
     - apt-get update && apt-get install git -y

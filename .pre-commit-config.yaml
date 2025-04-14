@@ -13,13 +13,14 @@ repos:
           - pandas-stubs
           - pytest
           - rich
+          - scikit-learn
           - torch
           - tomli_w
           - typer
           - types-pyyaml
           - uproot
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.2
+    rev: v0.11.5
     hooks:
       - id: ruff
       - id: ruff-format

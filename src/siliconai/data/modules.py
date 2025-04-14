@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import lightning as L
-from torch.utils.data import DataLoader, Subset, random_split
+from torch.utils.data import DataLoader, Dataset, Subset, random_split
 
 from siliconai.common.enums import DataLoadingType
 from siliconai.data.datasets import (
@@ -44,10 +44,10 @@ class BaseDataModule(L.LightningDataModule):
 
         self.collate_fn: CollateFnType | None = collate_fn
 
-        self.train_data: Subset[Any]
-        self.val_data: Subset[Any]
-        self.test_data: Subset[Any]
-        self.predict_data: Subset[Any]
+        self.train_data: Subset[Any] | Dataset[Any]
+        self.val_data: Subset[Any] | Dataset[Any]
+        self.test_data: Subset[Any] | Dataset[Any]
+        self.predict_data: Subset[Any] | Dataset[Any]
 
     def get_dataloader(self, data_type: DataLoadingType) -> DataLoader[Any]:
         """Get the DataLoader for the specified data type."""
@@ -138,7 +138,7 @@ class ActsChainDataModule(BaseDataModule):
             ActsChainDataset(self.data_path, transforms=[self.tokenizer]),
             self.split_ratio,
         )
-        self.predict_data = ActsChainDataset(  # type: ignore
+        self.predict_data = ActsChainDataset(
             self.data_path,
             transforms=[self.tokenizer],
         )
@@ -201,7 +201,7 @@ class ActsHitsDataModule(BaseDataModule):
             ),
             self.split_ratio,
         )
-        self.predict_data = ActsHitsDataset(  # type: ignore
+        self.predict_data = ActsHitsDataset(
             self.data_path,
             transforms_int=[self.tokenizer],
             transforms_float=[self.transformation] if self.transformation else None,

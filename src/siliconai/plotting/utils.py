@@ -15,4 +15,4 @@ class PDFDocument(PdfPages):
 
     def save(self, fig: Figure, **kwargs: dict[str, Any]) -> None:
         """Save a figure to the PDF document."""
-        super().savefig(fig, **kwargs)  # type: ignore
+        super().savefig(fig, **kwargs)  # type: ignore[no-untyped-call]

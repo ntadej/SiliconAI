@@ -36,7 +36,7 @@ def collate_sequence_chain(batch: list[Any]) -> list[Any]:
         output.append((out_item, out_item_shifted))
 
     # now with proper padding run the default collate function
-    return torch.utils.data.default_collate(output)  # type: ignore
+    return torch.utils.data.default_collate(output)  # type: ignore[no-any-return]
 
 
 def collate_sequence(batch: list[Any]) -> list[Any]:
@@ -139,7 +139,7 @@ def collate_sequence(batch: list[Any]) -> list[Any]:
             output.append((out_item_int, out_item_int_shifted))
 
     # now with proper padding run the default collate function
-    return torch.utils.data.default_collate(output)  # type: ignore
+    return torch.utils.data.default_collate(output)  # type: ignore[no-any-return]
 
 
 class NDArrayTransformation(ABC):
