@@ -24,15 +24,15 @@ classifiers = [
 dependencies = [
     "lightning == 2.5.*",
     "matplotlib == 3.10.*",
-    "mlflow == 2.21.*",
-    "mplhep == 0.3.*",
-    "numpy == 2.2.*",
-    "pandas == 2.2.*",
-    "scikit-learn == 1.6.*",
-    "scipy == 1.15.*",
+    "mlflow == 3.1.*",
+    "mplhep == 0.4.*",
+    "numpy == 2.3.*",
+    "pandas == 2.3.*",
+    "scikit-learn == 1.7.*",
+    "scipy == 1.16.*",
     "tables == 3.10.*",
-    "torch == 2.6.*",
-    "typer-slim[standard] == 0.15.*",
+    "torch == 2.7.*",
+    "typer-slim[standard] == 0.16.*",
     "tomli-w == 1.2.*",
     "uproot == 5.6.*",
 ]
@@ -41,14 +41,14 @@ dependencies = [
 dev = [
     "coverage[toml]",
     "ipykernel",
-    "mypy == 1.15.0",
-    "pandas-stubs == 2.2.*",
+    "mypy == 1.16.1",
+    "pandas-stubs == 2.3.*",
     "pre-commit-hooks == 5.0.*",
     "pre-commit",
-    "pytest >= 8.0",
+    "pytest",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.11.5",
+    "ruff == 0.12.3",
     "types-pyyaml",
 ]
 
@@ -131,12 +131,13 @@ select = [
     "TRY",  # tryceratops
 ]
 ignore = [
-    "D203",   # one-blank-line-before-class (conflicting with no-blank-line-before-class)
-    "D213",   # multi-line-summary-second-line (conflicting with multi-line-summary-first-line)
-    "FBT001", # boolean-positional-arg-in-function-definition (not wanted)
-    "FBT002", # boolean-default-value-in-function-definition (not wanted)
-    "N812",   # lowercase-imported-as-non-lowercase (not wanted)
-    "S301",   # suspicious-pickle-usage (not wanted)
+    "D203",    # one-blank-line-before-class (conflicting with no-blank-line-before-class)
+    "D213",    # multi-line-summary-second-line (conflicting with multi-line-summary-first-line)
+    "FBT001",  # boolean-positional-arg-in-function-definition (not wanted)
+    "FBT002",  # boolean-default-value-in-function-definition (not wanted)
+    "N812",    # lowercase-imported-as-non-lowercase (not wanted)
+    "PLC0415", # import-outside-top-level (not wanted)
+    "S301",    # suspicious-pickle-usage (not wanted)
 ]
 pylint = { max-args = 12 }
 
