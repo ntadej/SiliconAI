@@ -5,12 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from siliconai.common.enums import DataType
+from siliconai.common.enums import DataType, ModelType
 from siliconai.data.modules import (
     ActsChainDataModule,
     ActsHitsDataModule,
 )
-from siliconai.ml.common.module import TransformerModule
+from siliconai.ml.common.module import NanoGPTModule, TransformerModule
 
 if TYPE_CHECKING:
     import lightning as L
@@ -80,7 +80,13 @@ def load_data_module_from_latest_checkpoint(
 def load_model(logger: Logger, config: Configuration) -> L.LightningModule:
     """Load the model based on the configuration."""
     logger.info("Loading model type: %s", config.model.type.value)
-    return TransformerModule(config)
+    if config.model.type.is_transformer():
+        return TransformerModule(config)
+    if config.model.type is ModelType.NanoGPT:
+        return NanoGPTModule(config)
+
+    error = f"Model type {config.model.type} not supported."
+    raise ValueError(error)
 
 
 def load_model_from_checkpoint(
@@ -95,6 +101,8 @@ def load_model_from_checkpoint(
     if config.model.type.is_transformer():
         model = TransformerModule.load_from_checkpoint(checkpoint)
         return model
+    if config.model.type is ModelType.NanoGPT:
+        return NanoGPTModule.load_from_checkpoint(checkpoint)
 
     error = f"Model type {config.model.type} not supported."
     raise ValueError(error)

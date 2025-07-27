@@ -216,17 +216,6 @@ class TransformerBase(nn.Module):
         # enable concatenation of the input instead of sum
         self.cat = False
 
-        # check if encoder and decoder layers are integers
-        if not isinstance(
-            config.model.encoder_layers,
-            int,
-        ) or not isinstance(
-            config.model.decoder_layers,
-            int,
-        ):
-            error = "Encoder and decoder layers must be integers."
-            raise TypeError(error)
-
         # check if sequence length is non-zero
         if config.model.sequence_length <= 0:
             error = "Sequence length must be greater than zero."

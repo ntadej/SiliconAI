@@ -299,7 +299,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
             i,
             (
                 0,
-                (len(i) // ncolumns) * ncolumns - len(i),
+                ncolumns - len(i) + (len(i) // ncolumns) * ncolumns,
             ),
             constant_values=config.data.padding_token,
         ).reshape(-1, ncolumns)
@@ -310,7 +310,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
             i,
             (
                 0,
-                (len(i) // ncolumns) * ncolumns - len(i),
+                ncolumns - len(i) + (len(i) // ncolumns) * ncolumns,
             ),
             constant_values=config.data.padding_token,
         ).reshape(-1, ncolumns)

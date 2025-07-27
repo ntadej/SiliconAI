@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import tomli_w
@@ -362,7 +362,6 @@ class ModelConfiguration:
                 "model_dim": int(),
                 "encoder_layers": int() | list(),
                 # "decoder_layers": int() | list(),
-                "activation": str(),
                 "dropout": float(),
             }:
                 pass
@@ -375,17 +374,13 @@ class ModelConfiguration:
         self.model_dim: int = int(config["model_dim"])
         self.heads: int = int(config.get("heads", 0))
         self.feedforward_dim: int = int(config.get("feedforward_dim", 0))
-        self.encoder_layers: int | list[int] | list[tuple[int, int, int, int]] = (
-            self.process_layers(config.get("encoder_layers", 0))
-        )
-        self.decoder_layers: int | list[int] | list[tuple[int, int, int, int]] = (
-            self.process_layers(config.get("decoder_layers", 0))
-        )
+        self.encoder_layers: int = config.get("encoder_layers", 0)
+        self.decoder_layers: int = config.get("decoder_layers", 0)
         self.transformer_residual_weights: bool = config.get(
             "residual_weights",
             False,
         )
-        self.activation: str = config["activation"]
+        self.activation: str = config.get("activation", "gelu")
         self.activation_parameters: list[float] = config.get(
             "activation_parameters",
             [],
@@ -411,32 +406,6 @@ class ModelConfiguration:
                 config["embedding"]["input_dim"],
                 config["embedding"]["model_dim"],
             )
-
-    @staticmethod
-    def process_layers(
-        layers: int | list[int | list[int]],
-    ) -> int | list[int] | list[tuple[int, int, int, int]]:
-        """Process layers."""
-        if isinstance(layers, int):
-            return layers
-
-        int_layers = []
-        tuple_layers: list[tuple[int, int, int, int]] = []
-        for layer in layers:
-            if isinstance(layer, int):
-                int_layers.append(layer)
-            else:
-                tuple_size = 4
-                if len(layer) != tuple_size:
-                    error = "Invalid layer configuration."
-                    raise ValueError(error)
-                tuple_layers.append(cast("tuple[int, int, int, int]", tuple(layer)))
-
-        if int_layers and tuple_layers:
-            error = "Invalid layer configuration."
-            raise ValueError(error)
-
-        return tuple_layers if tuple_layers else int_layers
 
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""

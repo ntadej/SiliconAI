@@ -32,6 +32,7 @@ class ModelType(Enum):
     ChainTransformer = "ChainTransformer"
     DiscreteTransformer = "DiscreteTransformer"
     HybridTransformer = "HybridTransformer"
+    NanoGPT = "NanoGPT"
 
     def is_transformer(self) -> bool:
         """Return true if the model is a transformer."""
