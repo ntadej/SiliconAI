@@ -215,7 +215,7 @@ class Configuration:
 class DataConfiguration:
     """Data configuration."""
 
-    def __init__(  # noqa: PLR0912, C901
+    def __init__(
         self,
         config: dict[str, Any],
         global_config: GlobalConfiguration,
@@ -243,7 +243,6 @@ class DataConfiguration:
         self.end_token: int = config.get("end_token", 0)
 
         self.random_int: int = config.get("random_int", 0)
-        self.random_float: bool = config.get("random_float", False)
 
         self.conversion: bool = False
         self.conversion_input_file: Path | None = None
@@ -254,8 +253,10 @@ class DataConfiguration:
                 global_config.data_path / config["conversion"]["input"]
             )
             self.input_file = global_config.data_path / config["conversion"]["output"]
-            self.columns_integer = config["conversion"].get("columns_integer", [])
-            self.columns_float = config["conversion"].get("columns_float", [])
+            self.columns = config["conversion"].get(
+                "columns",
+                config["conversion"].get("columns_integer", []),
+            )
             self.columns_type = [
                 ColumnType(t) for t in config["conversion"].get("columns_type", [])
             ]
@@ -265,30 +266,23 @@ class DataConfiguration:
         if "input_file" in config:
             self.input_file = global_config.data_path / config["input_file"]
 
-        if self.columns_integer and not isinstance(self.input_dim, int):
-            count = len(self.columns_integer)
+        if self.columns and not isinstance(self.input_dim, int):
+            count = len(self.columns)
             if self.columns_type:
                 count = (
                     len([t for t in self.columns_type if t == ColumnType.Categorical])
                     + 1
                 )
-            if self.columns_float:
-                count += 1
             if count != len(self.input_dim):
                 error = "Incompatible dimensions"
                 raise ValueError(error)
 
         if self.random_int:
-            self.columns_integer.append("random_int")
+            self.columns.append("random_int")
             if self.columns_type:
                 self.columns_type.append(ColumnType.Categorical)
             if isinstance(self.input_dim, list):
                 self.input_dim.append(self.random_int)
-
-        if self.random_float:
-            self.columns_float.append("random_float")
-            if isinstance(self.input_dim, list):
-                self.input_dim[-1] += 1
 
     @property
     def flat_input_dim(self) -> int:
@@ -302,8 +296,7 @@ class DataConfiguration:
         return {
             "type": self.type.value,
             "input_file": str(self.input_file),
-            "columns_integer": self.columns_integer,
-            "columns_float": self.columns_float,
+            "columns": self.columns,
             "columns_type": [t.value for t in self.columns_type],
             "padding_token": self.padding_token,
             "end_token": self.end_token,
@@ -322,15 +315,13 @@ class DataConfiguration:
         table.add_row("Type:", self.type.value)
         if self.input_file:
             table.add_row("Input file:", print_path(self.input_file))
-        if self.columns_integer:
-            table.add_row("Integer columns:", str(self.columns_integer))
+        if self.columns:
+            table.add_row("Columns:", str(self.columns))
             if self.columns_type:
                 table.add_row(
                     "Column types:",
                     str([t.value for t in self.columns_type]),
                 )
-        if self.columns_float:
-            table.add_row("Floating-point columns:", str(self.columns_float))
         if self.padding_token != 0 and self.end_token != 0:
             table.add_row("Padding token:", str(self.padding_token))
             table.add_row("End token:", str(self.end_token))
@@ -395,20 +386,6 @@ class ModelConfiguration:
             [],
         )
 
-        self.conditioning: tuple[int, int] | None = None
-        if "conditioning" in config:
-            self.conditioning = (
-                config["conditioning"]["input_dim"],
-                config["conditioning"]["model_dim"],
-            )
-
-        self.embedding: tuple[int, int] | None = None
-        if "embedding" in config:
-            self.embedding = (
-                config["embedding"]["input_dim"],
-                config["embedding"]["model_dim"],
-            )
-
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
         return {
@@ -426,8 +403,6 @@ class ModelConfiguration:
             "dropout": self.dropout,
             "loss": self.loss,
             "loss_parameters": self.loss_parameters,
-            "conditioning": self.conditioning,
-            "embedding": self.embedding,
         }
 
     def to_table(self) -> Table:
@@ -458,16 +433,6 @@ class ModelConfiguration:
         table.add_row("Loss function:", self.loss)
         if self.loss_parameters:
             table.add_row("Loss function parameters:", str(self.loss_parameters))
-
-        if self.conditioning:
-            table.add_row()
-            table.add_row("Conditioning input dimension:", str(self.conditioning[0]))
-            table.add_row("Conditioning latent dimension:", str(self.conditioning[1]))
-
-        if self.embedding:
-            table.add_row()
-            table.add_row("Embedding class count:", str(self.embedding[0]))
-            table.add_row("Embedding latent dimension:", str(self.embedding[1]))
 
         return table
 

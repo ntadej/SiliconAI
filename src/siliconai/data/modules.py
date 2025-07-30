@@ -13,7 +13,6 @@ from siliconai.data.datasets import (
     ActsHitsDataset,
 )
 from siliconai.data.tokenizers import ColumnTokenizer, SequenceTokenizer
-from siliconai.data.transformations import ScikitLearnTransformation
 from siliconai.data.utils import (
     CollateFnType,
     NDArrayType,
@@ -173,17 +172,8 @@ class ActsHitsDataModule(BaseDataModule):
             self.input_dim_discreet = [data_config.data.input_dim]
         else:
             self.input_dim_discreet = data_config.data.input_dim[:]
-        self.input_dim_continuous = len(data_config.data.columns_float)
 
         self.tokenizer = ColumnTokenizer.load(data_config.data, logger)
-        self.transformation: ScikitLearnTransformation | None
-        if data_config.data.columns_float:
-            self.transformation = ScikitLearnTransformation.load(
-                data_config.data,
-                logger,
-            )
-        else:
-            self.transformation = None
 
         self.save_hyperparameters("data_config")
 
@@ -191,24 +181,10 @@ class ActsHitsDataModule(BaseDataModule):
         """Translate back from tokens to the original data."""
         return self.tokenizer.inverse(data)
 
-    def inverse_data(self, data: NDArrayType) -> NDArrayType:
-        """Inverse normalization on continuous data."""
-        if not self.transformation:
-            raise RuntimeError
-        return self.transformation.inverse(data)
-
     def setup(self, stage: str) -> None:  # noqa: ARG002
         """Transform and setup the ACTS dataset."""
         self.train_data, self.val_data, self.test_data = random_split(
-            ActsHitsDataset(
-                self.data_path,
-                transforms_int=[self.tokenizer],
-                transforms_float=[self.transformation] if self.transformation else None,
-            ),
+            ActsHitsDataset(self.data_path, transforms=[self.tokenizer]),
             self.split_ratio,
         )
-        self.predict_data = ActsHitsDataset(
-            self.data_path,
-            transforms_int=[self.tokenizer],
-            transforms_float=[self.transformation] if self.transformation else None,
-        )
+        self.predict_data = ActsHitsDataset(self.data_path, transforms=[self.tokenizer])

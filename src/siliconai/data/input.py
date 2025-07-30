@@ -43,7 +43,6 @@ class InputConverter:
         padding_token: int = 0,
         flatten: bool = False,
         random_int: int = 0,
-        random_float: bool = False,
     ) -> list[NDArrayType]:
         """Process loaded ACTS hits data."""
         if not isinstance(data_frame.index, pd.MultiIndex):
@@ -71,23 +70,6 @@ class InputConverter:
                 ],
             ).flatten()
             data_frame["random_int"] = all_rnd_int
-
-            column_count += 1
-
-        if random_float:
-            event_rnd_float = np.random.normal(0.0, 1.0, data_events)  # noqa: NPY002
-            all_rnd_float = (
-                np.array(
-                    [
-                        data_hits_exact[i] * [rnd]
-                        + (data_hits - data_hits_exact[i]) * [0]
-                        for i, rnd in enumerate(event_rnd_float)
-                    ],
-                )
-                .flatten()
-                .astype("float32")
-            )
-            data_frame["random_float"] = all_rnd_float
 
             column_count += 1
 
@@ -120,7 +102,7 @@ class InputConverter:
         )
 
         with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
-            data_frame: pd.DataFrame | None = store["hits"][self.config.columns_integer]
+            data_frame: pd.DataFrame | None = store["hits"][self.config.columns]
 
         if data_frame is None:
             error = "No data set to be converted"
@@ -142,7 +124,7 @@ class InputConverter:
 
         self.logger.info("Converting to numpy arrays")
 
-        ncolumns = len(self.config.columns_integer) + len(
+        ncolumns = len(self.config.columns) + len(
             [c for c in self.config.columns_type if c == ColumnType.Numerical],
         )
 
@@ -192,73 +174,40 @@ class InputConverter:
             self.config.conversion_input_file,
         )
 
-        columns_integer = self.config.columns_integer[:]
+        columns = self.config.columns[:]
         if self.config.random_int:
-            columns_integer.remove("random_int")
-        columns_float = self.config.columns_float[:]
-        if self.config.random_float:
-            columns_float.remove("random_float")
+            columns.remove("random_int")
 
         with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
-            data_frame_int: pd.DataFrame | None = (
-                store["hits"][columns_integer] if columns_integer else None
-            )
-            data_frame_float: pd.DataFrame | None = (
-                store["hits"][columns_float] if columns_float else None
-            )
-
-        if data_frame_int is None and data_frame_float is None:
-            error = "No data set to be converted"
-            raise ValueError(error)
+            data_frame: pd.DataFrame = store["hits"][columns]
 
         # scale quantised coordinates
         columns_scale = ["lxq", "lyq", "tpxq", "tpyq", "tpzq"]
         for column in columns_scale:
-            if data_frame_int is not None and column in data_frame_int:
-                data_frame_int[column] = data_frame_int[column] * 100
+            if column in data_frame:
+                data_frame[column] = data_frame[column] * 100
 
         # convert to correct types
-        if data_frame_int is not None:
-            data_frame_int = data_frame_int.astype("int64")
-        if data_frame_float is not None:
-            data_frame_float = data_frame_float.astype("float32")
+        if data_frame is not None:
+            data_frame = data_frame.astype("int64")
 
         self.logger.info("Converting to numpy arrays")
 
-        output_int_nonzero = (
-            self.process_acts_hits(
-                data_frame_int,
-                len(columns_integer),
-                padding_token=self.config.padding_token,
-                random_int=self.config.random_int,
-            )
-            if data_frame_int is not None
-            else []
-        )
-
-        output_float_nonzero = (
-            self.process_acts_hits(
-                data_frame_float,
-                len(columns_float),
-                padding_token=self.config.padding_token,
-                random_float=self.config.random_float,
-            )
-            if data_frame_float is not None
-            else []
+        output_int_nonzero = self.process_acts_hits(
+            data_frame,
+            len(columns),
+            padding_token=self.config.padding_token,
+            random_int=self.config.random_int,
         )
 
         self.logger.info("Writing to %s", self.config.input_file)
 
         with self.config.input_file.open("wb") as f:
-            pickle.dump((output_int_nonzero, output_float_nonzero), f)
+            pickle.dump(output_int_nonzero, f)
 
         self.logger.info("Testing %s", self.config.input_file)
 
         # test loading
         with self.config.input_file.open("rb") as f:
-            loaded_output_int, loaded_output_float = pickle.load(f)
-            self.logger.info("%s", loaded_output_int[:3] if loaded_output_int else None)
-            self.logger.info(
-                "%s",
-                loaded_output_float[:3] if loaded_output_float else None,
-            )
+            loaded_output = pickle.load(f)
+            self.logger.info("%s", loaded_output[:3])

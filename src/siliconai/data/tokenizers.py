@@ -142,12 +142,12 @@ class ColumnTokenizer(NDArrayTransformation):
         return tokenizer
 
     @staticmethod
-    def train(config: DataConfiguration, logger: Logger) -> None:  # noqa: C901
+    def train(config: DataConfiguration, logger: Logger) -> None:
         """Train the tokenizer."""
         if not config.input_file:
             return
 
-        ncolumns = len(config.columns_integer)
+        ncolumns = len(config.columns)
         if ncolumns == 0:
             return
 
@@ -155,13 +155,11 @@ class ColumnTokenizer(NDArrayTransformation):
             dimensions = config.input_dim[:]
         else:
             dimensions = [config.input_dim]
-        if config.columns_float:
-            dimensions.pop()
 
         tokenizer = ColumnTokenizer(ncolumns)
         tokenizer.dictionaries = [
             DataDictionary(f"dictionary_{column}", config.padding_token)
-            for column in config.columns_integer
+            for column in config.columns
         ]
 
         logger.info("Tokenizing the input file with %d discrete columns", ncolumns)
@@ -172,7 +170,7 @@ class ColumnTokenizer(NDArrayTransformation):
             tokenizer(row)
 
         for i, (column, dim) in enumerate(
-            zip(config.columns_integer, dimensions, strict=True),
+            zip(config.columns, dimensions, strict=True),
         ):
             logger.info("Expected dictionary size for %s: %d words", column, dim)
             logger.info(
@@ -287,13 +285,13 @@ class SequenceTokenizer(NDArrayTransformation):
         tokenizer = SequenceTokenizer()
         tokenizer.dictionary = DataDictionary("dictionary", config.padding_token)
 
-        ncolumns = len(config.columns_integer) + len(
+        ncolumns = len(config.columns) + len(
             [c for c in config.columns_type if c == ColumnType.Numerical],
         )
 
         logger.info(
             "Tokenizing the input file with %d columns and %d parts",
-            len(config.columns_integer),
+            len(config.columns),
             ncolumns,
         )
 
@@ -305,7 +303,7 @@ class SequenceTokenizer(NDArrayTransformation):
         s = 0
         for c, (column, column_type) in enumerate(
             zip(
-                config.columns_integer,
+                config.columns,
                 config.columns_type,
                 strict=True,
             ),

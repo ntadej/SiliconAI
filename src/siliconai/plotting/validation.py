@@ -67,57 +67,38 @@ def quick_validate(
         logger.info("Validation done and stored in %s.", file)
 
 
-def acts_process_data(  # noqa: PLR0912, PLR0915, C901
+def acts_process_data(  # noqa: PLR0912, C901
     config: Configuration,
-    data_int: list[NDArrayType],
-    data_float: list[NDArrayType],
-) -> tuple[list[NDArrayType], list[NDArrayType], pd.DataFrame]:
+    data: list[NDArrayType],
+) -> tuple[list[NDArrayType], pd.DataFrame]:
     """Process ActsHits data."""
     # non-zero results
-    data_nonzero_int = []
-    data_nonzero_float = []
+    data_nonzero = []
 
     delta_min_index = (
-        config.data.columns_integer.index("tpxq")
-        if "tpxq" in config.data.columns_integer
-        else 0
+        config.data.columns.index("tpxq") if "tpxq" in config.data.columns else 0
     )
     delta_max_index = (
-        config.data.columns_integer.index("tpzq")
-        if "tpzq" in config.data.columns_integer
-        else 0
+        config.data.columns.index("tpzq") if "tpzq" in config.data.columns else 0
     )
     delta_calculation = delta_min_index > 0 and delta_max_index > 0
 
-    for i in range(max(len(data_int), len(data_float))):
-        nz = np.nonzero(
-            (data_int[i][:, 0] if data_int else data_float[i][:, 0])
-            != config.data.padding_token,
-        )
-        end_token = np.nonzero(
-            (data_int[i][:, 0] if data_int else data_float[i][:, 0])
-            == config.data.end_token,
-        )
-        if data_int:
-            data = data_int[i][nz[0].min() : nz[0].max() + 1]
-            if delta_calculation:
-                data_diff = np.diff(
-                    data[:, delta_min_index : delta_max_index + 1],
-                    axis=0,
-                )
-                data_diff = np.vstack((np.zeros(3, dtype=np.int64), data_diff))
-                data = np.hstack((data, data_diff))
+    for i in range(len(data)):
+        nz = np.nonzero(data[i][:, 0] != config.data.padding_token)
+        end_token = np.nonzero(data[i][:, 0] == config.data.end_token)
+        data_row = data[i][nz[0].min() : nz[0].max() + 1]
+        if delta_calculation:
+            data_diff = np.diff(
+                data_row[:, delta_min_index : delta_max_index + 1],
+                axis=0,
+            )
+            data_diff = np.vstack((np.zeros(3, dtype=np.int64), data_diff))
+            data_row = np.hstack((data_row, data_diff))
 
-            if end_token[0].size > 0:
-                data = data[: end_token[0].min() + 1]
-            data = data[1:-1]
-            data_nonzero_int.append(data)
-        if data_float:
-            data = data_float[i][nz[0].min() : nz[0].max() + 1]
-            if end_token[0].size > 0:
-                data = data[: end_token[0].min() + 1]
-            data = data[1:-1]
-            data_nonzero_float.append(data)
+        if end_token[0].size > 0:
+            data_row = data_row[: end_token[0].min() + 1]
+        data_row = data_row[1:-1]
+        data_nonzero.append(data_row)
 
     # data frame
     data_labels = [
@@ -133,7 +114,7 @@ def acts_process_data(  # noqa: PLR0912, PLR0915, C901
                 ],
             ),
         )
-        for i, v in enumerate(data_nonzero_int if data_int else data_nonzero_float)
+        for i, v in enumerate(data_nonzero)
     ]
 
     # restore numerical values
@@ -145,76 +126,43 @@ def acts_process_data(  # noqa: PLR0912, PLR0915, C901
             i += 1
         i += 1
 
-    if data_nonzero_int:
-        data_annotated_int = np.concatenate(
-            [
-                np.hstack([a, b])
-                for a, b in zip(data_labels, data_nonzero_int, strict=True)
-            ],
+    data_annotated = np.concatenate(
+        [np.hstack([a, b]) for a, b in zip(data_labels, data_nonzero, strict=True)],
+    )
+
+    data_df = pd.DataFrame(data_annotated)
+
+    for i, j in column_numerical:
+        data_df[i] = (
+            data_df[j] + (np.sign(data_df[j]) + (data_df[j] == 0)) * data_df[i] / 100
         )
 
-        data_df_int = pd.DataFrame(data_annotated_int)
+    for _, j in column_numerical:
+        del data_df[j]
 
-        for i, j in column_numerical:
-            data_df_int[i] = (
-                data_df_int[j]
-                + (np.sign(data_df_int[j]) + (data_df_int[j] == 0))
-                * data_df_int[i]
-                / 100
-            )
-
-        for _, j in column_numerical:
-            del data_df_int[j]
-
-        columns_labels = {
-            0: "event_id",
-            1: "index",
+    columns_labels = {
+        0: "event_id",
+        1: "index",
+    }
+    if delta_calculation:
+        delta_offset = len(config.data.columns) + 2
+        columns_labels = columns_labels | {
+            delta_offset: "deltapxq",
+            delta_offset + 1: "deltapyq",
+            delta_offset + 2: "deltapzq",
         }
-        if delta_calculation:
-            delta_offset = len(config.data.columns_integer) + 2
-            columns_labels = columns_labels | {
-                delta_offset: "deltapxq",
-                delta_offset + 1: "deltapyq",
-                delta_offset + 2: "deltapzq",
-            }
-        k = 2
-        for i, label in enumerate(config.data.columns_integer):
+    k = 2
+    for i, label in enumerate(config.data.columns):
+        columns_labels[k] = label
+        k += 1
+        if (
+            config.data.columns_type
+            and config.data.columns_type[i] == ColumnType.Numerical
+        ):
             columns_labels[k] = label
             k += 1
-            if (
-                config.data.columns_type
-                and config.data.columns_type[i] == ColumnType.Numerical
-            ):
-                columns_labels[k] = label
-                k += 1
-        data_df_int = data_df_int.rename(columns=columns_labels)
-        data_df_int = data_df_int.set_index(["event_id", "index"])
-
-        data_df = data_df_int
-
-    if data_nonzero_float:
-        data_annotated_float = np.concatenate(
-            [
-                np.hstack([a, b])
-                for a, b in zip(data_labels, data_nonzero_float, strict=True)
-            ],
-        )
-
-        data_df_float = pd.DataFrame(data_annotated_float)
-
-        columns_labels = {
-            0: "event_id",
-            1: "index",
-        }
-        for i, label in enumerate(config.data.columns_float):
-            columns_labels[i + 2] = label
-        data_df_float = data_df_float.rename(columns=columns_labels)
-        data_df_float = data_df_float.set_index(["event_id", "index"])
-
-        data_df = data_df_float
-
-    if data_nonzero_int and data_nonzero_float:
-        data_df = pd.concat([data_df_int, data_df_float], axis=1)
+    data_df = data_df.rename(columns=columns_labels)
+    data_df = data_df.set_index(["event_id", "index"])
 
     if not config.data.columns_type:
         columns_scale = [
@@ -231,7 +179,7 @@ def acts_process_data(  # noqa: PLR0912, PLR0915, C901
             if column in data_df.columns:
                 data_df[column] /= 100
 
-    return data_nonzero_int, data_nonzero_float, data_df
+    return data_nonzero, data_df
 
 
 def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
@@ -266,7 +214,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
         logger.info("Starting inference")
     time_start = time.perf_counter()
 
-    ncolumns = len(config.data.columns_integer) + len(
+    ncolumns = len(config.data.columns) + len(
         [c for c in config.data.columns_type if c == ColumnType.Numerical],
     )
 
@@ -322,8 +270,8 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     ]
 
     # non-zero results and DF conversion
-    input_nonzero, _, input_df = acts_process_data(config, input_translated, [])
-    result_nonzero, _, result_df = acts_process_data(config, result_translated, [])
+    input_nonzero, input_df = acts_process_data(config, input_translated)
+    result_nonzero, result_df = acts_process_data(config, result_translated)
 
     if len(input_nonzero) != len(result_nonzero):
         error = "Input and result sizes do not match"
@@ -372,7 +320,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
             "Momentum z",
         ]
         for column, column_label in zip(columns_list, columns_labels, strict=True):
-            if column in config.data.columns_integer:
+            if column in config.data.columns:
                 column_input = list(input_df[column].to_numpy())
                 column_result = list(result_df[column].to_numpy())
                 fig, ax = plot_hist(
@@ -416,87 +364,47 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
 
     data = cast("ActsHitsDataModule", data)
     data.setup(data_type.value)
-    if logger:
-        if data.tokenizer:
-            data.tokenizer.summary(logger)
-        if data.transformation:
-            data.transformation.summary(logger)
+    if logger and data.tokenizer:
+        data.tokenizer.summary(logger)
 
-    input_full_int: list[NDArrayType] = []
-    input_full_float: list[NDArrayType] = []
-    result_full_int: list[NDArrayType] = []
-    result_full_float: list[NDArrayType] = []
+    input_full: list[NDArrayType] = []
+    result_full: list[NDArrayType] = []
     if logger:
         logger.info("Starting inference")
     time_start = time.perf_counter()
 
     for batch in data.get_dataloader(data_type):
         if config.model.type is ModelType.DiscreteTransformer:
-            batch_full_int = batch[0]
+            batch_full = batch[0]
             if random:
-                batch_full_int = batch_full_int[0, :, :].repeat(
-                    len(batch_full_int),
+                batch_full = batch_full[0, :, :].repeat(
+                    len(batch_full),
                     1,
                     1,
                 )
-            batch_full_float = None
-            batch_start_int = batch_full_int[:, :1].to(model.device)
+            batch_start = batch_full[:, :1].to(model.device)
 
             if config.data.random_int and not no_random:
-                batch_start_int[:, :, -1] = torch.randint(
+                batch_start[:, :, -1] = torch.randint(
                     1,
                     config.data.random_int,
                     (len(batch[0]), 1),
                 )
 
-            result_int, result_float = model.predict(
-                (batch_start_int,),
-                tokenizer=data.tokenizer,
-            )
-        if config.model.type is ModelType.HybridTransformer:
-            batch_full_int = batch[0]
-            batch_start_int = batch_full_int[:, :1].to(model.device)
-            batch_full_float = batch[1]
-            batch_start_float = batch_full_float[:, :1].to(model.device)
+            result = model.predict((batch_start,), tokenizer=data.tokenizer)
 
-            if config.data.random_float:
-                batch_start_float[:, :, -1] = torch.normal(0, 1, (len(batch[0]), 1))
-
-            result_int, result_float = model.predict(
-                (batch_start_int, batch_start_float),
-                tokenizer=data.tokenizer,
-            )
-
-        input_full_int += list(
-            batch_full_int.cpu().numpy() if batch_full_int is not None else [],
+        input_full += list(
+            batch_full.cpu().numpy() if batch_full is not None else [],
         )
-        result_full_int += list(
-            result_int.cpu().numpy() if result_int is not None else [],
+        result_full += list(
+            result.cpu().numpy() if result is not None else [],
         )
-
-        if batch_full_float is not None:
-            input_full_float += list(
-                batch_full_float.cpu().numpy() if batch_full_float is not None else [],
-            )
-            result_full_float += list(
-                result_float.cpu().numpy() if result_float is not None else [],
-            )
 
         if random:
             break
 
-    input_translated_int: list[NDArrayType] = [
-        data.translate_data(i) for i in input_full_int
-    ]
-    input_translated_float: list[NDArrayType] = [
-        data.inverse_data(i) for i in input_full_float
-    ]
-    result_translated_int: list[NDArrayType] = [
-        data.translate_data(i) for i in result_full_int
-    ]
-    result_translated_float: list[NDArrayType] = [
-        data.inverse_data(i) for i in result_full_float
-    ]
+    input_translated: list[NDArrayType] = [data.translate_data(i) for i in input_full]
+    result_translated: list[NDArrayType] = [data.translate_data(i) for i in result_full]
 
     time_end = time.perf_counter()
 
@@ -504,32 +412,19 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
         logger.info(
             "Inference done in %.4f s (%.4f s per 10k particles)",
             time_end - time_start,
-            (time_end - time_start)
-            / max(len(input_full_int), len(input_full_float))
-            * 10000,
+            (time_end - time_start) / len(input_full) * 10000,
         )
 
     # non-zero results and DF conversion
-    input_nonzero_int, input_nonzero_float, input_df = acts_process_data(
-        config,
-        input_translated_int,
-        input_translated_float,
-    )
-    result_nonzero_int, result_nonzero_float, result_df = acts_process_data(
-        config,
-        result_translated_int,
-        result_translated_float,
-    )
+    input_nonzero, input_df = acts_process_data(config, input_translated)
+    result_nonzero, result_df = acts_process_data(config, result_translated)
 
-    if len(input_nonzero_int) != len(result_nonzero_int):
+    if len(input_nonzero) != len(result_nonzero):
         error = "Input and result sizes do not match"
         raise ValueError(error)
 
     if logger:
-        logger.info(
-            "Total events processed: %d",
-            max(len(result_nonzero_int), len(result_nonzero_float)),
-        )
+        logger.info("Total events processed: %d", len(result_nonzero))
 
     # store data
     with pd.HDFStore(
@@ -545,16 +440,8 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
     with PDFDocument(output_file) as pdf:
         labels = ["Geant4", "Neural network"]
 
-        n_hits_input = [
-            len(i) - 2
-            for i in (input_nonzero_int if input_nonzero_int else input_nonzero_float)
-        ]
-        n_hits_result = [
-            len(i) - 2
-            for i in (
-                result_nonzero_int if result_nonzero_int else result_nonzero_float
-            )
-        ]
+        n_hits_input = [len(i) - 2 for i in input_nonzero]
+        n_hits_result = [len(i) - 2 for i in result_nonzero]
         n_hits_diff = [
             abs(i - j) for i, j in zip(n_hits_input, n_hits_result, strict=True)
         ]
@@ -593,39 +480,13 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
         ]
 
         for column, column_label in zip(columns_list, columns_labels, strict=True):
-            if column in config.data.columns_integer:
-                column_index = config.data.columns_integer.index(column)
+            if column in config.data.columns:
+                column_index = config.data.columns.index(column)
                 column_input = list(
-                    np.concatenate([i[:, column_index] for i in input_nonzero_int]),
+                    np.concatenate([i[:, column_index] for i in input_nonzero]),
                 )
                 column_result = list(
-                    np.concatenate([i[:, column_index] for i in result_nonzero_int]),
-                )
-                fig, ax = plot_hist(
-                    [column_input, column_result],
-                    column_label,
-                    labels=labels,
-                )
-                if fig:
-                    pdf.save(fig)
-
-        columns_list = ["lx", "ly", "tpx", "tpy", "tpz"]
-        columns_labels = [
-            "Local x position",
-            "Local y position",
-            "Momentum x",
-            "Momentum y",
-            "Momentum z",
-        ]
-
-        for column, column_label in zip(columns_list, columns_labels, strict=True):
-            if column in config.data.columns_float:
-                column_index = config.data.columns_float.index(column)
-                column_input = list(
-                    np.concatenate([i[:, column_index] for i in input_nonzero_float]),
-                )
-                column_result = list(
-                    np.concatenate([i[:, column_index] for i in result_nonzero_float]),
+                    np.concatenate([i[:, column_index] for i in result_nonzero]),
                 )
                 fig, ax = plot_hist(
                     [column_input, column_result],

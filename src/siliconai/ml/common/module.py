@@ -14,7 +14,6 @@ from siliconai.ml.models.nanogpt import GPTConfig, NanoGPT
 from siliconai.ml.models.transformer import (
     ChainTransformer,
     DiscreteTransformer,
-    HybridTransformer,
     TransformerBase,
     TransformerPredictParams,
 )
@@ -89,8 +88,6 @@ class TransformerModule(ModuleBase):
             self.model = ChainTransformer(config)
         elif config.model.type is ModelType.DiscreteTransformer:
             self.model = DiscreteTransformer(config)
-        elif config.model.type is ModelType.HybridTransformer:
-            self.model = HybridTransformer(config)
 
         if config.training.compile:
             self.model = cast(
@@ -107,50 +104,44 @@ class TransformerModule(ModuleBase):
 
     def training_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
         """Run training step."""
-        loss, loss_int, loss_float = self.model.process_loss(batch, self.device)
+        loss, loss_split = self.model.process_loss(batch, self.device)
 
         self.log("train_loss", loss, sync_dist=True)
-        if loss_int:
+        if loss_split:
             for label, loss_value in zip(
-                self.config.data.columns_integer,
-                loss_int,
+                self.config.data.columns,
+                loss_split,
                 strict=True,
             ):
                 self.log(f"train_loss_{label}", loss_value, sync_dist=True)
-        if loss_float:
-            self.log("train_loss_float", loss_float[0], sync_dist=True)
         return loss
 
     def validation_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
         """Run validation step."""
-        loss, loss_int, loss_float = self.model.process_loss(batch, self.device)
+        loss, loss_split = self.model.process_loss(batch, self.device)
 
         self.log("val_loss", loss, sync_dist=True)
-        if loss_int:
+        if loss_split:
             for label, loss_value in zip(
-                self.config.data.columns_integer,
-                loss_int,
+                self.config.data.columns,
+                loss_split,
                 strict=True,
             ):
                 self.log(f"val_loss_{label}", loss_value, sync_dist=True)
-        if loss_float:
-            self.log("val_loss_float", loss_float[0], sync_dist=True)
         return loss
 
     def test_step(self, batch: Tensor, _batch_idx: int) -> Tensor:  # noqa: PT019
         """Run test step."""
-        loss, loss_int, loss_float = self.model.process_loss(batch, self.device)
+        loss, loss_split = self.model.process_loss(batch, self.device)
 
         self.log("test_loss", loss, sync_dist=True)
-        if loss_int:
+        if loss_split:
             for label, loss_value in zip(
-                self.config.data.columns_integer,
-                loss_int,
+                self.config.data.columns,
+                loss_split,
                 strict=True,
             ):
                 self.log(f"test_loss_{label}", loss_value, sync_dist=True)
-        if loss_float:
-            self.log("test_loss_float", loss_float[0], sync_dist=True)
         return loss
 
     @torch.no_grad()
@@ -158,7 +149,7 @@ class TransformerModule(ModuleBase):
         self,
         batch: tuple[Tensor, ...],
         **kwargs: Unpack[TransformerPredictParams],
-    ) -> tuple[Tensor | None, Tensor | None]:
+    ) -> Tensor:
         """Run predictions on the model."""
         return self.model.predict(batch, self.device, **kwargs)
 
@@ -240,7 +231,7 @@ class NanoGPTModule(ModuleBase):
         batch: tuple[Tensor, ...],
         device: torch.device | None = None,
         **kwargs: Unpack[TransformerPredictParams],
-    ) -> tuple[Tensor | None, Tensor | None]:
+    ) -> Tensor:
         """Run predictions on the model."""
         # _rich_traceback_guard = True
 
@@ -258,9 +249,7 @@ class NanoGPTModule(ModuleBase):
         ).to(device if device else self.device)
         input_tensor = batch[0]
 
-        input_tensor = self.model.generate(
+        return self.model.generate(
             input_tensor,
             end_tensor,
         )
-
-        return input_tensor, None

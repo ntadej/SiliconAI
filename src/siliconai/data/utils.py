@@ -49,101 +49,46 @@ def collate_sequence_chain(batch: list[Any]) -> list[Any]:
 def collate_sequence(batch: list[Any]) -> list[Any]:
     """Collate the ACTS dataset."""
     # get sequence feature length
-    feature_len_int = len(batch[0][0][0]) if batch[0][0].size > 0 else 0
-    feature_len_float = len(batch[0][1][0]) if batch[0][1].size > 0 else 0
+    feature_len = len(batch[0][0]) if batch[0].size > 0 else 0
     # get max length of the sequences
     max_len = max([len(item[0] if item[0] is not None else item[1]) for item in batch])
 
     output: list[Any] = []
     for item in batch:
-        item_int, item_float = item
-        if item_int.size == 0:
-            item_int = None
-        if item_float.size == 0:
-            item_float = None
-
-        if (
-            item_int is not None
-            and item_float is not None
-            and len(item_int) != len(item_float)
-        ):
-            error = "Integer and floating-point parts do not match in size"
-            raise ValueError(error)
-
         # append zeros to the end of the sequence if needed
-        out_item_int = (
+        out_item = (
             (
                 np.vstack(
                     [
-                        item_int,
+                        item,
                         np.zeros(
-                            (max_len - len(item_int), feature_len_int),
+                            (max_len - len(item), feature_len),
                             dtype=np.int64,
                         ),
                     ],
                 )
-                if len(item_int) < max_len
-                else item_int
+                if len(item) < max_len
+                else item
             )
-            if item_int is not None
-            else None
-        )
-        out_item_float = (
-            (
-                np.vstack(
-                    [
-                        item_float,
-                        np.zeros(
-                            (max_len - len(item_float), feature_len_float),
-                            dtype=np.float32,
-                        ),
-                    ],
-                )
-                if len(item_float) < max_len
-                else item_float
-            )
-            if item_float is not None
+            if item is not None
             else None
         )
         # shift the prediction for one to the left and append zeros to the end
-        out_item_int_shifted = (
+        out_item_shifted = (
             np.vstack(
                 [
-                    item_int[1:],
+                    item[1:],
                     np.zeros(
-                        (max_len - len(item_int) + 1, feature_len_int),
+                        (max_len - len(item) + 1, feature_len),
                         dtype=np.int64,
                     ),
                 ],
             )
-            if item_int is not None
-            else None
-        )
-        out_item_float_shifted = (
-            np.vstack(
-                [
-                    item_float[1:],
-                    np.zeros(
-                        (max_len - len(item_float) + 1, feature_len_float),
-                        dtype=np.float32,
-                    ),
-                ],
-            )
-            if item_float is not None
+            if item is not None
             else None
         )
         # append to the output
-        if out_item_int is not None and out_item_float is not None:
-            output.append(
-                (
-                    out_item_int,
-                    out_item_float,
-                    out_item_int_shifted,
-                    out_item_float_shifted,
-                ),
-            )
-        elif out_item_int is not None:
-            output.append((out_item_int, out_item_int_shifted))
+        output.append((out_item, out_item_shifted))
 
     # now with proper padding run the default collate function
     return torch.utils.data.default_collate(output)  # type: ignore[no-any-return]
