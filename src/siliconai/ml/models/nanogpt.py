@@ -340,7 +340,7 @@ class NanoGPT(nn.Module):
         self,
         idx: Tensor,
         end_tensor: Tensor,
-        max_new_tokens: int = 512,
+        max_tokens: int = 256,
         temperature: float = 1.0,
         top_k: int | None = None,
     ) -> Tensor:
@@ -351,7 +351,7 @@ class NanoGPT(nn.Module):
         into the model each time. Most likely you'll want to make sure to be
         in model.eval() mode of operation for this.
         """
-        for _ in range(max_new_tokens):
+        for _ in range(len(idx[0]), max_tokens):
             # if the sequence context is growing too long we must crop it at block_size
             idx_cond = (
                 idx

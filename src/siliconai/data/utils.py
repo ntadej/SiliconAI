@@ -18,6 +18,13 @@ NDArrayType = NDArray[np.float32 | np.uint64]
 CollateFnType = Callable[[list[Any]], Any]
 
 
+def sliding_subarrays(arr: NDArrayType, n: int, m: int) -> np.ndarray:
+    """Return all subarrays of size n, shifted by m."""
+    shape = ((len(arr) - n) // m + 1, n)
+    strides = (arr.strides[0] * m, arr.strides[0])
+    return np.lib.stride_tricks.as_strided(arr, shape=shape, strides=strides)
+
+
 def collate_sequence_chain(batch: list[Any]) -> list[Any]:
     """Collate the ACTS chain dataset."""
     # get max length of the sequences
@@ -29,9 +36,9 @@ def collate_sequence_chain(batch: list[Any]) -> list[Any]:
         # Note: here zeros are OK as this is the assummed padding token representation
         out_item = (
             np.pad(item, (0, max_len - len(item))) if len(item) < max_len else item
-        )
+        )[:-1]
         # shift the prediction for one to the left and append zeros to the end
-        out_item_shifted = np.pad(item[1:], (0, max_len - len(item) + 1))
+        out_item_shifted = np.pad(item[1:], (0, max_len - len(item) + 1))[:-1]
         # append to the output
         output.append((out_item, out_item_shifted))
 

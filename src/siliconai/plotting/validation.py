@@ -29,7 +29,7 @@ if TYPE_CHECKING:
         ActsHitsDataModule,
     )
     from siliconai.data.utils import NDArrayType
-    from siliconai.ml.models.transformer import TransformerBase
+    from siliconai.ml.common.module import NanoGPTModule, TransformerModule
 
 
 def quick_validate(
@@ -46,7 +46,7 @@ def quick_validate(
         logger.info("Validating ActsChain-based model output...")
         file = quick_validate_acts_chain(
             config,
-            cast("TransformerBase", model),
+            cast("NanoGPTModule", model),
             data,
             data_type,
             logger=logger,
@@ -57,7 +57,7 @@ def quick_validate(
         logger.info("Validating ActsHits-based model output...")
         file = quick_validate_acts_hits(
             config,
-            cast("TransformerBase", model),
+            cast("TransformerModule", model),
             data,
             data_type,
             random,
@@ -234,9 +234,9 @@ def acts_process_data(  # noqa: PLR0912, PLR0915, C901
     return data_nonzero_int, data_nonzero_float, data_df
 
 
-def quick_validate_acts_chain(  # noqa: PLR0915, C901
+def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     config: Configuration,
-    model: TransformerBase,
+    model: NanoGPTModule,
     data: L.LightningDataModule,
     data_type: DataLoadingType,
     logger: Logger | None = None,
@@ -255,6 +255,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
     )
 
     data = cast("ActsChainDataModule", data)
+    data.full_data = True
     data.setup(data_type.value)
     if logger:
         data.tokenizer.summary(logger)
@@ -269,7 +270,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
         [c for c in config.data.columns_type if c == ColumnType.Numerical],
     )
 
-    for batch in data.get_dataloader(data_type):
+    for counter, batch in enumerate(data.get_dataloader(data_type)):
         batch_full = batch[0]
         batch_start = batch_full[:, :ncolumns].to(model.device)
 
@@ -280,6 +281,9 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
 
         input_full += list(batch_full.cpu().numpy())
         result_full += list(result.cpu().numpy())
+
+        if logger:
+            logger.info("Processed %d batches", counter + 1)
 
     input_translated: list[NDArrayType] = [data.translate_data(i) for i in input_full]
     result_translated: list[NDArrayType] = [data.translate_data(i) for i in result_full]
@@ -384,7 +388,7 @@ def quick_validate_acts_chain(  # noqa: PLR0915, C901
 
 def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
     config: Configuration,
-    model: TransformerBase,
+    model: TransformerModule,
     data: L.LightningDataModule,
     data_type: DataLoadingType,
     random: bool = False,

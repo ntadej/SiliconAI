@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import pickle
 from typing import TYPE_CHECKING, cast
 
@@ -9,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from siliconai.common.enums import ColumnType, DataType
+from siliconai.data.utils import sliding_subarrays
 
 if TYPE_CHECKING:
     from siliconai.cli.config import DataConfiguration
@@ -151,17 +153,33 @@ class InputConverter:
             flatten=True,
         )
 
+        output_nonzero_chunked = None
+        if self.config.max_blocks > 0:
+            output_nonzero_chunked = [
+                sliding_subarrays(
+                    arr,
+                    self.config.block_size * self.config.max_blocks + 1,
+                    self.config.block_size,
+                )
+                for arr in output_nonzero
+            ]
+            output_nonzero_chunked = list(
+                itertools.chain.from_iterable(output_nonzero_chunked),
+            )
+
         self.logger.info("Writing to %s", self.config.input_file)
 
         with self.config.input_file.open("wb") as f:
-            pickle.dump(output_nonzero, f)
+            pickle.dump([output_nonzero, output_nonzero_chunked], f)
 
         self.logger.info("Testing %s", self.config.input_file)
 
         # test loading
         with self.config.input_file.open("rb") as f:
-            loaded_output = pickle.load(f)
-            self.logger.info("%s", loaded_output[:3])
+            loaded_output, loaded_output_chunked = pickle.load(f)
+            self.logger.info("%s", loaded_output[-3:])
+            if loaded_output_chunked is not None:
+                self.logger.info("%s", loaded_output_chunked[-3:])
 
     def load_acts_hits(self) -> None:
         """Load the ACTS hits input data."""

@@ -258,6 +258,9 @@ class NanoGPTModule(ModuleBase):
         ).to(device if device else self.device)
         input_tensor = batch[0]
 
-        input_tensor = self.model.generate(input_tensor, end_tensor)
+        input_tensor = self.model.generate(
+            input_tensor,
+            end_tensor,
+        )
 
         return input_tensor, None

@@ -24,12 +24,16 @@ class ActsChainDataset(Dataset):  # type: ignore[type-arg]
         self,
         input_file: Path,
         transforms: list[NDArrayTransformation] | None = None,
+        full_data: bool = False,
     ) -> None:
         """Load the ActsHits as a dataset."""
         self.transforms = transforms
 
         with input_file.open("rb") as f:
-            self.data = pickle.load(f)
+            data, data_chunked = pickle.load(f)
+            self.data = (
+                data_chunked if not full_data and data_chunked is not None else data
+            )
 
     def __len__(self) -> int:
         """Return the length of the dataset."""

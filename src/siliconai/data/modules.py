@@ -123,6 +123,7 @@ class ActsChainDataModule(BaseDataModule):
         self.logger = logger
 
         self.data_path: Path = data_config.data.input_file
+        self.full_data: bool = False
 
         self.tokenizer = SequenceTokenizer.load(data_config.data, logger)
 
@@ -135,12 +136,17 @@ class ActsChainDataModule(BaseDataModule):
     def setup(self, stage: str) -> None:  # noqa: ARG002
         """Transform and setup the ACTS dataset."""
         self.train_data, self.val_data, self.test_data = random_split(
-            ActsChainDataset(self.data_path, transforms=[self.tokenizer]),
+            ActsChainDataset(
+                self.data_path,
+                transforms=[self.tokenizer],
+                full_data=self.full_data,
+            ),
             self.split_ratio,
         )
         self.predict_data = ActsChainDataset(
             self.data_path,
             transforms=[self.tokenizer],
+            full_data=self.full_data,
         )
 
 

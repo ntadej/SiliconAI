@@ -259,6 +259,8 @@ class DataConfiguration:
             self.columns_type = [
                 ColumnType(t) for t in config["conversion"].get("columns_type", [])
             ]
+            self.max_blocks: int = config["conversion"].get("max_blocks", 0)
+            self.block_size: int = config["conversion"].get("block_size", 0)
 
         if "input_file" in config:
             self.input_file = global_config.data_path / config["input_file"]
