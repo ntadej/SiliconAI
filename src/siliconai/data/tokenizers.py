@@ -277,7 +277,7 @@ class SequenceTokenizer(NDArrayTransformation):
         return tokenizer
 
     @staticmethod
-    def train(config: DataConfiguration, logger: Logger) -> None:
+    def train(config: DataConfiguration, logger: Logger) -> None:  # noqa: C901 PLR0915
         """Train the tokenizer."""
         if not config.input_file:
             return
@@ -285,9 +285,13 @@ class SequenceTokenizer(NDArrayTransformation):
         tokenizer = SequenceTokenizer()
         tokenizer.dictionary = DataDictionary("dictionary", config.padding_token)
 
-        ncolumns = len(config.columns) + len(
-            [c for c in config.columns_type if c == ColumnType.Numerical],
-        )
+        ncolumns = len(config.columns)
+        if config.index_with_offset >= 0:
+            ncolumns += 1
+        if config.split_numerical:
+            ncolumns += len(
+                [c for c in config.columns_type if c == ColumnType.Numerical],
+            )
 
         logger.info(
             "Tokenizing the input file with %d columns and %d parts",
@@ -303,7 +307,7 @@ class SequenceTokenizer(NDArrayTransformation):
         s = 0
         for c, (column, column_type) in enumerate(
             zip(
-                config.columns,
+                (["index"] if config.index_with_offset >= 0 else []) + config.columns,
                 config.columns_type,
                 strict=True,
             ),

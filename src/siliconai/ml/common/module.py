@@ -8,9 +8,9 @@ import lightning as L
 import torch
 from torch import Tensor, optim
 
-from siliconai.common.enums import ModelType
+from siliconai.common.enums import ColumnType, ModelType
 from siliconai.data.tokenizers import SequenceTokenizer
-from siliconai.ml.models.nanogpt import GPTConfig, NanoGPT
+from siliconai.ml.models.nanogpt import ExtraConfig, GPTConfig, NanoGPT
 from siliconai.ml.models.transformer import (
     ChainTransformer,
     DiscreteTransformer,
@@ -172,6 +172,21 @@ class NanoGPTModule(ModuleBase):
         if config.data.columns_type:
             self.output_dim += 1  # add padding token
 
+        ncolumns = len(config.data.columns)
+        if config.data.index_with_offset >= 0:
+            ncolumns += 1
+        if config.data.split_numerical:
+            ncolumns += len(
+                [c for c in config.data.columns_type if c == ColumnType.Numerical],
+            )
+
+        if self.config.data.block_size and self.config.data.block_size != ncolumns:
+            error = (
+                "Configuration inconsistency:"
+                " block_size must match the number of columns."
+            )
+            raise RuntimeError(error)
+
         self.model = NanoGPT(
             GPTConfig(
                 block_size=config.model.sequence_length,
@@ -180,6 +195,10 @@ class NanoGPTModule(ModuleBase):
                 n_head=config.model.heads,
                 n_embd=config.model.model_dim,
                 dropout=config.model.dropout,
+            ),
+            ExtraConfig(
+                ncolumns=ncolumns,
+                max_blocks=config.data.max_blocks if config.data.max_blocks else 0,
             ),
         )
 

@@ -173,13 +173,22 @@ class GPTConfig:
     bias: bool = False
 
 
+@dataclass
+class ExtraConfig:
+    """Extra configuration for the GPT model."""
+
+    ncolumns: int = 0
+    max_blocks: int = 0
+
+
 class NanoGPT(nn.Module):
     """GPT module."""
 
-    def __init__(self, config: GPTConfig) -> None:
+    def __init__(self, config: GPTConfig, extra_config: ExtraConfig) -> None:
         """Initialize the GPT module with the given configuration."""
         super().__init__()
         self.config = config
+        self.extra_config = extra_config
 
         self.transformer = nn.ModuleDict(
             {
@@ -351,13 +360,39 @@ class NanoGPT(nn.Module):
         into the model each time. Most likely you'll want to make sure to be
         in model.eval() mode of operation for this.
         """
+        batch_size = idx.size(0)
+        ended = torch.zeros(batch_size, dtype=torch.bool, device=idx.device)
+
         for _ in range(len(idx[0]), max_tokens):
             # if the sequence context is growing too long we must crop it at block_size
-            idx_cond = (
-                idx
-                if idx.size(1) <= self.config.block_size
-                else idx[:, -self.config.block_size :]
-            )
+            if (
+                self.extra_config.max_blocks > 0
+                and idx.size(1)
+                > self.extra_config.max_blocks * self.extra_config.ncolumns
+            ):
+                idx_cond = idx[
+                    :,
+                    -(self.extra_config.max_blocks - 1) * self.extra_config.ncolumns
+                    - (idx.size(1) % self.extra_config.ncolumns) :,
+                ]
+            elif idx.size(1) > self.config.block_size:
+                # crop the idx to the last block_size tokens
+                idx_cond = idx[:, -self.config.block_size :]
+            else:
+                idx_cond = idx
+
+            if (
+                self.extra_config.max_blocks > 0
+                and idx.size(1) % self.extra_config.ncolumns == 0
+            ):
+                idx_next = torch.ones(
+                    (idx.size(0), 1),
+                    dtype=torch.long,
+                    device=idx.device,
+                ) * (idx.size(1) // self.extra_config.ncolumns + 1)
+                idx = torch.cat((idx, idx_next), dim=1)
+                continue
+
             # forward the model to get the logits for the index in the sequence
             logits, _ = self(idx_cond)
             # pluck the logits at the final step and scale by desired temperature
@@ -370,6 +405,14 @@ class NanoGPT(nn.Module):
             probs = F.softmax(logits, dim=-1)
             # sample from the distribution
             idx_next = torch.multinomial(probs, num_samples=1)
+
+            # Update ended mask: mark rows where end token was just generated
+            is_end = torch.isin(idx_next, end_tensor).squeeze(1)
+            ended = ended | is_end
+
+            # For rows that have ended, force idx_next to 0
+            idx_next[ended] = 0
+
             # append sampled index to the running sequence and continue
             idx = torch.cat((idx, idx_next), dim=1)
 

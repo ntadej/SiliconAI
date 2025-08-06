@@ -260,6 +260,14 @@ class DataConfiguration:
             self.columns_type = [
                 ColumnType(t) for t in config["conversion"].get("columns_type", [])
             ]
+            self.split_numerical: bool = config["conversion"].get(
+                "split_numerical",
+                False,
+            )
+            self.index_with_offset: int = config["conversion"].get(
+                "index_with_offset",
+                -1,
+            )
             self.max_blocks: int = config["conversion"].get("max_blocks", 0)
             self.block_size: int = config["conversion"].get("block_size", 0)
 
@@ -306,6 +314,10 @@ class DataConfiguration:
             "workers": self.workers,
             "conversion": self.conversion,
             "conversion_input_file": str(self.conversion_input_file),
+            "split_numerical": self.split_numerical,
+            "index_with_offset": self.index_with_offset,
+            "max_blocks": self.max_blocks,
+            "block_size": self.block_size,
         }
 
     def to_table(self) -> Table:
@@ -322,6 +334,13 @@ class DataConfiguration:
                     "Column types:",
                     str([t.value for t in self.columns_type]),
                 )
+        if self.split_numerical:
+            table.add_row("Split numerical columns:", str(self.split_numerical))
+        if self.index_with_offset >= 0:
+            table.add_row("Index with offset:", str(self.index_with_offset))
+        if self.max_blocks > 0:
+            table.add_row("Max blocks:", str(self.max_blocks))
+            table.add_row("Block size:", str(self.block_size))
         if self.padding_token != 0 and self.end_token != 0:
             table.add_row("Padding token:", str(self.padding_token))
             table.add_row("End token:", str(self.end_token))

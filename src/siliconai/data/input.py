@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 import pandas as pd
 
-from siliconai.common.enums import ColumnType, DataType
+from siliconai.common.enums import DataType
 from siliconai.data.utils import sliding_subarrays
 
 if TYPE_CHECKING:
@@ -36,13 +36,11 @@ class InputConverter:
             return
         raise RuntimeError
 
-    @staticmethod
     def process_acts_hits(
+        self,
         data_frame: pd.DataFrame,
         column_count: int,
-        padding_token: int = 0,
         flatten: bool = False,
-        random_int: int = 0,
     ) -> list[NDArrayType]:
         """Process loaded ACTS hits data."""
         if not isinstance(data_frame.index, pd.MultiIndex):
@@ -53,16 +51,24 @@ class InputConverter:
         data_hits = len(data_frame.index.levels[1])
         data_hits_exact = data_frame.reset_index().groupby("event_id").count()["index"]
 
+        # handle index as a feature
+        if self.config.index_with_offset >= 0:
+            column_count += 1
+            data_frame = data_frame.reset_index().set_index("event_id")
+            data_frame["index_orig"] = data_frame["index"]
+            data_frame["index"] += self.config.index_with_offset
+            data_frame = data_frame.reset_index().set_index(["event_id", "index_orig"])
+
         # do auto-padding
         data_frame = cast(
             "pd.DataFrame",
-            data_frame.unstack(fill_value=padding_token).stack(  # noqa: PD010 PD013
+            data_frame.unstack(fill_value=self.config.padding_token).stack(  # noqa: PD010 PD013
                 future_stack=True,
             ),
         )
 
-        if random_int:
-            event_rnd_int = np.random.randint(1, random_int, data_events)  # noqa: NPY002
+        if self.config.random_int:
+            event_rnd_int = np.random.randint(1, self.config.random_int, data_events)  # noqa: NPY002
             all_rnd_int = np.array(
                 [
                     data_hits_exact[i] * [rnd] + (data_hits - data_hits_exact[i]) * [0]
@@ -108,39 +114,40 @@ class InputConverter:
             error = "No data set to be converted"
             raise ValueError(error)
 
+        ncolumns = len(self.config.columns)
+
         # transform numerical columns
         numerical_columns = ["lxq", "lyq", "tpxq", "tpyq", "tpzq"]
         for column in numerical_columns:
             if column in data_frame:
-                data_frame[f"{column}2"], data_frame[f"{column}1"] = np.modf(
-                    data_frame[column],
-                )
-                data_frame[f"{column}1"] = data_frame[f"{column}1"]
-                data_frame[f"{column}2"] = abs(round(data_frame[f"{column}2"] * 100))
-                del data_frame[column]
+                if self.config.split_numerical:
+                    data_frame[f"{column}2"], data_frame[f"{column}1"] = np.modf(
+                        data_frame[column],
+                    )
+                    data_frame[f"{column}1"] = data_frame[f"{column}1"]
+                    data_frame[f"{column}2"] = abs(
+                        round(data_frame[f"{column}2"] * 100),
+                    )
+                    ncolumns += 1
+                    del data_frame[column]
+                else:
+                    data_frame[column] = data_frame[column] * 100
 
         # convert to correct types
         data_frame = data_frame.astype("int64")
 
         self.logger.info("Converting to numpy arrays")
 
-        ncolumns = len(self.config.columns) + len(
-            [c for c in self.config.columns_type if c == ColumnType.Numerical],
-        )
-
-        output_nonzero = self.process_acts_hits(
-            data_frame,
-            ncolumns,
-            padding_token=self.config.padding_token,
-            flatten=True,
-        )
+        output_nonzero = self.process_acts_hits(data_frame, ncolumns, flatten=True)
 
         output_nonzero_chunked = None
         if self.config.max_blocks > 0:
             output_nonzero_chunked = [
                 sliding_subarrays(
                     arr,
-                    self.config.block_size * self.config.max_blocks + 1,
+                    self.config.block_size * self.config.max_blocks
+                    + 1
+                    + int(self.config.index_with_offset >= 0),
                     self.config.block_size,
                 )
                 for arr in output_nonzero
@@ -193,12 +200,7 @@ class InputConverter:
 
         self.logger.info("Converting to numpy arrays")
 
-        output_int_nonzero = self.process_acts_hits(
-            data_frame,
-            len(columns),
-            padding_token=self.config.padding_token,
-            random_int=self.config.random_int,
-        )
+        output_int_nonzero = self.process_acts_hits(data_frame, len(columns))
 
         self.logger.info("Writing to %s", self.config.input_file)
 

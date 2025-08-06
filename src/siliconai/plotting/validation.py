@@ -119,12 +119,13 @@ def acts_process_data(  # noqa: PLR0912, C901
 
     # restore numerical values
     column_numerical = []
-    i = 2  # indexing offset
-    for column_type in config.data.columns_type:
-        if column_type is ColumnType.Numerical:
-            column_numerical.append((i, i + 1))
+    if config.data.split_numerical:
+        i = 2  # indexing offset
+        for column_type in config.data.columns_type:
+            if column_type is ColumnType.Numerical:
+                column_numerical.append((i, i + 1))
+                i += 1
             i += 1
-        i += 1
 
     data_annotated = np.concatenate(
         [np.hstack([a, b]) for a, b in zip(data_labels, data_nonzero, strict=True)],
@@ -156,7 +157,8 @@ def acts_process_data(  # noqa: PLR0912, C901
         columns_labels[k] = label
         k += 1
         if (
-            config.data.columns_type
+            config.data.split_numerical
+            and config.data.columns_type
             and config.data.columns_type[i] == ColumnType.Numerical
         ):
             columns_labels[k] = label
@@ -164,7 +166,7 @@ def acts_process_data(  # noqa: PLR0912, C901
     data_df = data_df.rename(columns=columns_labels)
     data_df = data_df.set_index(["event_id", "index"])
 
-    if not config.data.columns_type:
+    if not config.data.split_numerical:
         columns_scale = [
             "lxq",
             "lyq",
@@ -190,7 +192,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     logger: Logger | None = None,
 ) -> Path:
     """Validate ActsChain-based model output."""
-    # _rich_traceback_guard = True
+    _rich_traceback_guard = True
     setup_style()
 
     # make sure we are in eval mode
@@ -214,15 +216,19 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
         logger.info("Starting inference")
     time_start = time.perf_counter()
 
-    ncolumns = len(config.data.columns) + len(
-        [c for c in config.data.columns_type if c == ColumnType.Numerical],
-    )
+    ncolumns = len(config.data.columns)
+    if config.data.index_with_offset >= 0:
+        ncolumns += 1
+    if config.data.split_numerical:
+        ncolumns += len(
+            [c for c in config.data.columns_type if c == ColumnType.Numerical],
+        )
 
     for counter, batch in enumerate(data.get_dataloader(data_type)):
         batch_full = batch[0]
         batch_start = batch_full[:, :ncolumns].to(model.device)
 
-        result, _ = model.predict((batch_start,), tokenizer=data.tokenizer)
+        result = model.predict((batch_start,), tokenizer=data.tokenizer)
 
         if result is None:
             raise RuntimeError

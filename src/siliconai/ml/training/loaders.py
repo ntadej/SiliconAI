@@ -68,7 +68,7 @@ def load_data_module_from_latest_checkpoint(
             if f.name.startswith(f"epoch={checkpoint}"):
                 file = f
                 break
-        if not file:
+        if file == Path():
             error = f"Checkpoint {checkpoint} not found."
             raise ValueError(error)
     else:
@@ -124,7 +124,7 @@ def load_model_from_latest_checkpoint(
             if f.name.startswith(f"epoch={checkpoint}"):
                 file = f
                 break
-        if not file:
+        if file == Path():
             error = f"Checkpoint {checkpoint} not found."
             raise ValueError(error)
     else:
