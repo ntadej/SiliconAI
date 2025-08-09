@@ -48,7 +48,7 @@ def create_slurm_submission_script(
             "source ./.venv/bin/activate\n"
             "\n"
             f"srun siliconai train -c {config.location} --batch"
-            f" --ngpu {n_gpu} --nnode {n_node}",
+            f" --ngpu {n_gpu} --nnode {n_node} -r {config.run_number}",
         )
 
     return output_file
