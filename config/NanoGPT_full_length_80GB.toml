@@ -1,10 +1,10 @@
-name = "NanoGPT FullLength"
+name = "NanoGPT FullLength 80GB"
 
 [data]
 type = "ActsChain"
 input_dim = [2220, 2, 12308]
 split_ratio = [0.5, 0.25, 0.25]
-batch_size = 512
+batch_size = 1792
 workers = 12
 padding_token = 999999
 end_token = 1000001
@@ -36,7 +36,7 @@ activation = "gelu"
 compile = true
 
 epochs = 5000
-checkpoint_interval = 10
+checkpoint_interval = 50
 early_stopping = 0
 
 optimizer = "AdamW"
@@ -49,5 +49,5 @@ gradient_clipping = 5.0
 type = "NanoGPTScheduler"
 interval = "step"
 min_lr = 1e-4
-warmup_steps = 1000
-freeze_step = 300000
+warmup_steps = 500
+freeze_step = 800000
