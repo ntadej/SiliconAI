@@ -237,6 +237,10 @@ class DataConfiguration:
         self.input_dim: list[int] | int = config["input_dim"]
         self.split_ratio: list[float] = config.get("split_ratio", [0.7, 0.15, 0.15])
         self.batch_size: int = config["batch_size"]
+        self.inference_batch_size: int = config.get(
+            "inference_batch_size",
+            self.batch_size,
+        )
         self.workers: int = config.get("workers", 4)
 
         self.padding_token: int = config.get("padding_token", 0)
@@ -311,6 +315,7 @@ class DataConfiguration:
             "input_dim": self.input_dim,
             "split_ratio": self.split_ratio,
             "batch_size": self.batch_size,
+            "inference_batch_size": self.inference_batch_size,
             "workers": self.workers,
             "conversion": self.conversion,
             "conversion_input_file": str(self.conversion_input_file),
@@ -347,6 +352,11 @@ class DataConfiguration:
         table.add_row("Input dimension:", str(self.input_dim))
         table.add_row("Split ratio:", str(self.split_ratio))
         table.add_row("Batch size:", str(self.batch_size))
+        if self.inference_batch_size != self.batch_size:
+            table.add_row(
+                "Inference batch size:",
+                str(self.inference_batch_size),
+            )
         table.add_row("Workers:", str(self.workers))
         table.add_row("Conversion needed:", str(self.conversion))
         if self.conversion:

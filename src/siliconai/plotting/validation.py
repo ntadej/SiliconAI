@@ -38,6 +38,7 @@ def quick_validate(
     model: L.LightningModule,
     data: L.LightningDataModule,
     data_type: DataLoadingType,
+    batches: int = -1,
     random: bool = False,
     no_random: bool = False,
 ) -> None:
@@ -49,6 +50,7 @@ def quick_validate(
             cast("NanoGPTModule", model),
             data,
             data_type,
+            batches,
             logger=logger,
         )
         logger.info("Validation done and stored in %s.", file)
@@ -189,6 +191,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     model: NanoGPTModule,
     data: L.LightningDataModule,
     data_type: DataLoadingType,
+    batches: int,
     logger: Logger | None = None,
 ) -> Path:
     """Validate ActsChain-based model output."""
@@ -205,6 +208,8 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     )
 
     data = cast("ActsChainDataModule", data)
+    if config.data.batch_size != config.data.inference_batch_size:
+        data.batch_size = config.data.inference_batch_size
     data.full_data = True
     data.setup(data_type.value)
     if logger:
@@ -238,6 +243,9 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
 
         if logger:
             logger.info("Processed %d batches", counter + 1)
+
+        if batches > 0 and counter + 1 == batches:
+            break
 
     input_translated: list[NDArrayType] = [data.translate_data(i) for i in input_full]
     result_translated: list[NDArrayType] = [data.translate_data(i) for i in result_full]
@@ -509,6 +517,7 @@ def validate(
     logger: Logger,
     config: Configuration,
     data_type: DataLoadingType,
+    batches: int,
     checkpoint: int,
     random: bool = False,
     no_random: bool = False,
@@ -532,4 +541,4 @@ def validate(
         checkpoint_path,
         checkpoint,
     )
-    quick_validate(logger, config, model, data, data_type, random, no_random)
+    quick_validate(logger, config, model, data, data_type, batches, random, no_random)

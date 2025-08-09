@@ -240,6 +240,10 @@ def validate(
             help="Data type to validate.",
         ),
     ] = DataLoadingType.test,
+    batches: Annotated[
+        int,
+        typer.Option("-b", "--batches", help="Number of batches to process."),
+    ] = -1,
     checkpoint: Annotated[
         int,
         typer.Option("-n", "--checkpoint", help="Checkpoint to use."),
@@ -266,7 +270,7 @@ def validate(
         raise ValueError(error)
 
     common_setup()
-    validate(logger, config, data_type, checkpoint, random, no_random)
+    validate(logger, config, data_type, batches, checkpoint, random, no_random)
 
 
 @application.command()
