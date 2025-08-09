@@ -407,9 +407,8 @@ class NanoGPT(nn.Module):
             idx_next = torch.multinomial(probs, num_samples=1)
 
             # Update ended mask: mark rows where end token was just generated
-            is_end = torch.isin(idx_next, end_tensor).squeeze(1)
+            is_end = torch.isin(idx[:, -1:], end_tensor).squeeze(1)
             ended = ended | is_end
-
             # For rows that have ended, force idx_next to 0
             idx_next[ended] = 0
 
