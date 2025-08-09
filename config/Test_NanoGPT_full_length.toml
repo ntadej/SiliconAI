@@ -1,20 +1,19 @@
-name = "Test NanoGPT"
+name = "Test NanoGPT FullLength"
 
 [data]
 type = "ActsChain"
-input_dim = [20, 50, 7949]
+input_dim = [50, 7949]
 split_ratio = [0.5, 0.25, 0.25]
-batch_size = 3072
+batch_size = 512
 workers = 12
 padding_token = 999999
 end_token = 1000001
 
 [data.conversion]
 input = "ACTS_muon_80-85GeV_mini.h5"
-output = "ACTS_muon_80-85GeV_mini_test_chain.pkl"
+output = "ACTS_muon_80-85GeV_mini_test_full_length.pkl"
 columns = ["geometry_id", "lxq", "lyq", "tpxq", "tpyq", "tpzq"]
 columns_type = [
-    "categorical", # for index
     "categorical",
     "numerical",
     "numerical",
@@ -22,13 +21,10 @@ columns_type = [
     "numerical",
     "numerical",
 ]
-index_with_offset = 100000
-max_blocks = 5
-block_size = 7
 
 [model]
 type = "NanoGPT"
-sequence_length = 40
+sequence_length = 128
 model_dim = 128
 encoder_layers = 8
 heads = 8
@@ -37,11 +33,19 @@ dropout = 0.2
 [training]
 compile = true
 
-epochs = 200
+epochs = 100
 checkpoint_interval = 5
-early_stopping = 5
+early_stopping = 0
 
-optimizer = "Adam"
-learning_rate = 0.0001
+optimizer = "AdamW"
+learning_rate = 1e-3
+beta2 = 0.95
 weight_decay = 0.01
 gradient_clipping = 5.0
+
+[training.scheduler]
+type = "NanoGPTScheduler"
+interval = "step"
+min_lr = 1e-4
+warmup_steps = 200
+freeze_step = 8000
