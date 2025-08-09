@@ -492,6 +492,10 @@ class TrainingConfiguration:
         self.checkpoint_interval: int = int(config.get("checkpoint_interval", 25))
         self.early_stopping: int = int(config["early_stopping"])
         self.learning_rate: float = float(config["learning_rate"])
+        self.optimizer_betas: tuple[float, float] = (
+            float(config.get("beta1", 0.9)),
+            float(config.get("beta2", 0.999)),
+        )
         self.weight_decay: float = float(config.get("weight_decay", 0.0))
         self.gradient_clipping: float = float(config.get("gradient_clipping", 0.0))
         self.optimizer: str = config["optimizer"]
@@ -518,6 +522,7 @@ class TrainingConfiguration:
             "early_stopping": self.early_stopping,
             "optimizer": self.optimizer,
             "learning_rate": self.learning_rate,
+            "optimizer_betas": self.optimizer_betas,
             "weight_decay": self.weight_decay,
             "gradient_clipping": self.gradient_clipping,
             "scheduler": self.scheduler,
@@ -535,6 +540,7 @@ class TrainingConfiguration:
         table.add_row("Early stopping patience:", str(self.early_stopping))
         table.add_row("Optimizer:", self.optimizer)
         table.add_row("Learning rate:", str(self.learning_rate))
+        table.add_row("Optimizer betas:", str(self.optimizer_betas))
         table.add_row("Weight decay:", str(self.weight_decay))
         table.add_row("Gradient clipping:", str(self.gradient_clipping))
 

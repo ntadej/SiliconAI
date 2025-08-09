@@ -38,8 +38,16 @@ class ModuleBase(L.LightningModule):
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         """Configure optimizers."""
+        optimizer_instance: Optimizer
+        if hasattr(self.model, "configure_optimizers"):
+            optimizer_instance = self.model.configure_optimizers(  # type: ignore[operator]
+                weight_decay=self.config.training.weight_decay,
+                learning_rate=self.config.training.learning_rate,
+                betas=self.config.training.optimizer_betas,
+                device_type=self.device.type,
+            )
         optimizer = getattr(optim, self.config.training.optimizer)
-        optimizer_instance: Optimizer = optimizer(
+        optimizer_instance = optimizer(
             self.parameters(),
             lr=self.config.training.learning_rate,
             weight_decay=self.config.training.weight_decay,
