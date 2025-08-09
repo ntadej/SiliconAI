@@ -28,6 +28,7 @@ dependencies = [
     "mplhep == 0.4.*",
     "numpy == 2.3.*",
     "pandas == 2.3.*",
+    "rich == 14.0.*",
     "scikit-learn == 1.7.*",
     "scipy == 1.16.*",
     "tables == 3.10.*",
