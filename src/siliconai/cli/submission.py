@@ -45,7 +45,6 @@ def create_slurm_submission_script(
             "# export NCCL_DEBUG=INFO\n"
             "# export PYTHONFAULTHANDLER=1\n"
             "\n"
-            "source ./scripts/setup_modules.sh\n"
             "source ./.venv/bin/activate\n"
             "\n"
             f"srun siliconai train -c {config.location} --batch"
