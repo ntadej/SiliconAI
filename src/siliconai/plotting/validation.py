@@ -69,37 +69,21 @@ def quick_validate(
         logger.info("Validation done and stored in %s.", file)
 
 
-def acts_process_data(  # noqa: PLR0912, C901
+def acts_process_data(  # noqa: C901, PLR0912
     config: Configuration,
     data: list[NDArrayType],
 ) -> tuple[list[NDArrayType], pd.DataFrame]:
     """Process ActsHits data."""
     # non-zero results
     data_nonzero = []
-
-    delta_min_index = (
-        config.data.columns.index("tpxq") if "tpxq" in config.data.columns else 0
-    )
-    delta_max_index = (
-        config.data.columns.index("tpzq") if "tpzq" in config.data.columns else 0
-    )
-    delta_calculation = delta_min_index > 0 and delta_max_index > 0
-
+    check_index = 1 if config.data.index_with_offset >= 0 else 0
     for i in range(len(data)):
-        nz = np.nonzero(data[i][:, 0] != config.data.padding_token)
-        end_token = np.nonzero(data[i][:, 0] == config.data.end_token)
+        nz = np.nonzero(data[i][:, check_index] != config.data.padding_token)
+        end_token = np.nonzero(data[i][:, check_index] == config.data.end_token)
         data_row = data[i][nz[0].min() : nz[0].max() + 1]
-        if delta_calculation:
-            data_diff = np.diff(
-                data_row[:, delta_min_index : delta_max_index + 1],
-                axis=0,
-            )
-            data_diff = np.vstack((np.zeros(3, dtype=np.int64), data_diff))
-            data_row = np.hstack((data_row, data_diff))
-
         if end_token[0].size > 0:
             data_row = data_row[: end_token[0].min() + 1]
-        data_row = data_row[1:-1]
+        # data_row = data_row[1:-1]  # <- dummy first/last hits could be removed here
         data_nonzero.append(data_row)
 
     # data frame
@@ -123,6 +107,8 @@ def acts_process_data(  # noqa: PLR0912, C901
     column_numerical = []
     if config.data.split_numerical:
         i = 2  # indexing offset
+        if config.data.index_with_offset >= 0:
+            i += 1
         for column_type in config.data.columns_type:
             if column_type is ColumnType.Numerical:
                 column_numerical.append((i, i + 1))
@@ -134,7 +120,6 @@ def acts_process_data(  # noqa: PLR0912, C901
     )
 
     data_df = pd.DataFrame(data_annotated)
-
     for i, j in column_numerical:
         data_df[i] = (
             data_df[j] + (np.sign(data_df[j]) + (data_df[j] == 0)) * data_df[i] / 100
@@ -147,14 +132,10 @@ def acts_process_data(  # noqa: PLR0912, C901
         0: "event_id",
         1: "index",
     }
-    if delta_calculation:
-        delta_offset = len(config.data.columns) + 2
-        columns_labels = columns_labels | {
-            delta_offset: "deltapxq",
-            delta_offset + 1: "deltapyq",
-            delta_offset + 2: "deltapzq",
-        }
     k = 2
+    if config.data.index_with_offset >= 0:
+        del data_df[k]
+        k += 1
     for i, label in enumerate(config.data.columns):
         columns_labels[k] = label
         k += 1
@@ -182,6 +163,23 @@ def acts_process_data(  # noqa: PLR0912, C901
         for column in columns_scale:
             if column in data_df.columns:
                 data_df[column] /= 100
+
+    # momentum diff
+    data_df["deltapxq"] = data_df["tpxq"].diff().fillna(0)
+    data_df["deltapyq"] = data_df["tpyq"].diff().fillna(0)
+    data_df["deltapzq"] = data_df["tpzq"].diff().fillna(0)
+
+    data_df = data_df[data_df.index.get_level_values("index") != 0]
+    data_df = data_df.groupby(
+        "event_id",
+        group_keys=False,
+    ).apply(  # type: ignore[call-overload]
+        lambda group: group.iloc[:-1],
+        include_groups=False,
+    )
+    data_df = data_df.reset_index()
+    data_df["index"] -= 1
+    data_df = data_df.set_index(["event_id", "index"])
 
     return data_nonzero, data_df
 
