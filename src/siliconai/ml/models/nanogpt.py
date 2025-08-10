@@ -364,19 +364,19 @@ class NanoGPT(nn.Module):
         batch_size = idx.size(0)
         ended = torch.zeros(batch_size, dtype=torch.bool, device=idx.device)
 
-        for _ in range(len(idx[0]), max_tokens):
+        for _ in range(idx.size(1), max_tokens):
+            seq_size = idx.size(1)
             # if the sequence context is growing too long we must crop it at block_size
             if (
                 self.extra_config.max_blocks > 0
-                and idx.size(1)
-                > self.extra_config.max_blocks * self.extra_config.ncolumns
+                and seq_size > self.extra_config.max_blocks * self.extra_config.ncolumns
             ):
                 idx_cond = idx[
                     :,
                     -(self.extra_config.max_blocks - 1) * self.extra_config.ncolumns
-                    - (idx.size(1) % self.extra_config.ncolumns) :,
+                    - (seq_size % self.extra_config.ncolumns) :,
                 ]
-            elif idx.size(1) > self.config.block_size:
+            elif seq_size > self.config.block_size:
                 # crop the idx to the last block_size tokens
                 idx_cond = idx[:, -self.config.block_size :]
             else:
@@ -384,13 +384,13 @@ class NanoGPT(nn.Module):
 
             if (
                 self.extra_config.max_blocks > 0
-                and idx.size(1) % self.extra_config.ncolumns == 0
+                and seq_size % self.extra_config.ncolumns == 0
             ):
                 idx_next = torch.ones(
-                    (idx.size(0), 1),
+                    (batch_size, 1),
                     dtype=torch.long,
                     device=idx.device,
-                ) * (idx.size(1) // self.extra_config.ncolumns + 1)
+                ) * (seq_size // self.extra_config.ncolumns + 1)
                 idx = torch.cat((idx, idx_next), dim=1)
                 continue
 
@@ -399,7 +399,7 @@ class NanoGPT(nn.Module):
             # pluck the logits at the final step and scale by desired temperature
             logits = logits[:, -1, :] / temperature
             # remove invalid tokens for the position
-            position = len(idx[0]) % self.extra_config.ncolumns
+            position = seq_size % self.extra_config.ncolumns
             logits = torch.where(~column_mask_dict[position], float("-inf"), logits)
             # optionally crop the logits to only the top k options
             if top_k is not None:
@@ -411,7 +411,7 @@ class NanoGPT(nn.Module):
             idx_next = torch.multinomial(probs, num_samples=1)
 
             # Update ended mask: mark rows where end token was just generated
-            is_end = torch.isin(idx[:, -1:], end_tensor).squeeze(1)
+            is_end = torch.isin(idx[:, -1], end_tensor)
             ended = ended | is_end
             # For rows that have ended, force idx_next to 0
             idx_next[ended] = 0
