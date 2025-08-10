@@ -276,7 +276,46 @@ class NanoGPTModule(ModuleBase):
         ).to(device if device else self.device)
         input_tensor = batch[0]
 
+        columns = (
+            ["index", *self.config.data.columns]
+            if self.config.data.index_with_offset >= 0
+            else self.config.data.columns
+        )
+        column_labels = []
+        for column, column_type in zip(
+            columns,
+            self.config.data.columns_type,
+            strict=False,
+        ):
+            if column_type is ColumnType.Numerical:
+                column_labels.append("numerical")
+                if self.config.data.split_numerical:
+                    column_labels.append("numerical")
+            else:
+                column_labels.append(column)
+
+        column_indices_dict = {}
+        for column_label in set(column_labels):
+            start_index = tokenizer.summary_dict[column_label]["start"]
+            end_index = tokenizer.summary_dict[column_label]["end"]
+            column_indices_dict[column_label] = (start_index, end_index + 1)
+
+        column_mask_dict = {}
+        for i, column_label in enumerate(column_labels):
+            column_mask_dict[i] = torch.zeros(
+                (len(input_tensor), len(tokenizer.dictionary)),
+                dtype=torch.bool,
+            ).to(device if device else self.device)
+            column_mask_dict[i][
+                :,
+                column_indices_dict[column_label][0] : column_indices_dict[
+                    column_label
+                ][1],
+            ] = True
+            column_mask_dict[i][:, 0] = True
+
         return self.model.generate(
             input_tensor,
             end_tensor,
+            column_mask_dict,
         )

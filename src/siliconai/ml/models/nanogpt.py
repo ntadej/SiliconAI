@@ -349,6 +349,7 @@ class NanoGPT(nn.Module):
         self,
         idx: Tensor,
         end_tensor: Tensor,
+        column_mask_dict: dict[int, Tensor],
         max_tokens: int = 256,
         temperature: float = 1.0,
         top_k: int | None = None,
@@ -397,6 +398,9 @@ class NanoGPT(nn.Module):
             logits, _ = self(idx_cond)
             # pluck the logits at the final step and scale by desired temperature
             logits = logits[:, -1, :] / temperature
+            # remove invalid tokens for the position
+            position = len(idx[0]) % self.extra_config.ncolumns
+            logits = torch.where(~column_mask_dict[position], float("-inf"), logits)
             # optionally crop the logits to only the top k options
             if top_k is not None:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
