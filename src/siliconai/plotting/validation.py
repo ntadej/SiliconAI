@@ -107,8 +107,6 @@ def acts_process_data(  # noqa: C901, PLR0912
     column_numerical = []
     if config.data.split_numerical:
         i = 2  # indexing offset
-        if config.data.index_with_offset >= 0:
-            i += 1
         for column_type in config.data.columns_type:
             if column_type is ColumnType.Numerical:
                 column_numerical.append((i, i + 1))
