@@ -48,7 +48,7 @@ def train(
         max_epochs=config.training.epochs,
         logger=ml_logger,
         callbacks=callbacks,
-        default_root_dir="run/training",
+        default_root_dir=f"{config.output_path}/run_{config.run_number}/training",
         gradient_clip_val=config.training.gradient_clipping
         if config.training.gradient_clipping > 0
         else None,

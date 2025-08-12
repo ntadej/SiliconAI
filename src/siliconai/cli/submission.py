@@ -39,7 +39,9 @@ def create_slurm_submission_script(
             f"#SBATCH --mem={32 * n_gpu}GB\n"
             f"#SBATCH --time=2-00:00:00\n"
             f"#SBATCH --output={output_log}\n"
-            "#SBATCH --signal=INT@60\n"
+            "#SBATCH --open-mode=append\n"
+            "#SBATCH --signal=SIGUSR1@120\n"
+            "#SBATCH --requeue\n"
             "\n"
             "# debugging flags\n"
             "# export NCCL_DEBUG=INFO\n"
@@ -47,8 +49,10 @@ def create_slurm_submission_script(
             "\n"
             "source ./.venv/bin/activate\n"
             "\n"
-            f"srun siliconai train -c {config.location} --batch"
-            f" --ngpu {n_gpu} --nnode {n_node} -r {config.run_number}",
+            f"exec srun --signal=SIGUSR1@120 siliconai train -c {config.location}"
+            " --batch"
+            f" --ngpu {n_gpu} --nnode {n_node}"
+            f" -r {config.run_number}",
         )
 
     return output_file
