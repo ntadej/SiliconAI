@@ -39,7 +39,7 @@ activation = "gelu"
 [training]
 compile = true
 
-epochs = 2000
+epochs = 10000
 checkpoint_interval = 100
 early_stopping = 0
 
@@ -53,5 +53,5 @@ gradient_clipping = 5.0
 type = "NanoGPTScheduler"
 interval = "step"
 min_lr = 4e-4
-warmup_steps = 1628
+warmup_steps = 800
 freeze_step = 1000000

@@ -35,7 +35,7 @@ activation = "gelu"
 [training]
 compile = true
 
-epochs = 5000
+epochs = 2000
 checkpoint_interval = 50
 early_stopping = 0
 

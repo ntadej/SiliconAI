@@ -5,6 +5,7 @@ type = "ActsChain"
 input_dim = [21, 2220, 2, 12308]
 split_ratio = [0.5, 0.25, 0.25]
 batch_size = 6144
+inference_batch_size = 16384
 workers = 12
 padding_token = 999999
 end_token = 1000001
@@ -39,7 +40,7 @@ activation = "gelu"
 [training]
 compile = true
 
-epochs = 2000
+epochs = 10000
 checkpoint_interval = 100
 early_stopping = 0
 
