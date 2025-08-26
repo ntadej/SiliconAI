@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from siliconai.cli.logger import progress_bar
 from siliconai.common.enums import ColumnType, DataLoadingType, DataType, ModelType
 from siliconai.ml.training.loaders import (
     load_data_module_from_latest_checkpoint,
@@ -204,8 +205,8 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     )
 
     data = cast("ActsChainDataModule", data)
-    if config.data.batch_size != config.data.inference_batch_size:
-        data.batch_size = config.data.inference_batch_size
+    if config.data.batch_size != config.inference.batch_size:
+        data.batch_size = config.inference.batch_size
     data.full_data = True
     data.setup(data_type.value)
     if logger:
@@ -225,23 +226,31 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
             [c for c in config.data.columns_type if c == ColumnType.Numerical],
         )
 
-    for counter, batch in enumerate(data.get_dataloader(data_type)):
-        batch_full = batch[0]
-        batch_start = batch_full[:, :ncolumns].to(model.device)
+    with progress_bar(transient=True) as progress:
+        data_loader = data.get_dataloader(data_type)
+        task = progress.add_task("Processing", total=len(data_loader))
+        for counter, batch in enumerate(data_loader):
+            batch_full = batch[0]
+            batch_start = batch_full[:, :ncolumns].to(model.device)
 
-        result = model.predict((batch_start,), tokenizer=data.tokenizer)
+            result = model.predict(
+                (batch_start,),
+                tokenizer=data.tokenizer,
+                simple_mask=config.inference.simple_mask,
+                top_k=config.inference.top_k,
+                temperature=config.inference.temperature,
+            )
 
-        if result is None:
-            raise RuntimeError
+            if result is None:
+                raise RuntimeError
 
-        input_full += list(batch_full.cpu().numpy())
-        result_full += list(result.cpu().numpy())
+            input_full += list(batch_full.cpu().numpy())
+            result_full += list(result.cpu().numpy())
 
-        if logger:
-            logger.info("Processed %d batches", counter + 1)
+            progress.update(task, advance=1)
 
-        if batches > 0 and counter + 1 == batches:
-            break
+            if batches > 0 and counter + 1 == batches:
+                break
 
     input_translated: list[NDArrayType] = [data.translate_data(i) for i in input_full]
     result_translated: list[NDArrayType] = [data.translate_data(i) for i in result_full]
@@ -401,7 +410,10 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
                     (len(batch[0]), 1),
                 )
 
-            result = model.predict((batch_start,), tokenizer=data.tokenizer)
+            result = model.predict(
+                (batch_start,),
+                tokenizer=data.tokenizer,
+            )
 
         input_full += list(
             batch_full.cpu().numpy() if batch_full is not None else [],

@@ -157,6 +157,11 @@ class Configuration:
             config["training"],
             global_config,
         )
+        self.inference: InferenceConfiguration = InferenceConfiguration(
+            config.get("inference", {}),
+            self.data,
+            global_config,
+        )
 
         # setup run number defaults
         self.run_number: int
@@ -182,6 +187,7 @@ class Configuration:
         info_panel(self.data.to_table(), title="Data Configuration")
         info_panel(self.model.to_table(), title="Model Configuration")
         info_panel(self.training.to_table(), title="Training Configuration")
+        info_panel(self.inference.to_table(), title="Inference Configuration")
 
     def __repr__(self) -> str:
         """Return the string representation of the configuration."""
@@ -237,10 +243,6 @@ class DataConfiguration:
         self.input_dim: list[int] | int = config["input_dim"]
         self.split_ratio: list[float] = config.get("split_ratio", [0.7, 0.15, 0.15])
         self.batch_size: int = config["batch_size"]
-        self.inference_batch_size: int = config.get(
-            "inference_batch_size",
-            self.batch_size,
-        )
         self.workers: int = config.get("workers", 4)
 
         self.padding_token: int = config.get("padding_token", 0)
@@ -315,7 +317,6 @@ class DataConfiguration:
             "input_dim": self.input_dim,
             "split_ratio": self.split_ratio,
             "batch_size": self.batch_size,
-            "inference_batch_size": self.inference_batch_size,
             "workers": self.workers,
             "conversion": self.conversion,
             "conversion_input_file": str(self.conversion_input_file),
@@ -352,11 +353,6 @@ class DataConfiguration:
         table.add_row("Input dimension:", str(self.input_dim))
         table.add_row("Split ratio:", str(self.split_ratio))
         table.add_row("Batch size:", str(self.batch_size))
-        if self.inference_batch_size != self.batch_size:
-            table.add_row(
-                "Inference batch size:",
-                str(self.inference_batch_size),
-            )
         table.add_row("Workers:", str(self.workers))
         table.add_row("Conversion needed:", str(self.conversion))
         if self.conversion:
@@ -551,6 +547,47 @@ class TrainingConfiguration:
             for key, value in self.scheduler_kwargs.items():
                 table.add_row(f"{key}:", str(value))
 
+        return table
+
+
+class InferenceConfiguration:
+    """Inference configuration."""
+
+    def __init__(
+        self,
+        config: dict[str, Any],
+        data_config: DataConfiguration,
+        _global_config: GlobalConfiguration,
+    ) -> None:
+        """Initialize inference configuration."""
+        self.device: str | None = config.get("device")
+        self.batch_size: int = config.get("batch_size", data_config.batch_size)
+        self.temperature: float = config.get("temperature", 1.0)
+        self.top_k: int | None = config.get("top_k")
+        self.simple_mask: bool = config.get("simple_mask", False)
+
+    def to_object(self) -> dict[str, Any]:
+        """Convert configuration to object."""
+        return {
+            "device": self.device,
+            "batch_size": self.batch_size,
+            "temperature": self.temperature,
+            "top_k": self.top_k,
+            "simple_mask": self.simple_mask,
+        }
+
+    def to_table(self) -> Table:
+        """Convert configuration to table."""
+        table = config_table()
+
+        if self.device:
+            table.add_row("Device:", self.device)
+        table.add_row("Batch size:", str(self.batch_size))
+        if self.temperature != 1.0:
+            table.add_row("Temperature:", str(self.temperature))
+        if self.top_k:
+            table.add_row("Top K sampling:", str(self.top_k))
+        table.add_row("Simple mask:", str(self.simple_mask))
         return table
 
 

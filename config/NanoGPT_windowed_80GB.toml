@@ -5,7 +5,6 @@ type = "ActsChain"
 input_dim = [21, 2220, 2, 12308]
 split_ratio = [0.5, 0.25, 0.25]
 batch_size = 6144
-inference_batch_size = 16384
 workers = 12
 padding_token = 999999
 end_token = 1000001
@@ -56,3 +55,7 @@ interval = "step"
 min_lr = 4e-4
 warmup_steps = 815
 freeze_step = 500000
+
+[inference]
+batch_size = 16384
+simple_mask = false

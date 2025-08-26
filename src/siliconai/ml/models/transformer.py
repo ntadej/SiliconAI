@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, TypedDict, Unpack
+from typing import TYPE_CHECKING, NotRequired, TypedDict, Unpack
 
 import torch
 from torch import Tensor, nn
@@ -23,6 +23,9 @@ class TransformerPredictParams(TypedDict):
     """Transformer predict parameters."""
 
     tokenizer: ColumnTokenizer | SequenceTokenizer
+    simple_mask: NotRequired[bool | None]
+    top_k: NotRequired[int | None]
+    temperature: NotRequired[float]
 
 
 class PositionalEncoding(nn.Module):

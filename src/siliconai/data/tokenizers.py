@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from siliconai.cli.logger import progress_bar
 from siliconai.common.enums import ColumnType
 from siliconai.data.datasets import ActsChainDataset, ActsHitsDataset
 from siliconai.data.utils import NDArrayTransformation, NDArrayType
@@ -228,6 +229,7 @@ class SequenceTokenizer(NDArrayTransformation):
         """Initialize the tokenizer."""
         self.dictionary = DataDictionary("dictionary")
         self.summary_dict: dict[str, dict[str, int]] = {}
+        self.masks: dict[int, list[bool]] = {}
 
     def __call__(self, sample: NDArrayType) -> NDArrayType:
         """Transform the sample to tensors."""
@@ -253,6 +255,13 @@ class SequenceTokenizer(NDArrayTransformation):
             )
 
     @staticmethod
+    def json_decode(dct: dict[str, Any]) -> dict[str, Any]:
+        """Decode the tokenizer represented as a JSON."""
+        if "masks" in dct:
+            dct["masks"] = {int(k): v for k, v in dct["masks"].items()}
+        return DataDictionary.json_decode(dct)
+
+    @staticmethod
     def load(
         config: DataConfiguration,
         logger: Logger | None = None,
@@ -266,18 +275,19 @@ class SequenceTokenizer(NDArrayTransformation):
         if logger:
             logger.info('Loading the tokenizer from "%s"', tokenizer_file)
         with tokenizer_file.open("r") as f:
-            data = load(f, object_hook=DataDictionary.json_decode)
+            data = load(f, object_hook=SequenceTokenizer.json_decode)
 
         dictionary = DataDictionary("dictionary", config.padding_token)
         dictionary.from_dict(data["dictionary"])
         tokenizer = SequenceTokenizer()
         tokenizer.dictionary = dictionary
         tokenizer.summary_dict = data["summary"]
+        tokenizer.masks = data["masks"]
 
         return tokenizer
 
     @staticmethod
-    def train(config: DataConfiguration, logger: Logger) -> None:  # noqa: C901 PLR0915
+    def train(config: DataConfiguration, logger: Logger) -> None:  # noqa: C901 PLR0912 PLR0915
         """Train the tokenizer."""
         if not config.input_file:
             return
@@ -313,12 +323,21 @@ class SequenceTokenizer(NDArrayTransformation):
             ),
         ):
             logger.info("Tokenizing column %d: %s", c, column)
-            for i in range(len(dataset)):
-                row = dataset[i]
-                tokenizer(row[s::ncolumns])
-                if column_type == ColumnType.Numerical:
-                    tokenizer(row[s + 1 :: ncolumns])
-            s += 2 if column_type == ColumnType.Numerical else 1
+            with progress_bar(transient=True) as progress:
+                task = progress.add_task("Processing", total=len(dataset))
+                for i in range(len(dataset)):
+                    row = dataset[i]
+                    tokenizer(row[s::ncolumns])
+                    # if config.split_numerical and column_type == ColumnType.Numerical:
+                    if column_type == ColumnType.Numerical:
+                        tokenizer(row[s + 1 :: ncolumns])
+                    progress.update(task, advance=1)
+                # s += (
+                #     2
+                #     if config.split_numerical and column_type == ColumnType.Numerical
+                #     else 1
+                # )
+                s += 2 if column_type == ColumnType.Numerical else 1
 
             if column_type is ColumnType.Categorical:
                 column_tokens = len(tokenizer.dictionary) - total
@@ -354,10 +373,33 @@ class SequenceTokenizer(NDArrayTransformation):
             )
             raise ValueError(error)
 
+        # build masks (separate for now due to a bug)
+        logger.info("Building column token masks")
+        dataset = ActsChainDataset(config.input_file)
+        token_sets: dict[int, set[int]] = {c: set() for c in range(ncolumns)}
+        with progress_bar(transient=True) as progress:
+            task = progress.add_task("Processing", total=len(dataset))
+            for i in range(len(dataset)):
+                row = dataset[i]
+                for c in range(ncolumns):
+                    token_sets[c] |= set(tokenizer(row[c::ncolumns]).tolist())
+                progress.update(task, advance=1)
+
+        masks: dict[int, NDArrayType] = {
+            c: np.zeros(dim, dtype=bool) for c in range(ncolumns)
+        }
+        for c in range(ncolumns):
+            masks[c][0] = True  # padding token
+            masks[c][list(token_sets[c])] = True
+        for c in range(ncolumns):
+            logger.info("Mask size for column %d: %d", c, masks[c].sum())
+        tokenizer.masks = {c: masks[c].tolist() for c in range(ncolumns)}
+
         # build JSON representation
         tokenizer_dict = {
             "dictionary": tokenizer.dictionary.to_dict(),
             "summary": tokenizer.summary_dict,
+            "masks": tokenizer.masks,
         }
 
         tokenizer_file = config.input_file.with_suffix(".tokenizer.json")
@@ -367,7 +409,7 @@ class SequenceTokenizer(NDArrayTransformation):
 
         logger.info("Validating file representation")
         with tokenizer_file.open("r") as f:
-            data = load(f, object_hook=DataDictionary.json_decode)
+            data = load(f, object_hook=SequenceTokenizer.json_decode)
 
             if data != tokenizer_dict:
                 error = "Loaded data is not the same as the original dictionary"

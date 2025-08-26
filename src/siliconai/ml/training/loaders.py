@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import torch
+
 from siliconai.common.enums import DataType, ModelType
 from siliconai.data.modules import (
     ActsChainDataModule,
@@ -97,12 +99,14 @@ def load_model_from_checkpoint(
     """Load the model from checkpoint."""
     logger.info("Loading model type: %s", config.model.type.value)
 
+    device = torch.device(config.inference.device) if config.inference.device else None
+
     model: L.LightningModule
     if config.model.type.is_transformer():
-        model = TransformerModule.load_from_checkpoint(checkpoint)
+        model = TransformerModule.load_from_checkpoint(checkpoint, map_location=device)
         return model
     if config.model.type is ModelType.NanoGPT:
-        return NanoGPTModule.load_from_checkpoint(checkpoint)
+        return NanoGPTModule.load_from_checkpoint(checkpoint, map_location=device)
 
     error = f"Model type {config.model.type} not supported."
     raise ValueError(error)

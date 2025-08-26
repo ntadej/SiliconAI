@@ -349,8 +349,7 @@ class NanoGPT(nn.Module):
         self,
         idx: Tensor,
         end_tensor: Tensor,
-        column_mask_dict: dict[int, Tensor],
-        max_tokens: int = 256,
+        column_mask_dict: dict[int, Tensor] | None = None,
         temperature: float = 1.0,
         top_k: int | None = None,
     ) -> Tensor:
@@ -361,6 +360,7 @@ class NanoGPT(nn.Module):
         into the model each time. Most likely you'll want to make sure to be
         in model.eval() mode of operation for this.
         """
+        max_tokens = 256
         batch_size = idx.size(0)
         ended = torch.zeros(batch_size, dtype=torch.bool, device=idx.device)
 
@@ -400,7 +400,8 @@ class NanoGPT(nn.Module):
             logits = logits[:, -1, :] / temperature
             # remove invalid tokens for the position
             position = seq_size % self.extra_config.ncolumns
-            logits = torch.where(~column_mask_dict[position], float("-inf"), logits)
+            if column_mask_dict is not None:
+                logits = torch.where(~column_mask_dict[position], float("-inf"), logits)
             # optionally crop the logits to only the top k options
             if top_k is not None:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
