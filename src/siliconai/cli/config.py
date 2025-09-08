@@ -486,6 +486,7 @@ class TrainingConfiguration:
         self.compile: bool = config.get("compile", False)
         self.epochs: int = int(config["epochs"])
         self.checkpoint_interval: int = int(config.get("checkpoint_interval", 25))
+        self.checkpoint_top_k: int = int(config.get("checkpoint_top_k", -1))
         self.early_stopping: int = int(config["early_stopping"])
         self.learning_rate: float = float(config["learning_rate"])
         self.optimizer_betas: tuple[float, float] = (
@@ -515,6 +516,7 @@ class TrainingConfiguration:
             "compile": self.compile,
             "epochs": self.epochs,
             "checkpoint_interval": self.checkpoint_interval,
+            "checkpoint_top_k": self.checkpoint_top_k,
             "early_stopping": self.early_stopping,
             "optimizer": self.optimizer,
             "learning_rate": self.learning_rate,
@@ -532,7 +534,10 @@ class TrainingConfiguration:
 
         table.add_row("Compile:", str(self.compile))
         table.add_row("Epochs:", str(self.epochs))
-        table.add_row("Checkpoint interval:", str(self.checkpoint_interval))
+        if self.checkpoint_top_k > 0:
+            table.add_row("Top checkpoints saved:", str(self.checkpoint_top_k))
+        else:
+            table.add_row("Checkpoint interval:", str(self.checkpoint_interval))
         table.add_row("Early stopping patience:", str(self.early_stopping))
         table.add_row("Optimizer:", self.optimizer)
         table.add_row("Learning rate:", str(self.learning_rate))

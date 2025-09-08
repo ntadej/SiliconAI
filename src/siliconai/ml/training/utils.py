@@ -37,9 +37,13 @@ def setup_callbacks(config: Configuration) -> list[Callback]:
             save_weights_only=False,
             mode="min",
             monitor="val_loss",
-            save_top_k=-1,
+            save_top_k=config.training.checkpoint_top_k
+            if config.training.checkpoint_top_k > 0
+            else -1,
             save_last=True,
-            every_n_epochs=config.training.checkpoint_interval,
+            every_n_epochs=config.training.checkpoint_interval
+            if config.training.checkpoint_top_k <= 0
+            else None,
         ),
     )
 

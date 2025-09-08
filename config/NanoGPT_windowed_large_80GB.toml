@@ -40,7 +40,7 @@ activation = "gelu"
 compile = true
 
 epochs = 10000
-checkpoint_interval = 100
+checkpoint_top_k = 10
 early_stopping = 0
 
 optimizer = "AdamW"
