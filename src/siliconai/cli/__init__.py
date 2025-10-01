@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 
 from siliconai import __version__
-from siliconai.common.enums import DataLoadingType, DataType
+from siliconai.common.enums import DataLoadingType
 
 from .config import Configuration, GlobalConfiguration, TyperState, config_missing
 from .logger import setup_logger
@@ -147,15 +147,9 @@ def tokenize(
     config = Configuration(config_file, global_config)
     logger = setup_logger(global_config, "tokenize")
 
-    if config.data.type is DataType.ActsChain:
-        from siliconai.data.tokenizers import SequenceTokenizer
+    from siliconai.data.tokenizers import SequenceTokenizer
 
-        SequenceTokenizer.train(config.data, logger)
-
-    if config.data.type is DataType.ActsHits:
-        from siliconai.data.tokenizers import ColumnTokenizer
-
-        ColumnTokenizer.train(config.data, logger)
+    SequenceTokenizer.train(config.data, logger)
 
 
 @application.command()
@@ -248,14 +242,6 @@ def validate(
         int,
         typer.Option("-n", "--checkpoint", help="Checkpoint to use."),
     ] = -1,
-    random: Annotated[
-        bool,
-        typer.Option("--random", help="Test random number effect."),
-    ] = False,
-    no_random: Annotated[
-        bool,
-        typer.Option("--no-random", help="Disable random number effect."),
-    ] = False,
 ) -> None:
     """Validate the model."""
     global_config = GlobalConfiguration.load(state)
@@ -265,12 +251,8 @@ def validate(
     from siliconai.ml.training.utils import common_setup
     from siliconai.plotting.validation import validate
 
-    if random and no_random:
-        error = "Cannot use both --random and --no-random."
-        raise ValueError(error)
-
     common_setup()
-    validate(logger, config, data_type, batches, checkpoint, random, no_random)
+    validate(logger, config, data_type, batches, checkpoint)
 
 
 @application.command()

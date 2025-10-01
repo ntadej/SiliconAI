@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import pickle
+from json import load
 from typing import TYPE_CHECKING
 
-import numpy as np
 from torch.utils.data import Dataset
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from siliconai.cli.logger import Logger
     from siliconai.data.utils import (
         NDArrayTransformation,
         NDArrayType,
@@ -22,59 +23,69 @@ class ActsChainDataset(Dataset):  # type: ignore[type-arg]
 
     def __init__(
         self,
-        input_file: Path,
+        input_path: Path,
+        input_suffix: str,
+        nfiles: int = 1,
+        events_per_file: int = -1,
         transforms: list[NDArrayTransformation] | None = None,
         full_data: bool = False,
+        logger: Logger | None = None,
     ) -> None:
         """Load the ActsHits as a dataset."""
+        self.logger = logger
+        self.input_path = input_path
+        self.input_suffix = input_suffix
+        self.nfiles = nfiles
+        self.events_per_file = events_per_file
         self.transforms = transforms
+        self.full_data = full_data
 
-        with input_file.open("rb") as f:
+        self.current_index = -1
+        self.current_offset = self.current_index * self.events_per_file
+
+        with (self.input_path / f"conversion_info_{input_suffix}.json").open("r") as f:
+            self.metadata = load(f)
+
+        if self.events_per_file < 0:
+            self.load_data_for_index(0)
+            self.events_per_file = len(self.data)
+
+    def load_data_for_index(self, index: int) -> None:
+        """Load data from a file with an index."""
+        with (self.input_path / f"{index + 1}_{self.input_suffix}.pkl").open("rb") as f:
             data, data_chunked = pickle.load(f)
             self.data = (
-                data_chunked if not full_data and data_chunked is not None else data
+                data_chunked
+                if not self.full_data and data_chunked is not None
+                else data
+            )
+        self.current_index = index
+        self.current_offset = self.metadata["starts"][index]
+        if self.logger:
+            self.logger.info(
+                "Loaded %d sequences from %s",
+                len(self.data),
+                self.input_path / f"{index + 1}_{self.input_suffix}.pkl",
             )
 
-    def __len__(self) -> int:
-        """Return the length of the dataset."""
-        return len(self.data)
+    def index_for_idx(self, idx: int) -> int:
+        """Get the file index for a given dataset index."""
+        for i, end in enumerate(self.metadata["ends"]):
+            if idx < end:
+                return i
 
-    def __getitem__(self, idx: int) -> NDArrayType:
-        """Return the item at the given index."""
-        sequence: NDArrayType = self.data[idx]
-
-        if self.transforms:
-            for t in self.transforms:
-                sequence = t(sequence)
-
-        return sequence
-
-
-class ActsHitsDataset(Dataset):  # type: ignore[type-arg]
-    """ActsHits dataset."""
-
-    def __init__(
-        self,
-        input_file: Path,
-        transforms: list[NDArrayTransformation] | None = None,
-    ) -> None:
-        """Load the ActsHits as a dataset."""
-        self.transforms = transforms
-
-        self.data: list[NDArrayType]
-
-        with input_file.open("rb") as f:
-            self.data = pickle.load(f)
+        error = "Index out of range"
+        raise IndexError(error)
 
     def __len__(self) -> int:
         """Return the length of the dataset."""
-        return len(self.data)
+        return sum(self.metadata["sizes"])
 
     def __getitem__(self, idx: int) -> NDArrayType:
         """Return the item at the given index."""
-        sequence: NDArrayType = (
-            self.data[idx] if self.data else np.empty(0, dtype=np.float32)
-        )
+        if self.index_for_idx(idx) != self.current_index:
+            self.load_data_for_index(self.index_for_idx(idx))
+        sequence: NDArrayType = self.data[idx - self.current_offset]
 
         if self.transforms:
             for t in self.transforms:

@@ -32,10 +32,9 @@ block_size = 13
 type = "NanoGPT"
 sequence_length = 56
 model_dim = 128
-encoder_layers = 8
+layers = 8
 heads = 8
 dropout = 0.2
-activation = "gelu"
 
 [training]
 compile = true

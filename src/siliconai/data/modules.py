@@ -8,17 +8,9 @@ import lightning as L
 from torch.utils.data import DataLoader, Dataset, Subset, random_split
 
 from siliconai.common.enums import DataLoadingType
-from siliconai.data.datasets import (
-    ActsChainDataset,
-    ActsHitsDataset,
-)
-from siliconai.data.tokenizers import ColumnTokenizer, SequenceTokenizer
-from siliconai.data.utils import (
-    CollateFnType,
-    NDArrayType,
-    collate_sequence,
-    collate_sequence_chain,
-)
+from siliconai.data.datasets import ActsChainDataset
+from siliconai.data.tokenizers import SequenceTokenizer
+from siliconai.data.utils import CollateFnType, NDArrayType, collate_sequence
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -114,14 +106,16 @@ class ActsChainDataModule(BaseDataModule):
         logger: Logger | None = None,
     ) -> None:
         """Initialize the data module."""
-        super().__init__(data_config, collate_sequence_chain)
-        if not data_config.data.input_file:
-            error = "ACTS data path not set."
-            raise ValueError(error)
+        super().__init__(data_config, collate_sequence)
+        if not data_config.data.input_path:
+            error = "Invalid configuration"
+            raise RuntimeError(error)
 
         self.logger = logger
 
-        self.data_path: Path = data_config.data.input_file
+        self.data_path: Path = data_config.data.input_path
+        self.data_suffix: str = data_config.data.input_suffix
+        self.nfiles: int = data_config.data.nfiles
         self.full_data: bool = False
 
         self.tokenizer = SequenceTokenizer.load(data_config.data, logger)
@@ -137,6 +131,8 @@ class ActsChainDataModule(BaseDataModule):
         self.train_data, self.val_data, self.test_data = random_split(
             ActsChainDataset(
                 self.data_path,
+                self.data_suffix,
+                self.nfiles,
                 transforms=[self.tokenizer],
                 full_data=self.full_data,
             ),
@@ -144,47 +140,8 @@ class ActsChainDataModule(BaseDataModule):
         )
         self.predict_data = ActsChainDataset(
             self.data_path,
+            self.data_suffix,
+            self.nfiles,
             transforms=[self.tokenizer],
             full_data=self.full_data,
         )
-
-
-class ActsHitsDataModule(BaseDataModule):
-    """ACTS-based silicon detector hits data module."""
-
-    def __init__(
-        self,
-        data_config: Configuration,
-        logger: Logger | None = None,
-    ) -> None:
-        """Initialize the data module."""
-        super().__init__(data_config, collate_sequence)
-        if not data_config.data.input_file:
-            error = "ACTS data path not set."
-            raise ValueError(error)
-
-        self.logger = logger
-
-        self.data_path: Path = data_config.data.input_file
-
-        self.input_dim_discreet: list[int]
-        if isinstance(data_config.data.input_dim, int):
-            self.input_dim_discreet = [data_config.data.input_dim]
-        else:
-            self.input_dim_discreet = data_config.data.input_dim[:]
-
-        self.tokenizer = ColumnTokenizer.load(data_config.data, logger)
-
-        self.save_hyperparameters("data_config")
-
-    def translate_data(self, data: NDArrayType) -> NDArrayType:
-        """Translate back from tokens to the original data."""
-        return self.tokenizer.inverse(data)
-
-    def setup(self, stage: str) -> None:  # noqa: ARG002
-        """Transform and setup the ACTS dataset."""
-        self.train_data, self.val_data, self.test_data = random_split(
-            ActsHitsDataset(self.data_path, transforms=[self.tokenizer]),
-            self.split_ratio,
-        )
-        self.predict_data = ActsHitsDataset(self.data_path, transforms=[self.tokenizer])

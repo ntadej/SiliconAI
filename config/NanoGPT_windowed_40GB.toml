@@ -1,7 +1,6 @@
 name = "NanoGPT Windowed 40GB"
 
 [data]
-type = "ActsChain"
 input_dim = [21, 2220, 2, 12308]
 split_ratio = [0.5, 0.25, 0.25]
 batch_size = 3072
@@ -31,10 +30,9 @@ block_size = 8
 type = "NanoGPT"
 sequence_length = 40
 model_dim = 256
-encoder_layers = 8
+layers = 8
 heads = 8
 dropout = 0.2
-activation = "gelu"
 
 [training]
 compile = true

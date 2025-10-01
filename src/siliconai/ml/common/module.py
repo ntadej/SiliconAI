@@ -2,21 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Unpack, cast
+from typing import TYPE_CHECKING, NotRequired, TypedDict, Unpack, cast
 
 import lightning as L
 import torch
 from torch import Tensor, optim
 
-from siliconai.common.enums import ColumnType, ModelType
-from siliconai.data.tokenizers import SequenceTokenizer
+from siliconai.common.enums import ColumnType
 from siliconai.ml.models.nanogpt import ExtraConfig, GPTConfig, NanoGPT
-from siliconai.ml.models.transformer import (
-    ChainTransformer,
-    DiscreteTransformer,
-    TransformerBase,
-    TransformerPredictParams,
-)
 from siliconai.ml.training import schedulers
 
 if TYPE_CHECKING:
@@ -25,6 +18,16 @@ if TYPE_CHECKING:
     from torch.optim.lr_scheduler import LRScheduler
 
     from siliconai.cli.config import Configuration
+    from siliconai.data.tokenizers import SequenceTokenizer
+
+
+class TransformerPredictParams(TypedDict):
+    """Transformer predict parameters."""
+
+    tokenizer: SequenceTokenizer
+    simple_mask: NotRequired[bool | None]
+    top_k: NotRequired[int | None]
+    temperature: NotRequired[float]
 
 
 class ModuleBase(L.LightningModule):
@@ -84,84 +87,6 @@ class ModuleBase(L.LightningModule):
         self.logger.experiment.log_text(self.logger.run_id, str(self), "model.txt")  # type: ignore[attr-defined]
 
 
-class TransformerModule(ModuleBase):
-    """Common lightning module."""
-
-    def __init__(self, config: Configuration) -> None:
-        """Initialize the module."""
-        super().__init__(config)
-
-        self.model: TransformerBase
-        if config.model.type is ModelType.ChainTransformer:
-            self.model = ChainTransformer(config)
-        elif config.model.type is ModelType.DiscreteTransformer:
-            self.model = DiscreteTransformer(config)
-
-        if config.training.compile:
-            self.model = cast(
-                "TransformerBase",
-                torch.compile(self.model, fullgraph=True),
-            )
-
-        # save the hyperparameters
-        self.save_hyperparameters()
-
-    def forward(self, *args: Tensor) -> Tensor:
-        """Forward pass."""
-        return self.model.forward_pass(args, self.device, evaluate=True)
-
-    def training_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
-        """Run training step."""
-        loss, loss_split = self.model.process_loss(batch, self.device)
-
-        self.log("train_loss", loss, sync_dist=True)
-        if loss_split:
-            for label, loss_value in zip(
-                self.config.data.columns,
-                loss_split,
-                strict=True,
-            ):
-                self.log(f"train_loss_{label}", loss_value, sync_dist=True)
-        return loss
-
-    def validation_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
-        """Run validation step."""
-        loss, loss_split = self.model.process_loss(batch, self.device)
-
-        self.log("val_loss", loss, sync_dist=True)
-        if loss_split:
-            for label, loss_value in zip(
-                self.config.data.columns,
-                loss_split,
-                strict=True,
-            ):
-                self.log(f"val_loss_{label}", loss_value, sync_dist=True)
-        return loss
-
-    def test_step(self, batch: Tensor, _batch_idx: int) -> Tensor:  # noqa: PT019
-        """Run test step."""
-        loss, loss_split = self.model.process_loss(batch, self.device)
-
-        self.log("test_loss", loss, sync_dist=True)
-        if loss_split:
-            for label, loss_value in zip(
-                self.config.data.columns,
-                loss_split,
-                strict=True,
-            ):
-                self.log(f"test_loss_{label}", loss_value, sync_dist=True)
-        return loss
-
-    @torch.no_grad()
-    def predict(
-        self,
-        batch: tuple[Tensor, ...],
-        **kwargs: Unpack[TransformerPredictParams],
-    ) -> Tensor:
-        """Run predictions on the model."""
-        return self.model.predict(batch, self.device, **kwargs)
-
-
 class NanoGPTModule(ModuleBase):
     """Common lightning module."""
 
@@ -199,7 +124,7 @@ class NanoGPTModule(ModuleBase):
             GPTConfig(
                 block_size=config.model.sequence_length,
                 vocab_size=self.output_dim,
-                n_layer=config.model.encoder_layers,
+                n_layer=config.model.layers,
                 n_head=config.model.heads,
                 n_embd=config.model.model_dim,
                 dropout=config.model.dropout,
@@ -261,10 +186,6 @@ class NanoGPTModule(ModuleBase):
     ) -> Tensor:
         """Run predictions on the model."""
         # _rich_traceback_guard = True
-
-        if not isinstance(kwargs["tokenizer"], SequenceTokenizer):
-            error = "Wrong tokenizer type"
-            raise TypeError(error)
 
         tokenizer: SequenceTokenizer = kwargs["tokenizer"]
 

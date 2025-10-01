@@ -7,12 +7,8 @@ from typing import TYPE_CHECKING
 
 import torch
 
-from siliconai.common.enums import DataType, ModelType
-from siliconai.data.modules import (
-    ActsChainDataModule,
-    ActsHitsDataModule,
-)
-from siliconai.ml.common.module import NanoGPTModule, TransformerModule
+from siliconai.data.modules import ActsChainDataModule
+from siliconai.ml.common.module import NanoGPTModule
 
 if TYPE_CHECKING:
     import lightning as L
@@ -27,13 +23,9 @@ def load_data_module(
 ) -> L.LightningDataModule:
     """Load the data module based on the configuration."""
     if logger:
-        logger.info("Loading data type: %s", config.data.type.value)
+        logger.info("Loading data")
 
-    if config.data.type is DataType.ActsChain:
-        return ActsChainDataModule(config, logger)
-    if config.data.type is DataType.ActsHits:
-        return ActsHitsDataModule(config, logger)
-    raise RuntimeError
+    return ActsChainDataModule(config, logger)
 
 
 def load_data_module_from_checkpoint(
@@ -44,14 +36,10 @@ def load_data_module_from_checkpoint(
     """Load the data module from checkpoint."""
     logger.info("Loading data module type: %s", config.model.type.value)
 
-    data_module: L.LightningDataModule
-    if config.data.type is DataType.ActsChain:
-        data_module = ActsChainDataModule.load_from_checkpoint(checkpoint)
-        return data_module
-    if config.data.type is DataType.ActsHits:
-        data_module = ActsHitsDataModule.load_from_checkpoint(checkpoint)
-        return data_module
-    raise RuntimeError
+    data_module: L.LightningDataModule = ActsChainDataModule.load_from_checkpoint(
+        checkpoint,
+    )
+    return data_module
 
 
 def load_data_module_from_latest_checkpoint(
@@ -82,13 +70,10 @@ def load_data_module_from_latest_checkpoint(
 def load_model(logger: Logger, config: Configuration) -> L.LightningModule:
     """Load the model based on the configuration."""
     logger.info("Loading model type: %s", config.model.type.value)
-    if config.model.type.is_transformer():
-        return TransformerModule(config)
-    if config.model.type is ModelType.NanoGPT:
-        return NanoGPTModule(config)
+    return NanoGPTModule(config)
 
-    error = f"Model type {config.model.type} not supported."
-    raise ValueError(error)
+    # error = f"Model type {config.model.type} not supported."
+    # raise ValueError(error)
 
 
 def load_model_from_checkpoint(
@@ -101,15 +86,10 @@ def load_model_from_checkpoint(
 
     device = torch.device(config.inference.device) if config.inference.device else None
 
-    model: L.LightningModule
-    if config.model.type.is_transformer():
-        model = TransformerModule.load_from_checkpoint(checkpoint, map_location=device)
-        return model
-    if config.model.type is ModelType.NanoGPT:
-        return NanoGPTModule.load_from_checkpoint(checkpoint, map_location=device)
+    return NanoGPTModule.load_from_checkpoint(checkpoint, map_location=device)
 
-    error = f"Model type {config.model.type} not supported."
-    raise ValueError(error)
+    # error = f"Model type {config.model.type} not supported."
+    # raise ValueError(error)
 
 
 def load_model_from_latest_checkpoint(

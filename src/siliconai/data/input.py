@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import itertools
 import pickle
+from json import dump
+from multiprocessing import Pool
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
 
-from siliconai.common.enums import DataType
 from siliconai.data.utils import sliding_subarrays
 
 if TYPE_CHECKING:
@@ -28,13 +29,38 @@ class InputConverter:
 
     def load(self) -> None:
         """Load the input."""
-        if self.config.type is DataType.ActsChain:
-            self.load_acts_chain()
-            return
-        if self.config.type is DataType.ActsHits:
-            self.load_acts_hits()
-            return
-        raise RuntimeError
+        if not self.config.conversion_input_path or not self.config.input_suffix:
+            error = "Input file and output suffix must be set"
+            raise ValueError(error)
+
+        self.logger.info(
+            "Loading ACTS hits chain input from %s",
+            self.config.conversion_input_path,
+        )
+
+        # run the process pool
+        with Pool(self.config.workers) as p:
+            sizes = p.starmap(
+                self.load_acts_chain,
+                zip(range(1, self.config.nfiles + 1), strict=True),
+            )
+
+        self.logger.info("Processed files with sizes: %s", sizes)
+        with (
+            self.config.conversion_input_path
+            / f"conversion_info_{self.config.input_suffix}.json"
+        ).open(
+            "w",
+        ) as f:
+            dump(
+                {
+                    "nfiles": self.config.nfiles,
+                    "sizes": sizes,
+                    "starts": list(itertools.accumulate([0, *sizes[:-1]])),
+                    "ends": list(itertools.accumulate(sizes)),
+                },
+                f,
+            )
 
     def process_acts_hits(
         self,
@@ -67,18 +93,6 @@ class InputConverter:
             ),
         )
 
-        if self.config.random_int:
-            event_rnd_int = np.random.randint(1, self.config.random_int, data_events)  # noqa: NPY002
-            all_rnd_int = np.array(
-                [
-                    data_hits_exact[i] * [rnd] + (data_hits - data_hits_exact[i]) * [0]
-                    for i, rnd in enumerate(event_rnd_int)
-                ],
-            ).flatten()
-            data_frame["random_int"] = all_rnd_int
-
-            column_count += 1
-
         output_list = list(
             data_frame.to_numpy().reshape(data_events, data_hits, column_count),
         )
@@ -96,19 +110,22 @@ class InputConverter:
 
         return output_nonzero
 
-    def load_acts_chain(self) -> None:
+    def load_acts_chain(self, index: int) -> int:
         """Load the ACTS hits as chain."""
-        if not self.config.conversion_input_file or not self.config.input_file:
-            error = "Input and output files must be set"
+        if self.config.conversion_input_path is None:
+            error = "Input path not set"
             raise ValueError(error)
 
-        self.logger.info(
-            "Loading ACTS hits chain input from %s",
-            self.config.conversion_input_file,
+        input_file = self.config.conversion_input_path / f"{index}.h5"
+        output_file = (
+            self.config.conversion_input_path
+            / f"{index}_{self.config.input_suffix}.pkl"
         )
 
-        with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
-            data_frame: pd.DataFrame | None = store["hits"][self.config.columns]
+        with pd.HDFStore(input_file, mode="r") as store:
+            data_frame: pd.DataFrame | None = store["hits"].set_index(
+                ["event_id", "index"],
+            )[self.config.columns]
 
         if data_frame is None:
             error = "No data set to be converted"
@@ -156,60 +173,23 @@ class InputConverter:
                 itertools.chain.from_iterable(output_nonzero_chunked),
             )
 
-        self.logger.info("Writing to %s", self.config.input_file)
+        # output_file =
+        self.logger.info("Writing to %s", output_file)
 
-        with self.config.input_file.open("wb") as f:
+        with output_file.open("wb") as f:
             pickle.dump([output_nonzero, output_nonzero_chunked], f)
 
-        self.logger.info("Testing %s", self.config.input_file)
+        self.logger.info("Testing %s", output_file)
 
         # test loading
-        with self.config.input_file.open("rb") as f:
+        with output_file.open("rb") as f:
             loaded_output, loaded_output_chunked = pickle.load(f)
             self.logger.info("%s", loaded_output[-3:])
             if loaded_output_chunked is not None:
                 self.logger.info("%s", loaded_output_chunked[-3:])
 
-    def load_acts_hits(self) -> None:
-        """Load the ACTS hits input data."""
-        if not self.config.conversion_input_file or not self.config.input_file:
-            error = "Input and output files must be set"
-            raise ValueError(error)
-
-        self.logger.info(
-            "Loading ACTS hits input from %s",
-            self.config.conversion_input_file,
+        return (
+            len(output_nonzero_chunked)
+            if output_nonzero_chunked is not None
+            else len(output_nonzero)
         )
-
-        columns = self.config.columns[:]
-        if self.config.random_int:
-            columns.remove("random_int")
-
-        with pd.HDFStore(self.config.conversion_input_file, mode="r") as store:
-            data_frame: pd.DataFrame = store["hits"][columns]
-
-        # scale quantised coordinates
-        columns_scale = ["lxq", "lyq", "tpxq", "tpyq", "tpzq"]
-        for column in columns_scale:
-            if column in data_frame:
-                data_frame[column] = data_frame[column] * 100
-
-        # convert to correct types
-        if data_frame is not None:
-            data_frame = data_frame.astype("int64")
-
-        self.logger.info("Converting to numpy arrays")
-
-        output_int_nonzero = self.process_acts_hits(data_frame, len(columns))
-
-        self.logger.info("Writing to %s", self.config.input_file)
-
-        with self.config.input_file.open("wb") as f:
-            pickle.dump(output_int_nonzero, f)
-
-        self.logger.info("Testing %s", self.config.input_file)
-
-        # test loading
-        with self.config.input_file.open("rb") as f:
-            loaded_output = pickle.load(f)
-            self.logger.info("%s", loaded_output[:3])

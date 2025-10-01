@@ -10,7 +10,7 @@ import numpy as np
 
 from siliconai.cli.logger import progress_bar
 from siliconai.common.enums import ColumnType
-from siliconai.data.datasets import ActsChainDataset, ActsHitsDataset
+from siliconai.data.datasets import ActsChainDataset
 from siliconai.data.utils import NDArrayTransformation, NDArrayType
 
 if TYPE_CHECKING:
@@ -89,139 +89,6 @@ class DataDictionary:
         Text = "text"
 
 
-class ColumnTokenizer(NDArrayTransformation):
-    """Tokenize the input data."""
-
-    def __init__(self, size: int) -> None:
-        """Initialize the tokenizer."""
-        self.size = size
-        self.dictionaries = [DataDictionary(f"dictionary_{i}") for i in range(size)]
-
-    def summary(self, logger: Logger) -> None:
-        """Log summary of the dictionary."""
-        for dictionary in self.dictionaries:
-            logger.info(
-                'Dictionary for "%s": %d words',
-                dictionary.name,
-                len(dictionary),
-            )
-
-    def __call__(self, sample: NDArrayType) -> NDArrayType:
-        """Transform the sample to tensors."""
-        for i in range(self.size):
-            sample[:, i] = self.dictionaries[i].add_word_v(sample[:, i])
-        return sample
-
-    def inverse(self, sample: NDArrayType) -> NDArrayType:
-        """Inverse the tokenization."""
-        for i in range(self.size):
-            sample[:, i] = self.dictionaries[i].get_word_v(sample[:, i])
-        return sample
-
-    @staticmethod
-    def load(
-        config: DataConfiguration,
-        logger: Logger | None = None,
-    ) -> ColumnTokenizer:
-        """Load the tokenizer from JSON."""
-        if not config.input_file:
-            error = "Invalid configuration"
-            raise RuntimeError(error)
-
-        tokenizer_file = config.input_file.with_suffix(".tokenizer.json")
-        if logger:
-            logger.info('Loading the tokenizer from "%s"', tokenizer_file)
-        with tokenizer_file.open("r") as f:
-            data = load(f, object_hook=DataDictionary.json_decode)
-
-        tokenizer = ColumnTokenizer(len(data["dictionaries"]))
-        keys_list = list(data["dictionaries"].keys())
-        for i in range(tokenizer.size):
-            tokenizer.dictionaries[i].name = keys_list[i]
-            tokenizer.dictionaries[i].from_dict(data["dictionaries"][keys_list[i]])
-
-        return tokenizer
-
-    @staticmethod
-    def train(config: DataConfiguration, logger: Logger) -> None:
-        """Train the tokenizer."""
-        if not config.input_file:
-            return
-
-        ncolumns = len(config.columns)
-        if ncolumns == 0:
-            return
-
-        if isinstance(config.input_dim, list):
-            dimensions = config.input_dim[:]
-        else:
-            dimensions = [config.input_dim]
-
-        tokenizer = ColumnTokenizer(ncolumns)
-        tokenizer.dictionaries = [
-            DataDictionary(f"dictionary_{column}", config.padding_token)
-            for column in config.columns
-        ]
-
-        logger.info("Tokenizing the input file with %d discrete columns", ncolumns)
-
-        dataset = ActsHitsDataset(config.input_file)
-        for i in range(len(dataset)):
-            row = dataset[i][0]
-            tokenizer(row)
-
-        for i, (column, dim) in enumerate(
-            zip(config.columns, dimensions, strict=True),
-        ):
-            logger.info("Expected dictionary size for %s: %d words", column, dim)
-            logger.info(
-                "Actual dictionary size for %s: %d words",
-                column,
-                len(tokenizer.dictionaries[i]),
-            )
-            # tokenizer.summary(logger)
-
-            if len(tokenizer.dictionaries[i]) != dim:
-                error = (
-                    "Dictionary sizes do not match"
-                    f" ({len(tokenizer.dictionaries[i])} vs {dim})"
-                )
-                raise ValueError(error)
-
-        # build JSON representation
-        tokenizer_dict = {
-            "dictionaries": {
-                dictionary.name: dictionary.to_dict()
-                for dictionary in tokenizer.dictionaries
-            },
-        }
-
-        tokenizer_file = config.input_file.with_suffix(".tokenizer.json")
-        logger.info('Writing the tokenizer to "%s"', tokenizer_file)
-        with tokenizer_file.open("w") as f:
-            dump(tokenizer_dict, f)
-
-        logger.info("Validating file representation")
-        with tokenizer_file.open("r") as f:
-            data = load(f, object_hook=DataDictionary.json_decode)
-
-            if data != tokenizer_dict:
-                error = "Loaded data is not the same as the original dictionary"
-                raise ValueError(error)
-
-        tokenizer_loaded = ColumnTokenizer.load(config, logger)
-        for i in range(ncolumns):
-            if (
-                tokenizer_loaded.dictionaries[i].name != tokenizer.dictionaries[i].name
-                or tokenizer_loaded.dictionaries[i].word2idx
-                != tokenizer.dictionaries[i].word2idx
-                or tokenizer_loaded.dictionaries[i].idx2word
-                != tokenizer.dictionaries[i].idx2word
-            ):
-                error = "Column tokenizer data does not match"
-                raise ValueError(error)
-
-
 class SequenceTokenizer(NDArrayTransformation):
     """Tokenize the sequence input data."""
 
@@ -267,11 +134,11 @@ class SequenceTokenizer(NDArrayTransformation):
         logger: Logger | None = None,
     ) -> SequenceTokenizer:
         """Load the tokenizer from JSON."""
-        if not config.input_file:
+        if not config.input_path:
             error = "Invalid configuration"
             raise RuntimeError(error)
 
-        tokenizer_file = config.input_file.with_suffix(".tokenizer.json")
+        tokenizer_file = config.input_path / f"tokenizer_{config.input_suffix}.json"
         if logger:
             logger.info('Loading the tokenizer from "%s"', tokenizer_file)
         with tokenizer_file.open("r") as f:
@@ -287,9 +154,9 @@ class SequenceTokenizer(NDArrayTransformation):
         return tokenizer
 
     @staticmethod
-    def train(config: DataConfiguration, logger: Logger) -> None:  # noqa: C901 PLR0912 PLR0915
+    def train(config: DataConfiguration, logger: Logger) -> None:  # noqa: C901, PLR0915
         """Train the tokenizer."""
-        if not config.input_file:
+        if not config.input_path:
             return
 
         tokenizer = SequenceTokenizer()
@@ -313,8 +180,14 @@ class SequenceTokenizer(NDArrayTransformation):
 
         summary_dict = {}
 
-        dataset = ActsChainDataset(config.input_file)
+        dataset = ActsChainDataset(
+            config.input_path,
+            config.input_suffix,
+            config.nfiles,
+            logger=logger,
+        )
         s = 0
+        token_sets: dict[int, set[int]] = {c: set() for c in range(ncolumns)}
         for c, (column, column_type) in enumerate(
             zip(
                 (["index"] if config.index_with_offset >= 0 else []) + config.columns,
@@ -327,9 +200,9 @@ class SequenceTokenizer(NDArrayTransformation):
                 task = progress.add_task("Processing", total=len(dataset))
                 for i in range(len(dataset)):
                     row = dataset[i]
-                    tokenizer(row[s::ncolumns])
+                    token_sets[s] |= set(tokenizer(row[s::ncolumns]))
                     if config.split_numerical and column_type == ColumnType.Numerical:
-                        tokenizer(row[s + 1 :: ncolumns])
+                        token_sets[s + 1] |= set(tokenizer(row[s + 1 :: ncolumns]))
                     progress.update(task, advance=1)
                 s += (
                     2
@@ -356,11 +229,7 @@ class SequenceTokenizer(NDArrayTransformation):
         }
         tokenizer.summary_dict = summary_dict
 
-        if isinstance(config.input_dim, list):
-            dim = sum(config.input_dim)
-        else:
-            dim = config.input_dim
-        dim += 1  # add padding token
+        dim = sum(config.input_dim) + 1  # with padding tokens
 
         logger.info("Expected dictionary size: %d words", dim)
         tokenizer.summary(logger)
@@ -371,18 +240,7 @@ class SequenceTokenizer(NDArrayTransformation):
             )
             raise ValueError(error)
 
-        # build masks (separate for now)
         logger.info("Building column token masks")
-        dataset = ActsChainDataset(config.input_file)
-        token_sets: dict[int, set[int]] = {c: set() for c in range(ncolumns)}
-        with progress_bar(transient=True) as progress:
-            task = progress.add_task("Processing", total=len(dataset))
-            for i in range(len(dataset)):
-                row = dataset[i]
-                for c in range(ncolumns):
-                    token_sets[c] |= set(tokenizer(row[c::ncolumns]).tolist())
-                progress.update(task, advance=1)
-
         masks: dict[int, NDArrayType] = {
             c: np.zeros(dim, dtype=bool) for c in range(ncolumns)
         }
@@ -400,7 +258,7 @@ class SequenceTokenizer(NDArrayTransformation):
             "masks": tokenizer.masks,
         }
 
-        tokenizer_file = config.input_file.with_suffix(".tokenizer.json")
+        tokenizer_file = config.input_path / f"tokenizer_{config.input_suffix}.json"
         logger.info('Writing the tokenizer to "%s"', tokenizer_file)
         with tokenizer_file.open("w") as f:
             dump(tokenizer_dict, f)

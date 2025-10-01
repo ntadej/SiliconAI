@@ -1,8 +1,8 @@
 name = "Test NanoGPT"
 
 [data]
-type = "ActsChain"
-input_dim = [20, 50, 7949]
+multiple_files = true
+input_dim = [20, 50, 11230]
 split_ratio = [0.5, 0.25, 0.25]
 batch_size = 3072
 workers = 12
@@ -10,8 +10,8 @@ padding_token = 999999
 end_token = 1000001
 
 [data.conversion]
-input = "ACTS_muon_80-85GeV_mini.h5"
-output = "ACTS_muon_80-85GeV_mini_test_chain.pkl"
+input = "Muon_pt80-85_eta005-010_phi000-010"
+output_suffix = "chain"
 columns = ["geometry_id", "lxq", "lyq", "tpxq", "tpyq", "tpzq"]
 columns_type = [
     "categorical", # for index
@@ -26,17 +26,19 @@ index_with_offset = 100000
 max_blocks = 5
 block_size = 7
 
+[data.files]
+nfiles = 10
+events_per_file = 100000
+
 [model]
 type = "NanoGPT"
 sequence_length = 40
 model_dim = 128
-encoder_layers = 8
+layers = 8
 heads = 8
 dropout = 0.2
 
 [training]
-compile = true
-
 epochs = 100
 checkpoint_interval = 5
 early_stopping = 0

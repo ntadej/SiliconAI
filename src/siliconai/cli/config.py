@@ -6,10 +6,9 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import tomli_w
 
-from siliconai.common.enums import ColumnType, DataType, ModelType
+from siliconai.common.enums import ColumnType, ModelType
 
 from .logger import Table, config_table, error_panel, info_panel
 
@@ -229,7 +228,6 @@ class DataConfiguration:
         """Initialize data configuration."""
         match config:
             case {
-                "type": str(),
                 "input_dim": list() | int(),
                 "batch_size": int(),
             }:
@@ -238,9 +236,10 @@ class DataConfiguration:
                 error = f"Invalid task configuration: {config}"
                 raise ValueError(error)
 
-        self.type: DataType = DataType(config["type"])
-        self.input_file: Path | None = None
-        self.input_dim: list[int] | int = config["input_dim"]
+        self.input_path: Path | None = None
+        self.input_suffix: str = ""
+        self.input_dim: list[int] = config["input_dim"]
+        self.multiple_files: bool = config.get("multiple_files", False)
         self.split_ratio: list[float] = config.get("split_ratio", [0.7, 0.15, 0.15])
         self.batch_size: int = config["batch_size"]
         self.workers: int = config.get("workers", 4)
@@ -248,17 +247,16 @@ class DataConfiguration:
         self.padding_token: int = config.get("padding_token", 0)
         self.end_token: int = config.get("end_token", 0)
 
-        self.random_int: int = config.get("random_int", 0)
-
         self.conversion: bool = False
-        self.conversion_input_file: Path | None = None
+        self.conversion_input_path: Path | None = None
 
         if "conversion" in config:
             self.conversion = True
-            self.conversion_input_file = (
+            self.conversion_input_path = (
                 global_config.data_path / config["conversion"]["input"]
             )
-            self.input_file = global_config.data_path / config["conversion"]["output"]
+            self.input_path = global_config.data_path / config["conversion"]["input"]
+            self.input_suffix = config["conversion"]["output_suffix"]
             self.columns = config["conversion"].get(
                 "columns",
                 config["conversion"].get("columns_integer", []),
@@ -277,8 +275,11 @@ class DataConfiguration:
             self.max_blocks: int = config["conversion"].get("max_blocks", 0)
             self.block_size: int = config["conversion"].get("block_size", 0)
 
-        if "input_file" in config:
-            self.input_file = global_config.data_path / config["input_file"]
+        self.nfiles: int = 1
+        self.events_per_file: int = -1
+        if "files" in config:
+            self.nfiles = config["files"].get("nfiles", 1)
+            self.events_per_file = config["files"].get("events_per_file", -1)
 
         if self.columns and not isinstance(self.input_dim, int):
             count = len(self.columns)
@@ -291,25 +292,12 @@ class DataConfiguration:
                 error = "Incompatible dimensions"
                 raise ValueError(error)
 
-        if self.random_int:
-            self.columns.append("random_int")
-            if self.columns_type:
-                self.columns_type.append(ColumnType.Categorical)
-            if isinstance(self.input_dim, list):
-                self.input_dim.append(self.random_int)
-
-    @property
-    def flat_input_dim(self) -> int:
-        """Return the flat input dimension."""
-        if isinstance(self.input_dim, int):
-            return self.input_dim
-        return int(np.prod(self.input_dim))
-
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
         return {
-            "type": self.type.value,
-            "input_file": str(self.input_file),
+            "multiple_files": self.multiple_files,
+            "input_path": self.input_path,
+            "input_suffix": self.input_suffix,
             "columns": self.columns,
             "columns_type": [t.value for t in self.columns_type],
             "padding_token": self.padding_token,
@@ -319,20 +307,22 @@ class DataConfiguration:
             "batch_size": self.batch_size,
             "workers": self.workers,
             "conversion": self.conversion,
-            "conversion_input_file": str(self.conversion_input_file),
+            "conversion_input_path": str(self.conversion_input_path),
             "split_numerical": self.split_numerical,
             "index_with_offset": self.index_with_offset,
             "max_blocks": self.max_blocks,
             "block_size": self.block_size,
         }
 
-    def to_table(self) -> Table:
+    def to_table(self) -> Table:  # noqa: C901
         """Convert configuration to table."""
         table = config_table()
 
-        table.add_row("Type:", self.type.value)
-        if self.input_file:
-            table.add_row("Input file:", print_path(self.input_file))
+        table.add_row("Multiple files:", str(self.multiple_files))
+        if self.input_path:
+            table.add_row("Input path:", str(self.input_path))
+        if self.input_suffix:
+            table.add_row("Input suffix:", str(self.input_suffix))
         if self.columns:
             table.add_row("Columns:", str(self.columns))
             if self.columns_type:
@@ -358,9 +348,13 @@ class DataConfiguration:
         if self.conversion:
             table.add_row()
             table.add_row(
-                "Conversion input file:",
-                print_path(self.conversion_input_file),
+                "Conversion input path:",
+                print_path(self.conversion_input_path),
             )
+            if self.nfiles > 1:
+                table.add_row("Number of files:", str(self.nfiles))
+                if self.events_per_file > 0:
+                    table.add_row("Events per file:", str(self.events_per_file))
 
         return table
 
@@ -377,9 +371,10 @@ class ModelConfiguration:
         match config:
             case {
                 "type": str(),
+                "sequence_length": int(),
                 "model_dim": int(),
-                "encoder_layers": int() | list(),
-                # "decoder_layers": int() | list(),
+                "layers": int(),
+                "heads": int(),
                 "dropout": float(),
             }:
                 pass
@@ -388,28 +383,12 @@ class ModelConfiguration:
                 raise ValueError(error)
 
         self.type: ModelType = ModelType(config["type"])
-        self.sequence_length: int = config.get("sequence_length", 0)
+        self.sequence_length: int = config["sequence_length"]
         self.model_dim: int = int(config["model_dim"])
-        self.heads: int = int(config.get("heads", 0))
+        self.heads: int = int(config["heads"])
         self.feedforward_dim: int = int(config.get("feedforward_dim", 0))
-        self.encoder_layers: int = config.get("encoder_layers", 0)
-        self.decoder_layers: int = config.get("decoder_layers", 0)
-        self.transformer_residual_weights: bool = config.get(
-            "residual_weights",
-            False,
-        )
-        self.activation: str = config.get("activation", "gelu")
-        self.activation_parameters: list[float] = config.get(
-            "activation_parameters",
-            [],
-        )
-        self.batch_norm: bool = config.get("batch_norm", False)
+        self.layers: int = int(config["layers"])
         self.dropout: float = config["dropout"]
-        self.loss: str = config.get("loss", "binary_cross_entropy_with_logits")
-        self.loss_parameters: list[float] = config.get(
-            "loss_parameters",
-            [],
-        )
 
     def to_object(self) -> dict[str, Any]:
         """Convert configuration to object."""
@@ -417,17 +396,10 @@ class ModelConfiguration:
             "type": self.type.value,
             "sequence_length": self.sequence_length,
             "model_dim": self.model_dim,
-            "encoder_layers": self.encoder_layers,
-            "decoder_layers": self.decoder_layers,
+            "layers": self.layers,
             "heads": self.heads,
             "feedforward_dim": self.feedforward_dim,
-            "transformer_residual_weights": self.transformer_residual_weights,
-            "activation": self.activation,
-            "activation_parameters": self.activation_parameters,
-            "batch_norm": self.batch_norm,
             "dropout": self.dropout,
-            "loss": self.loss,
-            "loss_parameters": self.loss_parameters,
         }
 
     def to_table(self) -> Table:
@@ -438,26 +410,12 @@ class ModelConfiguration:
         if self.sequence_length:
             table.add_row("Sequence length:", str(self.sequence_length))
         table.add_row("Latent dimension:", str(self.model_dim))
-        table.add_row("Encoder layers:", str(self.encoder_layers))
-        table.add_row("Decoder layers:", str(self.decoder_layers))
+        table.add_row("Layers:", str(self.layers))
         if self.heads:
             table.add_row("Number of heads:", str(self.heads))
         if self.feedforward_dim:
-            table.add_row("Feedworward dimension:", str(self.feedforward_dim))
-        if self.type.is_transformer():
-            table.add_row(
-                "Transformer residual weights:",
-                str(self.transformer_residual_weights),
-            )
-        table.add_row("Activation function:", self.activation)
-        if self.activation_parameters:
-            table.add_row("Activation parameters:", str(self.activation_parameters))
-        if not self.type.is_transformer():
-            table.add_row("Batch normalization:", str(self.batch_norm))
+            table.add_row("Feedforward dimension:", str(self.feedforward_dim))
         table.add_row("Dropout rate:", str(self.dropout))
-        table.add_row("Loss function:", self.loss)
-        if self.loss_parameters:
-            table.add_row("Loss function parameters:", str(self.loss_parameters))
 
         return table
 
@@ -483,7 +441,7 @@ class TrainingConfiguration:
                 error = f"Invalid task configuration: {config}"
                 raise ValueError(error)
 
-        self.compile: bool = config.get("compile", False)
+        self.compile: bool = config.get("compile", True)
         self.epochs: int = int(config["epochs"])
         self.checkpoint_interval: int = int(config.get("checkpoint_interval", 25))
         self.checkpoint_top_k: int = int(config.get("checkpoint_top_k", -1))

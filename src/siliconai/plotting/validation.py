@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
-import torch
 
 from siliconai.cli.logger import progress_bar
-from siliconai.common.enums import ColumnType, DataLoadingType, DataType, ModelType
+from siliconai.common.enums import ColumnType, DataLoadingType
 from siliconai.ml.training.loaders import (
     load_data_module_from_latest_checkpoint,
     load_model_from_latest_checkpoint,
@@ -25,12 +24,9 @@ if TYPE_CHECKING:
 
     from siliconai.cli.config import Configuration
     from siliconai.cli.logger import Logger
-    from siliconai.data.modules import (
-        ActsChainDataModule,
-        ActsHitsDataModule,
-    )
+    from siliconai.data.modules import ActsChainDataModule
     from siliconai.data.utils import NDArrayType
-    from siliconai.ml.common.module import NanoGPTModule, TransformerModule
+    from siliconai.ml.common.module import NanoGPTModule
 
 
 def quick_validate(
@@ -40,34 +36,18 @@ def quick_validate(
     data: L.LightningDataModule,
     data_type: DataLoadingType,
     batches: int = -1,
-    random: bool = False,
-    no_random: bool = False,
 ) -> None:
     """Validate the model after training."""
-    if config.data.type is DataType.ActsChain:
-        logger.info("Validating ActsChain-based model output...")
-        file = quick_validate_acts_chain(
-            config,
-            cast("NanoGPTModule", model),
-            data,
-            data_type,
-            batches,
-            logger=logger,
-        )
-        logger.info("Validation done and stored in %s.", file)
-
-    if config.data.type is DataType.ActsHits:
-        logger.info("Validating ActsHits-based model output...")
-        file = quick_validate_acts_hits(
-            config,
-            cast("TransformerModule", model),
-            data,
-            data_type,
-            random,
-            no_random,
-            logger=logger,
-        )
-        logger.info("Validation done and stored in %s.", file)
+    logger.info("Validating model output...")
+    file = quick_validate_acts_chain(
+        config,
+        cast("NanoGPTModule", model),
+        data,
+        data_type,
+        batches,
+        logger=logger,
+    )
+    logger.info("Validation done and stored in %s.", file)
 
 
 def acts_process_data(  # noqa: C901, PLR0912
@@ -353,182 +333,12 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     return output_file
 
 
-def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
-    config: Configuration,
-    model: TransformerModule,
-    data: L.LightningDataModule,
-    data_type: DataLoadingType,
-    random: bool = False,
-    no_random: bool = False,
-    logger: Logger | None = None,
-) -> Path:
-    """Validate ActsHits-based model output."""
-    # _rich_traceback_guard = True
-    setup_style()
-
-    # make sure we are in eval mode
-    model.eval()
-
-    suffix = ""
-    if random:
-        suffix = "_random_test"
-    if no_random:
-        suffix = "_no_random"
-
-    output_file = (
-        config.output_path
-        / f"run_{config.run_number}"
-        / f"validation_{data_type.value}{suffix}.pdf"
-    )
-
-    data = cast("ActsHitsDataModule", data)
-    data.setup(data_type.value)
-    if logger and data.tokenizer:
-        data.tokenizer.summary(logger)
-
-    input_full: list[NDArrayType] = []
-    result_full: list[NDArrayType] = []
-    if logger:
-        logger.info("Starting inference")
-    time_start = time.perf_counter()
-
-    for batch in data.get_dataloader(data_type):
-        if config.model.type is ModelType.DiscreteTransformer:
-            batch_full = batch[0]
-            if random:
-                batch_full = batch_full[0, :, :].repeat(
-                    len(batch_full),
-                    1,
-                    1,
-                )
-            batch_start = batch_full[:, :1].to(model.device)
-
-            if config.data.random_int and not no_random:
-                batch_start[:, :, -1] = torch.randint(
-                    1,
-                    config.data.random_int,
-                    (len(batch[0]), 1),
-                )
-
-            result = model.predict(
-                (batch_start,),
-                tokenizer=data.tokenizer,
-            )
-
-        input_full += list(
-            batch_full.cpu().numpy() if batch_full is not None else [],
-        )
-        result_full += list(
-            result.cpu().numpy() if result is not None else [],
-        )
-
-        if random:
-            break
-
-    input_translated: list[NDArrayType] = [data.translate_data(i) for i in input_full]
-    result_translated: list[NDArrayType] = [data.translate_data(i) for i in result_full]
-
-    time_end = time.perf_counter()
-
-    if logger:
-        logger.info(
-            "Inference done in %.4f s (%.4f s per 10k particles)",
-            time_end - time_start,
-            (time_end - time_start) / len(input_full) * 10000,
-        )
-
-    # non-zero results and DF conversion
-    input_nonzero, input_df = acts_process_data(config, input_translated)
-    result_nonzero, result_df = acts_process_data(config, result_translated)
-
-    if len(input_nonzero) != len(result_nonzero):
-        error = "Input and result sizes do not match"
-        raise ValueError(error)
-
-    if logger:
-        logger.info("Total events processed: %d", len(result_nonzero))
-
-    # store data
-    with pd.HDFStore(
-        config.output_path
-        / f"run_{config.run_number}"
-        / f"data_{data_type.value}{suffix}.h5",
-        mode="w",
-    ) as store:
-        store["reference_data"] = input_df
-        store["generated_data"] = result_df
-
-    # validation plots
-    with PDFDocument(output_file) as pdf:
-        labels = ["Geant4", "Neural network"]
-
-        n_hits_input = [len(i) - 2 for i in input_nonzero]
-        n_hits_result = [len(i) - 2 for i in result_nonzero]
-        n_hits_diff = [
-            abs(i - j) for i, j in zip(n_hits_input, n_hits_result, strict=True)
-        ]
-
-        fig, _ = plot_hist(
-            [n_hits_input, n_hits_result],
-            "Number of hits",
-            labels=labels,
-        )
-        if fig:
-            pdf.save(fig)
-
-        fig, _ = plot_hist(
-            [n_hits_result],
-            "Number of hits",
-            labels=labels[1:],
-        )
-        if fig:
-            pdf.save(fig)
-
-        fig, _ = plot_hist(
-            [n_hits_diff],
-            "Number of hits difference",
-            labels=labels[1:],
-        )
-        if fig:
-            pdf.save(fig)
-
-        columns_list = ["lxq", "lyq", "tpxq", "tpyq", "tpzq"]
-        columns_labels = [
-            "Local x position",
-            "Local y position",
-            "Momentum x",
-            "Momentum y",
-            "Momentum z",
-        ]
-
-        for column, column_label in zip(columns_list, columns_labels, strict=True):
-            if column in config.data.columns:
-                column_index = config.data.columns.index(column)
-                column_input = list(
-                    np.concatenate([i[:, column_index] for i in input_nonzero]),
-                )
-                column_result = list(
-                    np.concatenate([i[:, column_index] for i in result_nonzero]),
-                )
-                fig, _ = plot_hist(
-                    [column_input, column_result],
-                    column_label,
-                    labels=labels,
-                )
-                if fig:
-                    pdf.save(fig)
-
-    return output_file
-
-
 def validate(
     logger: Logger,
     config: Configuration,
     data_type: DataLoadingType,
     batches: int,
     checkpoint: int,
-    random: bool = False,
-    no_random: bool = False,
 ) -> None:
     """Validate the model after training."""
     checkpoint_path = (
@@ -549,4 +359,4 @@ def validate(
         checkpoint_path,
         checkpoint,
     )
-    quick_validate(logger, config, model, data, data_type, batches, random, no_random)
+    quick_validate(logger, config, model, data, data_type, batches)
