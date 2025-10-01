@@ -328,16 +328,14 @@ class SequenceTokenizer(NDArrayTransformation):
                 for i in range(len(dataset)):
                     row = dataset[i]
                     tokenizer(row[s::ncolumns])
-                    # if config.split_numerical and column_type == ColumnType.Numerical:
-                    if column_type == ColumnType.Numerical:
+                    if config.split_numerical and column_type == ColumnType.Numerical:
                         tokenizer(row[s + 1 :: ncolumns])
                     progress.update(task, advance=1)
-                # s += (
-                #     2
-                #     if config.split_numerical and column_type == ColumnType.Numerical
-                #     else 1
-                # )
-                s += 2 if column_type == ColumnType.Numerical else 1
+                s += (
+                    2
+                    if config.split_numerical and column_type == ColumnType.Numerical
+                    else 1
+                )
 
             if column_type is ColumnType.Categorical:
                 column_tokens = len(tokenizer.dictionary) - total
@@ -373,7 +371,7 @@ class SequenceTokenizer(NDArrayTransformation):
             )
             raise ValueError(error)
 
-        # build masks (separate for now due to a bug)
+        # build masks (separate for now)
         logger.info("Building column token masks")
         dataset = ActsChainDataset(config.input_file)
         token_sets: dict[int, set[int]] = {c: set() for c in range(ncolumns)}
