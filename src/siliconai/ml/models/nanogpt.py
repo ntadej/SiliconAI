@@ -249,7 +249,7 @@ class NanoGPT(nn.Module):
     ) -> tuple[Tensor, Tensor | None]:
         """Forward pass of the GPT model."""
         device = idx.device
-        b, t = idx.size()
+        _, t = idx.size()
         if t > self.config.block_size:
             error = (
                 f"Cannot forward sequence of length {t},"

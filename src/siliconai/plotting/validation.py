@@ -314,7 +314,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
         n_hits_input = [len(i) for i in input_nonzero]
         n_hits_result = [len(i) for i in result_nonzero]
 
-        fig, ax = plot_hist(
+        fig, _ = plot_hist(
             [n_hits_input, n_hits_result],
             "Number of hits",
             labels=labels,
@@ -322,7 +322,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
         if fig:
             pdf.save(fig)
 
-        fig, ax = plot_hist(
+        fig, _ = plot_hist(
             [n_hits_result],
             "Number of hits",
             labels=labels[1:],
@@ -340,9 +340,9 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
         ]
         for column, column_label in zip(columns_list, columns_labels, strict=True):
             if column in config.data.columns:
-                column_input = list(input_df[column].to_numpy())
-                column_result = list(result_df[column].to_numpy())
-                fig, ax = plot_hist(
+                column_input = list(input_df[column].to_numpy(dtype=float))
+                column_result = list(result_df[column].to_numpy(dtype=float))
+                fig, _ = plot_hist(
                     [column_input, column_result],
                     column_label,
                     labels=labels,
@@ -468,7 +468,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
             abs(i - j) for i, j in zip(n_hits_input, n_hits_result, strict=True)
         ]
 
-        fig, ax = plot_hist(
+        fig, _ = plot_hist(
             [n_hits_input, n_hits_result],
             "Number of hits",
             labels=labels,
@@ -476,7 +476,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
         if fig:
             pdf.save(fig)
 
-        fig, ax = plot_hist(
+        fig, _ = plot_hist(
             [n_hits_result],
             "Number of hits",
             labels=labels[1:],
@@ -484,7 +484,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
         if fig:
             pdf.save(fig)
 
-        fig, ax = plot_hist(
+        fig, _ = plot_hist(
             [n_hits_diff],
             "Number of hits difference",
             labels=labels[1:],
@@ -510,7 +510,7 @@ def quick_validate_acts_hits(  # noqa: PLR0912, PLR0915, C901
                 column_result = list(
                     np.concatenate([i[:, column_index] for i in result_nonzero]),
                 )
-                fig, ax = plot_hist(
+                fig, _ = plot_hist(
                     [column_input, column_result],
                     column_label,
                     labels=labels,

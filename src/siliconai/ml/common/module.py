@@ -222,13 +222,13 @@ class NanoGPTModule(ModuleBase):
     def forward(self, *args: Tensor) -> Tensor:
         """Forward pass."""
         x_data = args[0]
-        logits, loss = self.model.forward(x_data)
+        _, loss = self.model.forward(x_data)
         return loss if loss is not None else Tensor()
 
     def training_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
         """Run training step."""
         x_data, y_data = batch
-        logits, loss = self.model.forward(x_data, y_data)
+        _, loss = self.model.forward(x_data, y_data)
         if loss is not None:
             self.log("train_loss", loss, sync_dist=True)
             return loss
@@ -237,7 +237,7 @@ class NanoGPTModule(ModuleBase):
     def validation_step(self, batch: Tensor, _batch_idx: int) -> Tensor:
         """Run validation step."""
         x_data, y_data = batch
-        logits, loss = self.model.forward(x_data, y_data)
+        _, loss = self.model.forward(x_data, y_data)
         if loss is not None:
             self.log("val_loss", loss, sync_dist=True)
             return loss
@@ -246,7 +246,7 @@ class NanoGPTModule(ModuleBase):
     def test_step(self, batch: Tensor, _batch_idx: int) -> Tensor:  # noqa: PT019
         """Run test step."""
         x_data, y_data = batch
-        logits, loss = self.model.forward(x_data, y_data)
+        _, loss = self.model.forward(x_data, y_data)
         if loss is not None:
             self.log("test_loss", loss, sync_dist=True)
             return loss

@@ -24,16 +24,16 @@ classifiers = [
 dependencies = [
     "lightning == 2.5.*",
     "matplotlib == 3.10.*",
-    "mlflow == 3.2.*",
+    "mlflow == 3.4.*",
     "mplhep == 0.4.*",
     "numpy == 2.3.*",
     "pandas == 2.3.*",
-    "rich == 14.0.*",
+    "rich == 14.1.*",
     "scikit-learn == 1.7.*",
     "scipy == 1.16.*",
     "tables == 3.10.*",
     "torch == 2.8.*",
-    "typer-slim[standard] == 0.16.*",
+    "typer-slim[standard] == 0.19.*",
     "tomli-w == 1.2.*",
     "uproot == 5.6.*",
 ]
@@ -42,14 +42,14 @@ dependencies = [
 dev = [
     "coverage[toml]",
     "ipykernel",
-    "mypy == 1.17.1",
+    "mypy == 1.18.2",
     "pandas-stubs == 2.3.*",
-    "pre-commit-hooks == 5.0.*",
+    "pre-commit-hooks == 6.0.*",
     "pre-commit",
     "pytest",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.12.8",
+    "ruff == 0.13.2",
     "types-pyyaml",
 ]
 
@@ -146,7 +146,6 @@ pylint = { max-args = 12 }
 "**/tests/*" = ["S101"]
 
 [tool.mypy]
-plugins = "numpy.typing.mypy_plugin"
 strict = true
 pretty = true
 no_implicit_reexport = false
