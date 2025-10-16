@@ -1,0 +1,21 @@
+version = 1
+
+[[annotations]]
+path = [
+    ".dockerignore",
+    ".github/**/*",
+    ".gitignore",
+    ".gitlab-ci.yml",
+    ".gitmodules",
+    ".pre-commit-config.yaml",
+    ".python-version",
+    ".vscode/settings.json",
+    "config/*.toml",
+    "Dockerfile",
+    "pyproject.toml",
+    "tests/resources/*.toml",
+    "uv.lock",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2024 Tadej Novak"
+SPDX-License-Identifier = "MPL-2.0"
