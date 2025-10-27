@@ -75,7 +75,7 @@ class InputConverter:
         data_frame: pd.DataFrame,
         column_count: int,
         flatten: bool = False,
-    ) -> list[NDArrayType]:
+    ) -> tuple[list[NDArrayType], pd.DataFrame]:
         """Process loaded ACTS hits data."""
         if not isinstance(data_frame.index, pd.MultiIndex):
             error = "Index must be a MultiIndex"
@@ -92,6 +92,8 @@ class InputConverter:
             data_frame["index_orig"] = data_frame["index"]
             data_frame["index"] += self.config.index_with_offset
             data_frame = data_frame.reset_index().set_index(["event_id", "index_orig"])
+
+        data_frame_final = data_frame
 
         # do auto-padding
         data_frame = cast(
@@ -116,7 +118,7 @@ class InputConverter:
                     output_list[i][: data_hits_exact[i], :],
                 )
 
-        return output_nonzero
+        return output_nonzero, data_frame_final
 
     def load_acts_chain(self, index: int) -> int:
         """Load the ACTS hits as chain."""
@@ -128,6 +130,10 @@ class InputConverter:
         output_file = (
             self.config.conversion_input_path
             / f"{index}_{self.config.input_suffix}.pkl"
+        )
+        output_metadata_file = (
+            self.config.conversion_input_path
+            / f"{index}_{self.config.input_suffix}_metadata.json"
         )
 
         with pd.HDFStore(input_file, mode="r") as store:
@@ -163,7 +169,11 @@ class InputConverter:
 
         self.logger.info("Converting to numpy arrays")
 
-        output_nonzero = self.process_acts_hits(data_frame, ncolumns, flatten=True)
+        output_nonzero, data_frame_final = self.process_acts_hits(
+            data_frame,
+            ncolumns,
+            flatten=True,
+        )
 
         output_nonzero_chunked = None
         if self.config.max_blocks > 0:
@@ -181,7 +191,16 @@ class InputConverter:
                 itertools.chain.from_iterable(output_nonzero_chunked),
             )
 
-        # output_file =
+        # pre-cache unique column values
+        unique_values = {
+            column: data_frame_final[column].unique().tolist()
+            for column in data_frame_final.columns
+        }
+
+        with output_metadata_file.open("w") as f:
+            dump({"unique_values": unique_values}, f)
+
+        # output_file
         self.logger.info("Writing to %s", output_file)
 
         with output_file.open("wb") as f:

@@ -162,7 +162,7 @@ class SequenceTokenizer(NDArrayTransformation):
         return tokenizer
 
     @staticmethod
-    def train(config: DataConfiguration, logger: Logger) -> None:  # noqa: C901, PLR0915
+    def train(config: DataConfiguration, logger: Logger) -> None:  # noqa: C901, PLR0912, PLR0915
         """Train the tokenizer."""
         if not config.input_path:
             return
@@ -193,6 +193,10 @@ class SequenceTokenizer(NDArrayTransformation):
             config.input_suffix,
             logger=logger,
         )
+        from_cached = (
+            config.input_path / f"1_{config.input_suffix}_metadata.json"
+        ).exists()
+
         s = 0
         token_sets: dict[int, set[int]] = {c: set() for c in range(ncolumns)}
         for c, (column, column_type) in enumerate(
@@ -204,18 +208,51 @@ class SequenceTokenizer(NDArrayTransformation):
         ):
             logger.info("Tokenizing column %d: %s", c, column)
             with progress_bar(transient=True) as progress:
-                task = progress.add_task("Processing", total=len(dataset))
-                for i in range(len(dataset)):
-                    row = dataset[i]
-                    token_sets[s] |= set(tokenizer(row[s::ncolumns]))
-                    if config.split_numerical and column_type == ColumnType.Numerical:
-                        token_sets[s + 1] |= set(tokenizer(row[s + 1 :: ncolumns]))
-                    progress.update(task, advance=1)
-                s += (
-                    2
-                    if config.split_numerical and column_type == ColumnType.Numerical
-                    else 1
-                )
+                if from_cached:
+                    task = progress.add_task("Processing", total=config.nfiles)
+                    for i in range(config.nfiles):
+                        with (
+                            config.input_path
+                            / f"{i + 1}_{config.input_suffix}_metadata.json"
+                        ).open("r") as f:
+                            unique_values = load(f)["unique_values"]
+
+                        if (
+                            config.split_numerical
+                            and column_type == ColumnType.Numerical
+                        ):
+                            token_sets[s] |= set(
+                                tokenizer(unique_values[f"{column}1"]),
+                            )
+                            token_sets[s + 1] |= set(
+                                tokenizer(unique_values[f"{column}2"]),
+                            )
+                        else:
+                            token_sets[s] |= set(tokenizer(unique_values[column]))
+                        progress.update(task, advance=1)
+                    s += (
+                        2
+                        if config.split_numerical
+                        and column_type == ColumnType.Numerical
+                        else 1
+                    )
+                else:
+                    task = progress.add_task("Processing", total=len(dataset))
+                    for i in range(len(dataset)):
+                        row = dataset[i]
+                        token_sets[s] |= set(tokenizer(row[s::ncolumns]))
+                        if (
+                            config.split_numerical
+                            and column_type == ColumnType.Numerical
+                        ):
+                            token_sets[s + 1] |= set(tokenizer(row[s + 1 :: ncolumns]))
+                        progress.update(task, advance=1)
+                    s += (
+                        2
+                        if config.split_numerical
+                        and column_type == ColumnType.Numerical
+                        else 1
+                    )
 
             if column_type is ColumnType.Categorical:
                 column_tokens = len(tokenizer.dictionary) - total
