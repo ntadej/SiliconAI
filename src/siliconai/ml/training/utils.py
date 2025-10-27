@@ -8,6 +8,8 @@
 
 """Training utilities."""
 
+from typing import Any
+
 import lightning as L
 import torch
 from lightning.pytorch.callbacks import Callback, RichProgressBar
@@ -28,7 +30,11 @@ def common_setup() -> None:
 
 def setup_callbacks(config: Configuration) -> list[Callback]:
     """Prepare common training callbacks."""
-    callbacks = [RichProgressBar(), LearningRateMonitor(logging_interval="step")]
+    callbacks = [
+        RichProgressBar(),
+        LearningRateMonitor(logging_interval="step"),
+        EpochTracker(),
+    ]
 
     if config.training.early_stopping > 0:
         callbacks.append(
@@ -82,3 +88,20 @@ def setup_logging(config: Configuration) -> Logger:
             f.write(str(logger.run_id))
 
     return logger
+
+
+class EpochTracker(Callback):
+    """Callback that writes Trainer.current_epoch into the datamodule."""
+
+    def on_load_checkpoint(
+        self,
+        trainer: L.Trainer,
+        _pl_module: object,
+        checkpoint: dict["str", Any],
+    ) -> None:
+        """Set datamodule.current_epoch when loading from a checkpoint."""
+        if hasattr(trainer, "datamodule") and trainer.datamodule is not None:
+            current = checkpoint["loops"]["fit_loop"]["epoch_progress"]["total"][
+                "processed"
+            ]
+            trainer.datamodule.set_current_epoch(current, from_checkpoint=True)

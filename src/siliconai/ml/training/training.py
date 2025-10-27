@@ -53,6 +53,7 @@ def train(
         strategy="ddp_find_unused_parameters_true"
         if n_gpu > 1 or n_node > 1
         else "auto",
+        reload_dataloaders_every_n_epochs=1,
         max_epochs=config.training.epochs,
         logger=ml_logger,
         callbacks=callbacks,

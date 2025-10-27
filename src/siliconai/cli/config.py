@@ -238,6 +238,7 @@ class DataConfiguration:
             case {
                 "input_dim": list() | int(),
                 "batch_size": int(),
+                "epoch_size": int() | None,
             }:
                 pass
             case _:
@@ -250,6 +251,7 @@ class DataConfiguration:
         self.multiple_files: bool = config.get("multiple_files", False)
         self.split_ratio: list[float] = config.get("split_ratio", [0.7, 0.15, 0.15])
         self.batch_size: int = config["batch_size"]
+        self.epoch_size: int | None = config.get("epoch_size", 100000)
         self.workers: int = config.get("workers", 4)
 
         self.padding_token: int = config.get("padding_token", 0)
@@ -313,6 +315,7 @@ class DataConfiguration:
             "input_dim": self.input_dim,
             "split_ratio": self.split_ratio,
             "batch_size": self.batch_size,
+            "epoch_size": self.epoch_size,
             "workers": self.workers,
             "conversion": self.conversion,
             "conversion_input_path": str(self.conversion_input_path),
@@ -351,6 +354,7 @@ class DataConfiguration:
         table.add_row("Input dimension:", str(self.input_dim))
         table.add_row("Split ratio:", str(self.split_ratio))
         table.add_row("Batch size:", str(self.batch_size))
+        table.add_row("Epoch size:", str(self.epoch_size))
         table.add_row("Workers:", str(self.workers))
         table.add_row("Conversion needed:", str(self.conversion))
         if self.conversion:

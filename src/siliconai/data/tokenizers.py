@@ -191,7 +191,6 @@ class SequenceTokenizer(NDArrayTransformation):
         dataset = ActsChainDataset(
             config.input_path,
             config.input_suffix,
-            config.nfiles,
             logger=logger,
         )
         s = 0
