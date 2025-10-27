@@ -21,17 +21,6 @@ from siliconai.common.enums import DataLoadingType
 from .config import Configuration, GlobalConfiguration, TyperState, config_missing
 from .logger import setup_logger
 
-if not sys.warnoptions:  # pragma: no cover
-    import warnings
-
-    warnings.simplefilter("default")
-
-import warnings
-
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    import lightning as L  # noqa: F401
-
 application = typer.Typer()
 state = TyperState()
 
@@ -41,6 +30,39 @@ def version_callback(value: bool) -> None:
     if value:
         typer.echo(f"SiliconAI, version {__version__}")
         raise typer.Exit
+
+
+def filter_warnings() -> None:
+    """Filter specific warnings."""
+    if not sys.warnoptions:  # pragma: no cover
+        import warnings
+
+        warnings.simplefilter("default")
+
+    import warnings
+
+    warnings.filterwarnings(
+        "ignore",
+        category=DeprecationWarning,
+        message=(
+            r"This process \(pid=\d+\) is multi-threaded, use of fork\(\) may"
+            r" lead to deadlocks in the child."
+        ),
+    )
+    warnings.filterwarnings(
+        "ignore",
+        category=DeprecationWarning,
+        message="The argument 'device' of Tensor.pin_memory()",
+    )
+    warnings.filterwarnings(
+        "ignore",
+        category=DeprecationWarning,
+        message="The argument 'device' of Tensor.is_pinned()",
+    )
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        import lightning  # noqa: F401
 
 
 @application.callback()
@@ -82,6 +104,8 @@ def main(
 
     state.config_file = config
     state.debug = debug
+
+    filter_warnings()
 
 
 @application.command()
