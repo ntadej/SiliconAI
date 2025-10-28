@@ -251,7 +251,7 @@ class DataConfiguration:
         self.multiple_files: bool = config.get("multiple_files", False)
         self.split_ratio: list[float] = config.get("split_ratio", [0.7, 0.15, 0.15])
         self.batch_size: int = config["batch_size"]
-        self.epoch_size: int | None = config.get("epoch_size", 100000)
+        self.epoch_size: int = config.get("epoch_size", 100000)
         self.workers: int = config.get("workers", 4)
 
         self.padding_token: int = config.get("padding_token", 0)

@@ -196,6 +196,8 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
     if config.data.batch_size != config.inference.batch_size:
         data.batch_size = config.inference.batch_size
     data.full_data = True
+    if config.data.events_per_file < config.data.epoch_size:
+        data.epoch_size = config.data.events_per_file
     data.setup(data_type.value)
     if logger:
         data.tokenizer.summary(logger)
