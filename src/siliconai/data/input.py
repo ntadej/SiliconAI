@@ -136,6 +136,20 @@ class InputConverter:
             / f"{index}_{self.config.input_suffix}_metadata.json"
         )
 
+        if output_file.exists():
+            self.logger.info("File %s already exists, skipping", output_file)
+            with output_file.open("rb") as f:
+                loaded_output, loaded_output_chunked = pickle.load(f)
+                self.logger.info("%s", loaded_output[-3:])
+                if loaded_output_chunked is not None:
+                    self.logger.info("%s", loaded_output_chunked[-3:])
+
+            return (
+                len(loaded_output_chunked)
+                if loaded_output_chunked is not None
+                else len(loaded_output)
+            )
+
         with pd.HDFStore(input_file, mode="r") as store:
             data_frame: pd.DataFrame | None = store["hits"].set_index(
                 ["event_id", "index"],
@@ -177,15 +191,19 @@ class InputConverter:
 
         output_nonzero_chunked = None
         if self.config.max_blocks > 0:
+            chunk_size = (
+                self.config.block_size * self.config.max_blocks
+                + 1
+                + int(self.config.index_with_offset >= 0)
+            )
             output_nonzero_chunked = [
                 sliding_subarrays(
                     arr,
-                    self.config.block_size * self.config.max_blocks
-                    + 1
-                    + int(self.config.index_with_offset >= 0),
+                    chunk_size,
                     self.config.block_size,
                 )
                 for arr in output_nonzero
+                if len(arr) >= chunk_size
             ]
             output_nonzero_chunked = list(
                 itertools.chain.from_iterable(output_nonzero_chunked),
