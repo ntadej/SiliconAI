@@ -1,0 +1,38 @@
+name: Continuous Integration
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python venv
+        run: |
+          uv sync -p 3.13
+
+      - name: Run tests
+        shell: bash
+        run: |
+          uv run -p 3.13 pytest -W error
+
+      # - name: Report coverage with Codecov
+      #   if: github.event_name == 'push' && matrix.python-version == 3.13 && matrix.os == 'ubuntu-24.04'
+      #   uses: codecov/codecov-action@v5
+      #   with:
+      #     files: ./coverage.xml
+      #     flags: unittests
+
+      # - name: Upload test results to Codecov
+      #   if: ${{ !cancelled() }} && matrix.python-version == 3.13 && matrix.os == 'ubuntu-24.04'
+      #   uses: codecov/test-results-action@v1

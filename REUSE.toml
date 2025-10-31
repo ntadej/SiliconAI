@@ -5,7 +5,6 @@ path = [
     ".dockerignore",
     ".github/**/*",
     ".gitignore",
-    ".gitlab-ci.yml",
     ".gitmodules",
     ".pre-commit-config.yaml",
     ".python-version",
