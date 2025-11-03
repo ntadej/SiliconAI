@@ -57,7 +57,8 @@ def load_data_module_from_latest_checkpoint(
     checkpoint: int = -1,
 ) -> L.LightningDataModule:
     """Load the model from the latest checkpoint."""
-    logger.info("Loading data module from the latest checkpoint in %s.", path)
+    message = "latest checkpoint" if checkpoint == -1 else f"checkpoint {checkpoint}"
+    logger.info("Loading data module from the %s in %s.", message, path)
 
     files = path.glob("*")
     file = Path()
@@ -107,7 +108,8 @@ def load_model_from_latest_checkpoint(
     checkpoint: int = -1,
 ) -> L.LightningModule:
     """Load the model from the latest checkpoint."""
-    logger.info("Loading model from the latest checkpoint in %s.", path)
+    message = "latest checkpoint" if checkpoint == -1 else f"checkpoint {checkpoint}"
+    logger.info("Loading model from the %s in %s.", message, path)
 
     files = path.glob("*")
     file = Path()
