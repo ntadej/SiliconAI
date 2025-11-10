@@ -3,6 +3,7 @@ title: SiliconAI
 version: 0.3.0
 license: MPL-2.0
 type: software
+doi: 10.5281/zenodo.17568416
 repository-code: https://github.com/ntadej/SiliconAI
 abstract: Silicon detector simulation using AI.
 message: If you use this software, please cite it using these metadata.
