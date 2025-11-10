@@ -1,4 +1,4 @@
-name = "Muons Windowed 40GB"
+name = "Muons Windowed VarOrder"
 
 [data]
 multiple_files = true
@@ -12,15 +12,15 @@ end_token = 1000001
 
 [data.conversion]
 input = "Muon_pt70-90_eta005-025"
-output_suffix = "chain"
-columns = ["geometry_id", "particle_type", "lxq", "lyq", "tpxq", "tpyq", "tpzq"]
+output_suffix = "varorder"
+columns = ["particle_type", "tpxq", "tpyq", "tpzq", "geometry_id", "lxq", "lyq"]
 columns_type = [
     "categorical", # for index
     "categorical",
+    "numerical",
+    "numerical",
+    "numerical",
     "categorical",
-    "numerical",
-    "numerical",
-    "numerical",
     "numerical",
     "numerical",
 ]
