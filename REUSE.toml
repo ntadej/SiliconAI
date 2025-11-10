@@ -10,6 +10,7 @@ path = [
     ".python-version",
     ".vscode/settings.json",
     "config/*.toml",
+    "CITATION.cff",
     "Dockerfile",
     "pyproject.toml",
     "tests/resources/*.toml",

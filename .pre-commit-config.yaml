@@ -3,6 +3,10 @@ repos:
     rev: v6.2.0
     hooks:
       - id: reuse
+  - repo: https://github.com/citation-file-format/cffconvert
+    rev: b6045d78aac9e02b039703b030588d54d53262ac
+    hooks:
+      - id: validate-cff
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.18.2
     hooks:

@@ -40,6 +40,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "cffconvert == 2.0.*",
     "coverage[toml]",
     "ipykernel",
     "mypy == 1.18.2",
