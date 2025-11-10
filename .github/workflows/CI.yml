@@ -26,13 +26,13 @@ jobs:
         run: |
           uv run -p 3.13 pytest -W error
 
-      # - name: Report coverage with Codecov
-      #   if: github.event_name == 'push' && matrix.python-version == 3.13 && matrix.os == 'ubuntu-24.04'
-      #   uses: codecov/codecov-action@v5
-      #   with:
-      #     files: ./coverage.xml
-      #     flags: unittests
+      - name: Report coverage with Codecov
+        if: github.event_name == 'push'
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          flags: unittests
 
-      # - name: Upload test results to Codecov
-      #   if: ${{ !cancelled() }} && matrix.python-version == 3.13 && matrix.os == 'ubuntu-24.04'
-      #   uses: codecov/test-results-action@v1
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
