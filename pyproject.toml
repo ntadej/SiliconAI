@@ -7,7 +7,7 @@ name = "siliconai"
 dynamic = ["version"]
 description = "Deep generative models for fast silicon tracking detector simulation"
 authors = [{ name = "Tadej Novak", email = "tadej.novak@cern.ch" }]
-requires-python = ">= 3.13"
+requires-python = ">= 3.12"
 readme = "README.md"
 license = { text = "MPL-2.0" }
 classifiers = [
@@ -17,6 +17,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Physics",
@@ -32,11 +33,16 @@ dependencies = [
     "scikit-learn == 1.7.*",
     "scipy == 1.16.*",
     "tables == 3.10.*",
-    "torch == 2.9.*",
     "typer-slim[standard] == 0.20.*",
     "tomli-w == 1.2.*",
     "uproot == 5.6.*",
 ]
+
+[project.optional-dependencies]
+cpu = ["torch == 2.9.*"]
+cuda = ["torch == 2.9.*"]
+cuda12 = ["torch == 2.9.*"]
+rocm = ["torch == 2.9.*", "pytorch-triton-rocm"]
 
 [dependency-groups]
 dev = [
@@ -50,7 +56,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "pytest-forked",
-    "ruff == 0.14.4",
+    "ruff == 0.14.6",
     "types-pyyaml",
 ]
 
@@ -79,7 +85,7 @@ ignore_errors = true
 
 [tool.ruff]
 src = ["src"]
-target-version = "py313"
+target-version = "py312"
 line-length = 88
 
 [tool.ruff.lint]
@@ -165,4 +171,41 @@ addopts = "--cov=siliconai --cov-report=term-missing:skip-covered --cov-report x
 testpaths = ["tests"]
 
 [tool.uv]
+conflicts = [
+    [
+        { extra = "cpu" },
+        { extra = "cuda" },
+        { extra = "cuda12" },
+        { extra = "rocm" },
+    ],
+]
 python-preference = "managed"
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cuda", extra = "cuda" },
+    { index = "pytorch-cuda12", extra = "cuda12" },
+    { index = "pytorch-rocm", extra = "rocm" },
+]
+pytorch-triton-rocm = [{ index = "pytorch-rocm", extra = "rocm" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cuda"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cuda12"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-rocm"
+url = "https://download.pytorch.org/whl/rocm6.4"
+explicit = true

@@ -4,9 +4,16 @@ on: [push]
 jobs:
   test:
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python-version: [3.12, 3.13]
+
+    env:
+      UV_PYTHON_VERSION: ${{ matrix.python-version }}
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -19,20 +26,20 @@ jobs:
 
       - name: Set up Python venv
         run: |
-          uv sync -p 3.13
+          uv sync -p $UV_PYTHON_VERSION --extra cpu
 
       - name: Run tests
         shell: bash
         run: |
-          uv run -p 3.13 pytest -W error
+          uv run -p $UV_PYTHON_VERSION pytest -W error
 
       - name: Report coverage with Codecov
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && matrix.python-version == 3.13
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
           flags: unittests
 
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() }} && matrix.python-version == 3.13
         uses: codecov/test-results-action@v1
