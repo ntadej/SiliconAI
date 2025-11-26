@@ -25,13 +25,14 @@ if TYPE_CHECKING:
     from torch.optim import Optimizer
     from torch.optim.lr_scheduler import LRScheduler
 
-    from siliconai.cli.config import Configuration
+    from siliconai.cli.config import Configuration, PrecisionType
     from siliconai.data.tokenizers import SequenceTokenizer
 
 
 class TransformerPredictParams(TypedDict):
     """Transformer predict parameters."""
 
+    precision: PrecisionType
     tokenizer: SequenceTokenizer
     simple_mask: NotRequired[bool | None]
     top_k: NotRequired[int | None]
@@ -112,6 +113,12 @@ class NanoGPTModule(ModuleBase):
         )
         if config.data.columns_type:
             self.output_dim += 1  # add padding token
+
+        if config.training.precision in [
+            "transformer-engine",
+            "transformer-engine-float16",
+        ]:
+            self.output_dim = self.output_dim + (16 - (self.output_dim % 16))
 
         ncolumns = len(config.data.columns)
         if config.data.index_with_offset >= 0:
@@ -251,10 +258,16 @@ class NanoGPTModule(ModuleBase):
                     device if device else self.device,
                 )
 
-        return self.model.generate(
-            input_tensor,
-            end_tensor,
-            column_mask_dict,
-            temperature=kwargs.get("temperature", 1.0),
-            top_k=kwargs.get("top_k"),
-        )
+        precision = kwargs.get("precision", self.config.inference.precision)
+        with torch.autocast(
+            device_type=(device if device else self.device).type,
+            dtype=torch.float16 if precision == "16-mixed" else torch.bfloat16,
+            enabled=precision != "32-true",
+        ):
+            return self.model.generate(
+                input_tensor,
+                end_tensor,
+                column_mask_dict,
+                temperature=kwargs.get("temperature", 1.0),
+                top_k=kwargs.get("top_k"),
+            )

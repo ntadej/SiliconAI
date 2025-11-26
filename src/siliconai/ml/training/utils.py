@@ -24,7 +24,7 @@ from siliconai.cli.config import Configuration
 def common_setup() -> None:
     """Prepare global training settings."""
     # matmul precision and seed
-    torch.set_float32_matmul_precision("high")
+    torch.set_float32_matmul_precision("medium")
     L.seed_everything(42, workers=True)
 
 

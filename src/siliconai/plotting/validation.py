@@ -226,6 +226,7 @@ def quick_validate_acts_chain(  # noqa: PLR0912, PLR0915, C901
             result = model.predict(
                 (batch_start,),
                 tokenizer=data.tokenizer,
+                precision=config.inference.precision,
                 simple_mask=config.inference.simple_mask,
                 top_k=config.inference.top_k,
                 temperature=config.inference.temperature,

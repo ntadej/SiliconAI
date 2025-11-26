@@ -47,6 +47,7 @@ def train(
 
     # setup training
     trainer = L.Trainer(
+        precision=config.training.precision,
         accelerator="gpu" if batch else "auto",
         devices=n_gpu,
         num_nodes=n_node,

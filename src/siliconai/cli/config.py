@@ -12,13 +12,21 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import tomli_w
 
 from siliconai.common.enums import ColumnType, ModelType
 
 from .logger import Table, config_table, error_panel, info_panel
+
+PrecisionType = Literal[
+    "32-true",
+    "16-mixed",
+    "bf16-mixed",
+    "transformer-engine",
+    "transformer-engine-float16",
+]
 
 
 class TyperState:
@@ -454,6 +462,7 @@ class TrainingConfiguration:
                 raise ValueError(error)
 
         self.compile: bool = config.get("compile", True)
+        self.precision: PrecisionType = config.get("precision", "bf16-mixed")
         self.epochs: int = int(config["epochs"])
         self.checkpoint_interval: int = int(config.get("checkpoint_interval", 25))
         self.checkpoint_top_k: int = int(config.get("checkpoint_top_k", -1))
@@ -484,6 +493,7 @@ class TrainingConfiguration:
         """Convert configuration to object."""
         return {
             "compile": self.compile,
+            "precision": self.precision,
             "epochs": self.epochs,
             "checkpoint_interval": self.checkpoint_interval,
             "checkpoint_top_k": self.checkpoint_top_k,
@@ -503,6 +513,7 @@ class TrainingConfiguration:
         table = config_table()
 
         table.add_row("Compile:", str(self.compile))
+        table.add_row("Precision:", self.precision)
         table.add_row("Epochs:", str(self.epochs))
         if self.checkpoint_top_k > 0:
             table.add_row("Top checkpoints saved:", str(self.checkpoint_top_k))
@@ -536,6 +547,7 @@ class InferenceConfiguration:
     ) -> None:
         """Initialize inference configuration."""
         self.device: str | None = config.get("device")
+        self.precision: PrecisionType = config.get("precision", "bf16-mixed")
         self.batch_size: int = config.get("batch_size", data_config.batch_size)
         self.temperature: float = config.get("temperature", 1.0)
         self.top_k: int | None = config.get("top_k")
@@ -545,6 +557,7 @@ class InferenceConfiguration:
         """Convert configuration to object."""
         return {
             "device": self.device,
+            "precision": self.precision,
             "batch_size": self.batch_size,
             "temperature": self.temperature,
             "top_k": self.top_k,
@@ -557,6 +570,7 @@ class InferenceConfiguration:
 
         if self.device:
             table.add_row("Device:", self.device)
+        table.add_row("Precision:", self.precision)
         table.add_row("Batch size:", str(self.batch_size))
         if self.temperature != 1.0:
             table.add_row("Temperature:", str(self.temperature))

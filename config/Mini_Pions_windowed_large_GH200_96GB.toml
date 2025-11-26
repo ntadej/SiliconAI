@@ -40,7 +40,7 @@ heads = 8
 dropout = 0.2
 
 [training]
-epochs = 5000
+epochs = 1000
 checkpoint_top_k = 10
 early_stopping = 0
 
