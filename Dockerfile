@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
 # Then, use a final image without uv
-FROM python:3.13-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 # Install gcc
 RUN apt-get update && apt-get install -y gcc g++ && apt-get clean
