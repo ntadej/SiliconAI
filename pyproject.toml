@@ -29,7 +29,7 @@ dependencies = [
     "numpy == 2.3.*",
     "pandas == 2.3.*",
     "rich == 14.2.*",
-    "scikit-learn == 1.7.*",
+    "scikit-learn ==1.9.*",
     "scipy == 1.16.*",
     "tables == 3.10.*",
     "torch == 2.9.*",
