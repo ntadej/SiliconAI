@@ -23,7 +23,7 @@ classifiers = [
 ]
 dependencies = [
     "lightning == 2.5.*",
-    "matplotlib == 3.10.*",
+    "matplotlib ==3.11.*",
     "mlflow == 3.6.*",
     "mplhep == 0.4.*",
     "numpy == 2.3.*",
