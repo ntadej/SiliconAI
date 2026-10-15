@@ -43,7 +43,7 @@ dev = [
     "cffconvert == 2.0.*",
     "coverage[toml]",
     "ipykernel",
-    "mypy == 1.18.2",
+    "mypy ==1.20.2",
     "pandas-stubs == 2.3.*",
     "pre-commit-hooks == 6.0.*",
     "pre-commit",
